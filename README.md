@@ -97,3 +97,6 @@ Nota:
 - Manoscritto: `manuscript:export-docx`, `manuscript:export-pdf`, `manuscript:print`.
 - Personaggi/Location: CRUD schede, link capitoli, immagini (lista/associazione/generazione/eliminazione).
 - AI: `codex:get-settings`, `codex:update-settings`, `codex:assist`, `codex:transform-selection`, `codex:chat`, `codex:cancel-active-request`.
+
+## Licenza
+Questo progetto e distribuito sotto licenza Apache 2.0. Vedi [LICENSE](./LICENSE).

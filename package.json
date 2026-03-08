@@ -2,6 +2,7 @@
   "name": "the-novelist",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Desktop app for novel and short story writing.",
   "main": "out/main/index.js",
   "type": "module",
