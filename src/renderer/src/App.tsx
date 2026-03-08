@@ -162,9 +162,18 @@ export default function App() {
     () => (selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null),
     [nodesById, selectedNodeId],
   );
+  const existingPlotForNewNumber = useMemo(
+    () => plots.find((plot) => plot.number === newPlotNumber) ?? null,
+    [plots, newPlotNumber],
+  );
+  const editPlotLabel = useMemo(
+    () => plots.find((plot) => plot.number === editPlotNumber)?.label?.trim() ?? '',
+    [plots, editPlotNumber],
+  );
   const trimmedProjectRoot = projectRoot.trim();
   const canCreateProject = Boolean(trimmedProjectRoot) && !busy && !projectPathChecking && projectPathInspection?.exists === false;
   const canOpenProject = Boolean(trimmedProjectRoot) && !busy && !projectPathChecking && projectPathInspection?.exists === true;
+  const canCreatePlot = Boolean(currentProject) && !busy && newPlotNumber >= 1 && !existingPlotForNewNumber;
   const nodeTypes = useMemo(() => ({ chapter: ChapterFlowNode }), []);
   const handleWorkspaceStatus = useCallback((message: string) => {
     setStatus(message);
@@ -339,6 +348,10 @@ export default function App() {
 
   async function handleCreatePlot(): Promise<void> {
     if (!currentProject) {
+      return;
+    }
+    if (plots.some((plot) => plot.number === newPlotNumber)) {
+      setStatus(`La trama ${newPlotNumber} esiste gia.`);
       return;
     }
 
@@ -832,18 +845,24 @@ export default function App() {
                   type="number"
                   min={1}
                   value={newPlotNumber}
-                  onChange={(event) => setNewPlotNumber(Number(event.target.value))}
+                  onChange={(event) => setNewPlotNumber(Math.max(1, Number(event.target.value) || 1))}
                 />
               </label>
               <label>
                 Etichetta trama
                 <input
-                  value={newPlotLabel}
+                  value={existingPlotForNewNumber ? existingPlotForNewNumber.label : newPlotLabel}
                   onChange={(event) => setNewPlotLabel(event.target.value)}
                   placeholder="Trama principale"
+                  disabled={Boolean(existingPlotForNewNumber)}
                 />
               </label>
-              <button type="button" onClick={handleCreatePlot} disabled={!currentProject || busy}>
+              {existingPlotForNewNumber ? (
+                <p className="muted">
+                  Trama esistente: <strong>{existingPlotForNewNumber.label || '(senza etichetta)'}</strong>
+                </p>
+              ) : null}
+              <button type="button" onClick={handleCreatePlot} disabled={!canCreatePlot}>
                 Crea Trama
               </button>
             </div>
@@ -1163,12 +1182,12 @@ export default function App() {
               />
             </label>
             <label>
-              Numero trama
+              Numero trama{editPlotLabel ? ` (${editPlotLabel})` : ''}
               <input
                 type="number"
                 min={1}
                 value={editPlotNumber}
-                onChange={(event) => setEditPlotNumber(Number(event.target.value))}
+                onChange={(event) => setEditPlotNumber(Math.max(1, Number(event.target.value) || 1))}
               />
             </label>
             <label>
