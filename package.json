@@ -1,0 +1,121 @@
+{
+  "name": "the-novelist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop app for novel and short story writing.",
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "pack": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
+    "dist": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "dist:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "dist:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
+    "dist:linux": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux",
+    "rebuild:electron-native": "node scripts/rebuild-electron-native.mjs",
+    "rebuild:node-native": "npm rebuild better-sqlite3",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e:install": "cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright install chromium",
+    "test:e2e": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test",
+    "test:perf": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test -c playwright.perf.config.ts",
+    "test:e2e:electron": "node scripts/run-electron-e2e.mjs",
+    "test:e2e:electron:run": "cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test -c playwright.electron.config.ts",
+    "test:e2e:headed": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test --headed",
+    "test:e2e:ui": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test --ui"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "build": {
+    "appId": "com.the-novelist.app",
+    "productName": "The Novelist",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "npmRebuild": true,
+    "extraMetadata": {
+      "main": "out/main/index.js"
+    },
+    "mac": {
+      "identity": null,
+      "icon": "build/icon.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office"
+    }
+  },
+  "dependencies": {
+    "@tiptap/extension-font-family": "^3.20.1",
+    "@tiptap/extension-text-align": "^3.20.1",
+    "@tiptap/extension-text-style": "^3.20.1",
+    "@tiptap/react": "^3.20.1",
+    "@tiptap/starter-kit": "^3.20.1",
+    "@xyflow/react": "^12.10.1",
+    "better-sqlite3": "^12.6.2",
+    "docx": "^9.6.0",
+    "pdfkit": "^0.17.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.58.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.3.5",
+    "@types/pdfkit": "^0.17.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "cross-env": "^10.1.0",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}
