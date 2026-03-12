@@ -121,6 +121,7 @@ L'editor di testo è molto semplice. Anche in questo caso è diviso in due aree 
 - Sul lato destro c'è una interfaccia in stile chatbot per consultare l'AI in caso di bisogno.
 L'editor consente inoltre di esportare il capitolo in formato DOCX, PDF, o di stamparlo.
 Quando si esce dall'editor, la AI farà un riassunto di quanto scritto e lo metterà in descrizione al blocco.
+Per richiamare un personaggio, o una location, è sufficiente digitare '@' e scegliere dall'elenco. Il richiamo non sarà visibile in fase di export, ma permetterà di avere una correlazione tra gli elementi, visibile sia nell'editor, sia nelle schede personaggio e nelle schede paesaggio. 
 
 ### Selezione
 Quando si seleziona un oggetto sul canvas, in quest'area vengono attivati dei tasti con le possibili azioni che si possono fare. Per cancellare un oggetto è possibile anche usare la scorciatoia, e una volta selezionato, basta premere 'Canc'.

@@ -91,8 +91,8 @@ function mapNodeRecordToFlowNode(record: StoryNodeRecord, plots: PlotRecord[]): 
       border: `2px solid ${color}`,
       borderRadius: '12px',
       width: 260,
-      background: '#ffffff',
-      boxShadow: '0 10px 22px rgba(15, 23, 42, 0.1)',
+      background: 'var(--surface-primary)',
+      boxShadow: 'var(--flow-node-shadow)',
       padding: '10px',
     },
   };
@@ -112,8 +112,8 @@ function mapEdgeRecordToFlowEdge(
     sourceHandle: handles?.sourceHandle ?? 'handle-right',
     targetHandle: handles?.targetHandle ?? 'handle-left',
     label: record.label ?? '',
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#374151' },
-    style: { stroke: '#374151', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
+    style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
   };
 }
 
@@ -124,7 +124,9 @@ export default function App() {
 
   const [projectRoot, setProjectRoot] = useState<string>(DEFAULT_PROJECT_ROOT);
   const [projectName, setProjectName] = useState<string>(DEFAULT_PROJECT_NAME);
-  const [projectPathInspection, setProjectPathInspection] = useState<ProjectPathInspection | null>(null);
+  const [projectPathInspection, setProjectPathInspection] = useState<ProjectPathInspection | null>(
+    null,
+  );
   const [projectPathChecking, setProjectPathChecking] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<ProjectRecord>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('story');
@@ -159,7 +161,7 @@ export default function App() {
 
   const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const selectedNode = useMemo(
-    () => (selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null),
+    () => (selectedNodeId ? (nodesById.get(selectedNodeId) ?? null) : null),
     [nodesById, selectedNodeId],
   );
   const existingPlotForNewNumber = useMemo(
@@ -171,9 +173,18 @@ export default function App() {
     [plots, editPlotNumber],
   );
   const trimmedProjectRoot = projectRoot.trim();
-  const canCreateProject = Boolean(trimmedProjectRoot) && !busy && !projectPathChecking && projectPathInspection?.exists === false;
-  const canOpenProject = Boolean(trimmedProjectRoot) && !busy && !projectPathChecking && projectPathInspection?.exists === true;
-  const canCreatePlot = Boolean(currentProject) && !busy && newPlotNumber >= 1 && !existingPlotForNewNumber;
+  const canCreateProject =
+    Boolean(trimmedProjectRoot) &&
+    !busy &&
+    !projectPathChecking &&
+    projectPathInspection?.exists === false;
+  const canOpenProject =
+    Boolean(trimmedProjectRoot) &&
+    !busy &&
+    !projectPathChecking &&
+    projectPathInspection?.exists === true;
+  const canCreatePlot =
+    Boolean(currentProject) && !busy && newPlotNumber >= 1 && !existingPlotForNewNumber;
   const nodeTypes = useMemo(() => ({ chapter: ChapterFlowNode }), []);
   const handleWorkspaceStatus = useCallback((message: string) => {
     setStatus(message);
@@ -525,7 +536,11 @@ export default function App() {
         positionY: currentNode.position.y,
       });
 
-      setNodes((prev) => prev.map((item) => (item.id === editNodeId ? mapNodeRecordToFlowNode(updated, plots) : item)));
+      setNodes((prev) =>
+        prev.map((item) =>
+          item.id === editNodeId ? mapNodeRecordToFlowNode(updated, plots) : item,
+        ),
+      );
       setStatus(`Blocco modificato: ${updated.title}`);
       setEditNodeId(null);
     } catch (caughtError) {
@@ -646,7 +661,9 @@ export default function App() {
       return;
     }
 
-    await Promise.all(deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })));
+    await Promise.all(
+      deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
+    );
     setStatus(`${deletedEdges.length} connessioni eliminate`);
   }, []);
 
@@ -655,14 +672,19 @@ export default function App() {
       return;
     }
 
-    await Promise.all(deletedNodes.map((node) => window.novelistApi.deleteStoryNode({ id: node.id })));
+    await Promise.all(
+      deletedNodes.map((node) => window.novelistApi.deleteStoryNode({ id: node.id })),
+    );
     setStatus(`${deletedNodes.length} blocchi eliminati`);
   }, []);
 
-  const onSelectionChange = useCallback((selection: OnSelectionChangeParams<ChapterCanvasNode, Edge>) => {
-    setSelectedNodeId(selection.nodes[0]?.id ?? null);
-    setSelectedEdgeId(selection.edges[0]?.id ?? null);
-  }, []);
+  const onSelectionChange = useCallback(
+    (selection: OnSelectionChangeParams<ChapterCanvasNode, Edge>) => {
+      setSelectedNodeId(selection.nodes[0]?.id ?? null);
+      setSelectedEdgeId(selection.edges[0]?.id ?? null);
+    },
+    [],
+  );
 
   const onNodesChange: OnNodesChange<ChapterCanvasNode> = useCallback((changes) => {
     setNodes((prev) => applyNodeChanges(changes, prev));
@@ -822,14 +844,19 @@ export default function App() {
                 <button type="button" onClick={handleOpenProject} disabled={!canOpenProject}>
                   Apri
                 </button>
-                <button type="button" onClick={() => void handleSaveProject()} disabled={!currentProject || busy}>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveProject()}
+                  disabled={!currentProject || busy}
+                >
                   Salva
                 </button>
               </div>
               {projectPathChecking ? <p className="muted">Verifica progetto in corso...</p> : null}
               {!projectPathChecking && projectPathInspection?.exists ? (
                 <p className="muted">
-                  Progetto rilevato: <strong>{projectPathInspection.projectName ?? '(nome non disponibile)'}</strong>
+                  Progetto rilevato:{' '}
+                  <strong>{projectPathInspection.projectName ?? '(nome non disponibile)'}</strong>
                 </p>
               ) : null}
               {!projectPathChecking && projectPathInspection && !projectPathInspection.exists ? (
@@ -845,7 +872,9 @@ export default function App() {
                   type="number"
                   min={1}
                   value={newPlotNumber}
-                  onChange={(event) => setNewPlotNumber(Math.max(1, Number(event.target.value) || 1))}
+                  onChange={(event) =>
+                    setNewPlotNumber(Math.max(1, Number(event.target.value) || 1))
+                  }
                 />
               </label>
               <label>
@@ -859,7 +888,8 @@ export default function App() {
               </label>
               {existingPlotForNewNumber ? (
                 <p className="muted">
-                  Trama esistente: <strong>{existingPlotForNewNumber.label || '(senza etichetta)'}</strong>
+                  Trama esistente:{' '}
+                  <strong>{existingPlotForNewNumber.label || '(senza etichetta)'}</strong>
                 </p>
               ) : null}
               <button type="button" onClick={handleCreatePlot} disabled={!canCreatePlot}>
@@ -919,10 +949,18 @@ export default function App() {
                 Edge: <strong>{selectedEdgeId ?? '-'}</strong>
               </p>
               <div className="row-buttons">
-                <button type="button" onClick={handleDeleteSelectedNode} disabled={!selectedNodeId || busy}>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedNode}
+                  disabled={!selectedNodeId || busy}
+                >
                   Elimina Blocco
                 </button>
-                <button type="button" onClick={handleDeleteSelectedEdge} disabled={!selectedEdgeId || busy}>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedEdge}
+                  disabled={!selectedEdgeId || busy}
+                >
                   Elimina Conn.
                 </button>
               </div>
@@ -939,15 +977,29 @@ export default function App() {
 
             <div className="panel">
               <h2>Documento Completo</h2>
-              <p className="muted">Ordine capitoli calcolato in base alle connessioni del canvas.</p>
+              <p className="muted">
+                Ordine capitoli calcolato in base alle connessioni del canvas.
+              </p>
               <div className="row-buttons">
-                <button type="button" onClick={() => void handleExportManuscriptDocx()} disabled={!currentProject || busy}>
+                <button
+                  type="button"
+                  onClick={() => void handleExportManuscriptDocx()}
+                  disabled={!currentProject || busy}
+                >
                   Esporta DOCX
                 </button>
-                <button type="button" onClick={() => void handleExportManuscriptPdf()} disabled={!currentProject || busy}>
+                <button
+                  type="button"
+                  onClick={() => void handleExportManuscriptPdf()}
+                  disabled={!currentProject || busy}
+                >
                   Esporta PDF
                 </button>
-                <button type="button" onClick={() => void handlePrintManuscript()} disabled={!currentProject || busy}>
+                <button
+                  type="button"
+                  onClick={() => void handlePrintManuscript()}
+                  disabled={!currentProject || busy}
+                >
                   Stampa
                 </button>
               </div>
@@ -1128,10 +1180,13 @@ export default function App() {
             </label>
             {aiSettings?.hasStoredApiKey && !clearStoredApiKey ? (
               <p className="muted">
-                Chiave API configurata in: <strong>{getApiKeyStorageLabel(aiSettings.apiKeyStorage)}</strong>.
+                Chiave API configurata in:{' '}
+                <strong>{getApiKeyStorageLabel(aiSettings.apiKeyStorage)}</strong>.
               </p>
             ) : null}
-            {clearStoredApiKey ? <p className="muted">La chiave salvata verrà rimossa al prossimo salvataggio.</p> : null}
+            {clearStoredApiKey ? (
+              <p className="muted">La chiave salvata verrà rimossa al prossimo salvataggio.</p>
+            ) : null}
             <div className="row-buttons">
               <button
                 type="button"
@@ -1145,12 +1200,12 @@ export default function App() {
                 Rimuovi API key salvata
               </button>
             </div>
-            <p className="muted">
-              Con provider OpenAI API, se la chiave è vuota verrà usata `OPENAI_API_KEY` se disponibile. Con provider
-              Ollama, host predefinito `http://127.0.0.1:11434` (override con `OLLAMA_HOST`).
-            </p>
             <div className="row-buttons">
-              <button type="button" onClick={() => setIsAiSettingsModalOpen(false)} className="button-secondary">
+              <button
+                type="button"
+                onClick={() => setIsAiSettingsModalOpen(false)}
+                className="button-secondary"
+              >
                 Chiudi
               </button>
               <button
@@ -1187,7 +1242,9 @@ export default function App() {
                 type="number"
                 min={1}
                 value={editPlotNumber}
-                onChange={(event) => setEditPlotNumber(Math.max(1, Number(event.target.value) || 1))}
+                onChange={(event) =>
+                  setEditPlotNumber(Math.max(1, Number(event.target.value) || 1))
+                }
               />
             </label>
             <label>

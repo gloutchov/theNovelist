@@ -16,7 +16,9 @@ import { toImageSource } from './image-path';
 
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
 type LocationImage = Awaited<ReturnType<(typeof window.novelistApi)['listLocationImages']>>[number];
-type StoryChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>['nodes'][number];
+type StoryChapterNode = Awaited<
+  ReturnType<(typeof window.novelistApi)['getStoryState']>
+>['nodes'][number];
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
 type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
 type LocationCanvasNode = Node<LocationFlowNodeData, 'location'>;
@@ -118,8 +120,8 @@ function mapCardToNode(card: LocationCard, imageSrc: string | null = null): Loca
       border: `2px solid ${color}`,
       borderRadius: '12px',
       width: 300,
-      background: '#ffffff',
-      boxShadow: '0 10px 22px rgba(15, 23, 42, 0.1)',
+      background: 'var(--surface-primary)',
+      boxShadow: 'var(--flow-node-shadow)',
       padding: '10px',
     },
   };
@@ -129,7 +131,11 @@ function formatChapterLabel(node: StoryChapterNode): string {
   return `T${node.plotNumber} • B${node.blockNumber} • ${node.title}`;
 }
 
-export default function LocationBoard({ currentProject, aiSettings, onStatus }: LocationBoardProps) {
+export default function LocationBoard({
+  currentProject,
+  aiSettings,
+  onStatus,
+}: LocationBoardProps) {
   const [cards, setCards] = useState<LocationCard[]>([]);
   const [nodes, setNodes] = useState<LocationCanvasNode[]>([]);
   const [chapterOptions, setChapterOptions] = useState<StoryChapterNode[]>([]);
@@ -159,11 +165,15 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
   const emptyEdges = useMemo(() => [], []);
   const nodeTypes = useMemo(() => ({ location: LocationFlowNode }), []);
   const selectedCard = useMemo(
-    () => (selectedCardId ? cardsById.get(selectedCardId) ?? null : null),
+    () => (selectedCardId ? (cardsById.get(selectedCardId) ?? null) : null),
     [cardsById, selectedCardId],
   );
   const effectiveCodexSettings = aiSettings ?? codexSettings;
   const aiAssistantLabel = getAiAssistantLabel(effectiveCodexSettings);
+  const linkedChapters = useMemo(
+    () => chapterOptions.filter((chapter) => linkedChapterIds.includes(chapter.id)),
+    [chapterOptions, linkedChapterIds],
+  );
 
   const resolveImageSource = useCallback(async (filePath: string): Promise<string | null> => {
     const trimmedPath = filePath.trim();
@@ -199,7 +209,9 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
     );
 
     setCards(nextCards);
-    setNodes(nextCards.map((card) => mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null)));
+    setNodes(
+      nextCards.map((card) => mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null)),
+    );
   }, [resolveImageSource]);
 
   const refreshChapterOptions = useCallback(async (): Promise<void> => {
@@ -216,49 +228,53 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
     setChapterOptions(sortedNodes);
   }, []);
 
-  const loadImages = useCallback(async (locationCardId: string): Promise<void> => {
-    const nextImages = await window.novelistApi.listLocationImages({ locationCardId });
-    setImages(nextImages);
-    setImagePreviewSources({});
-    const loadedSources: Record<string, string> = {};
-    const failedIds: string[] = [];
+  const loadImages = useCallback(
+    async (locationCardId: string): Promise<void> => {
+      const nextImages = await window.novelistApi.listLocationImages({ locationCardId });
+      setImages(nextImages);
+      setImagePreviewSources({});
+      const loadedSources: Record<string, string> = {};
+      const failedIds: string[] = [];
 
-    await Promise.all(
-      nextImages.map(async (image) => {
-        const path = image.filePath.trim();
-        if (!path) {
-          failedIds.push(image.id);
-          return;
-        }
+      await Promise.all(
+        nextImages.map(async (image) => {
+          const path = image.filePath.trim();
+          if (!path) {
+            failedIds.push(image.id);
+            return;
+          }
 
-        const source = await resolveImageSource(path);
-        if (!source) {
-          failedIds.push(image.id);
-          return;
-        }
-        loadedSources[image.id] = source;
-      }),
-    );
+          const source = await resolveImageSource(path);
+          if (!source) {
+            failedIds.push(image.id);
+            return;
+          }
+          loadedSources[image.id] = source;
+        }),
+      );
 
-    setImagePreviewSources(loadedSources);
-    setPreviewErrors(failedIds);
-    const nextPrimaryImage = nextImages
-      .map((image) => loadedSources[image.id])
-      .find((source) => typeof source === 'string' && source.trim().length > 0) ?? null;
-    setNodes((prev) =>
-      prev.map((node) =>
-        node.id === locationCardId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                imageSrc: nextPrimaryImage,
-              },
-            }
-          : node,
-      ),
-    );
-  }, [resolveImageSource]);
+      setImagePreviewSources(loadedSources);
+      setPreviewErrors(failedIds);
+      const nextPrimaryImage =
+        nextImages
+          .map((image) => loadedSources[image.id])
+          .find((source) => typeof source === 'string' && source.trim().length > 0) ?? null;
+      setNodes((prev) =>
+        prev.map((node) =>
+          node.id === locationCardId
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  imageSrc: nextPrimaryImage,
+                },
+              }
+            : node,
+        ),
+      );
+    },
+    [resolveImageSource],
+  );
 
   const loadCardLinks = useCallback(async (locationCardId: string): Promise<void> => {
     const chapterNodeIds = await window.novelistApi.listLocationChapterLinks({ locationCardId });
@@ -300,52 +316,63 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
     setNodes((prev) => applyNodeChanges(changes, prev));
   }, []);
 
-  const onSelectionChange = useCallback((selection: OnSelectionChangeParams<LocationCanvasNode>) => {
-    setSelectedCardId(selection.nodes[0]?.id ?? null);
-  }, []);
+  const onSelectionChange = useCallback(
+    (selection: OnSelectionChangeParams<LocationCanvasNode>) => {
+      setSelectedCardId(selection.nodes[0]?.id ?? null);
+    },
+    [],
+  );
 
-  const onNodeDoubleClick: NodeMouseHandler<LocationCanvasNode> = useCallback((_event, node) => {
-    const card = cardsById.get(node.id);
-    if (!card) {
-      return;
-    }
+  const onNodeDoubleClick: NodeMouseHandler<LocationCanvasNode> = useCallback(
+    (_event, node) => {
+      const card = cardsById.get(node.id);
+      if (!card) {
+        return;
+      }
 
-    setEditCardId(card.id);
-    setEditDraft(locationToDraft(card));
-    setImagePath('');
-    setImagePrompt('');
-    setImageType('esterno');
-    setImageSize('1024x1024');
-    void Promise.all([loadImages(card.id), loadCardLinks(card.id), refreshCodexSettings()]);
-  }, [cardsById, loadCardLinks, loadImages, refreshCodexSettings]);
+      setEditCardId(card.id);
+      setEditDraft(locationToDraft(card));
+      setImagePath('');
+      setImagePrompt('');
+      setImageType('esterno');
+      setImageSize('1024x1024');
+      void Promise.all([loadImages(card.id), loadCardLinks(card.id), refreshCodexSettings()]);
+    },
+    [cardsById, loadCardLinks, loadImages, refreshCodexSettings],
+  );
 
-  const onNodeDragStop: NodeMouseHandler<LocationCanvasNode> = useCallback(async (_event, node) => {
-    const card = cardsById.get(node.id);
-    if (!card) {
-      return;
-    }
+  const onNodeDragStop: NodeMouseHandler<LocationCanvasNode> = useCallback(
+    async (_event, node) => {
+      const card = cardsById.get(node.id);
+      if (!card) {
+        return;
+      }
 
-    try {
-      const updated = await window.novelistApi.updateLocationCard({
-        id: card.id,
-        name: card.name,
-        locationType: card.locationType,
-        description: card.description,
-        notes: card.notes,
-        plotNumber: card.plotNumber,
-        positionX: node.position.x,
-        positionY: node.position.y,
-      });
+      try {
+        const updated = await window.novelistApi.updateLocationCard({
+          id: card.id,
+          name: card.name,
+          locationType: card.locationType,
+          description: card.description,
+          notes: card.notes,
+          plotNumber: card.plotNumber,
+          positionX: node.position.x,
+          positionY: node.position.y,
+        });
 
-      setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-      setNodes((prev) =>
-        prev.map((item) => (item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item)),
-      );
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-      setError(message);
-    }
-  }, [cardsById]);
+        setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        setNodes((prev) =>
+          prev.map((item) =>
+            item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item,
+          ),
+        );
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setError(message);
+      }
+    },
+    [cardsById],
+  );
 
   async function handleCreateCard(): Promise<void> {
     if (!createDraft.name.trim()) {
@@ -432,14 +459,12 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
         positionX: card.positionX,
         positionY: card.positionY,
       });
-      await window.novelistApi.setLocationChapterLinks({
-        locationCardId: editCardId,
-        chapterNodeIds: linkedChapterIds,
-      });
 
       setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       setNodes((prev) =>
-        prev.map((item) => (item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item)),
+        prev.map((item) =>
+          item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item,
+        ),
       );
       onStatus(`Location aggiornata: ${updated.name}`);
       setEditCardId(null);
@@ -450,12 +475,6 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
       setBusy(false);
     }
   }
-
-  const handleToggleChapterLink = useCallback((chapterNodeId: string): void => {
-    setLinkedChapterIds((prev) =>
-      prev.includes(chapterNodeId) ? prev.filter((id) => id !== chapterNodeId) : [...prev, chapterNodeId],
-    );
-  }, []);
 
   async function handleAddImage(): Promise<void> {
     if (!editCardId || !imagePath.trim()) {
@@ -623,7 +642,8 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
     }
   }
 
-  const missingImageGenerationRequirements = getImageGenerationMissingRequirements(effectiveCodexSettings);
+  const missingImageGenerationRequirements =
+    getImageGenerationMissingRequirements(effectiveCodexSettings);
   const imageGenerationReady = missingImageGenerationRequirements.length === 0;
 
   return (
@@ -635,14 +655,18 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
             Nome
             <input
               value={createDraft.name}
-              onChange={(event) => setCreateDraft((prev) => ({ ...prev, name: event.target.value }))}
+              onChange={(event) =>
+                setCreateDraft((prev) => ({ ...prev, name: event.target.value }))
+              }
             />
           </label>
           <label>
             Tipo luogo
             <input
               value={createDraft.locationType}
-              onChange={(event) => setCreateDraft((prev) => ({ ...prev, locationType: event.target.value }))}
+              onChange={(event) =>
+                setCreateDraft((prev) => ({ ...prev, locationType: event.target.value }))
+              }
             />
           </label>
           <label>
@@ -652,11 +676,18 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
               min={1}
               value={createDraft.plotNumber}
               onChange={(event) =>
-                setCreateDraft((prev) => ({ ...prev, plotNumber: Math.max(1, Number(event.target.value)) }))
+                setCreateDraft((prev) => ({
+                  ...prev,
+                  plotNumber: Math.max(1, Number(event.target.value)),
+                }))
               }
             />
           </label>
-          <button type="button" onClick={() => void handleCreateCard()} disabled={busy || !currentProject}>
+          <button
+            type="button"
+            onClick={() => void handleCreateCard()}
+            disabled={busy || !currentProject}
+          >
             Crea Scheda
           </button>
         </div>
@@ -670,7 +701,11 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
             Trama: <strong>{selectedCard?.plotNumber ?? '-'}</strong>
           </p>
           <div className="row-buttons">
-            <button type="button" onClick={() => void handleDeleteSelectedCard()} disabled={!selectedCardId || busy}>
+            <button
+              type="button"
+              onClick={() => void handleDeleteSelectedCard()}
+              disabled={!selectedCardId || busy}
+            >
               Elimina
             </button>
           </div>
@@ -710,14 +745,18 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
                 Nome
                 <input
                   value={editDraft.name}
-                  onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, name: event.target.value }))
+                  }
                 />
               </label>
               <label>
                 Tipologia luogo
                 <input
                   value={editDraft.locationType}
-                  onChange={(event) => setEditDraft((prev) => ({ ...prev, locationType: event.target.value }))}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, locationType: event.target.value }))
+                  }
                 />
               </label>
               <label>
@@ -727,7 +766,10 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
                   min={1}
                   value={editDraft.plotNumber}
                   onChange={(event) =>
-                    setEditDraft((prev) => ({ ...prev, plotNumber: Math.max(1, Number(event.target.value)) }))
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      plotNumber: Math.max(1, Number(event.target.value)),
+                    }))
                   }
                 />
               </label>
@@ -737,7 +779,9 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
               <textarea
                 rows={6}
                 value={editDraft.description}
-                onChange={(event) => setEditDraft((prev) => ({ ...prev, description: event.target.value }))}
+                onChange={(event) =>
+                  setEditDraft((prev) => ({ ...prev, description: event.target.value }))
+                }
               />
             </label>
             <label>
@@ -745,7 +789,9 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
               <textarea
                 rows={4}
                 value={editDraft.notes}
-                onChange={(event) => setEditDraft((prev) => ({ ...prev, notes: event.target.value }))}
+                onChange={(event) =>
+                  setEditDraft((prev) => ({ ...prev, notes: event.target.value }))
+                }
               />
             </label>
 
@@ -763,17 +809,16 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
             <div className="panel panel-subsection">
               <h4>Capitoli Collegati</h4>
               <div className="chapter-links-list">
-                {chapterOptions.length === 0 ? <p className="muted">Nessun capitolo disponibile.</p> : null}
-                {chapterOptions.map((chapter) => (
-                  <label key={chapter.id} className="checkbox-inline chapter-link-item">
-                    <input
-                      type="checkbox"
-                      checked={linkedChapterIds.includes(chapter.id)}
-                      onChange={() => handleToggleChapterLink(chapter.id)}
-                    />
-                    <span>{formatChapterLabel(chapter)}</span>
-                  </label>
-                ))}
+                {linkedChapters.length === 0 ? (
+                  <p className="muted">Nessun capitolo collegato.</p>
+                ) : null}
+                <div className="chapter-badge-list">
+                  {linkedChapters.map((chapter) => (
+                    <span key={chapter.id} className="chapter-link-badge">
+                      {formatChapterLabel(chapter)}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -792,15 +837,25 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
                 <label>
                   Path file immagine
                   <div className="input-with-button">
-                    <input value={imagePath} onChange={(event) => setImagePath(event.target.value)} />
-                    <button type="button" className="button-secondary" onClick={() => void handleSelectImagePath()}>
+                    <input
+                      value={imagePath}
+                      onChange={(event) => setImagePath(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => void handleSelectImagePath()}
+                    >
                       Sfoglia...
                     </button>
                   </div>
                 </label>
                 <label>
                   Dimensione
-                  <select value={imageSize} onChange={(event) => setImageSize(event.target.value as typeof imageSize)}>
+                  <select
+                    value={imageSize}
+                    onChange={(event) => setImageSize(event.target.value as typeof imageSize)}
+                  >
                     <option value="1024x1024">Quadrata (1024x1024)</option>
                     <option value="1536x1024">Orizzontale (1536x1024)</option>
                     <option value="1024x1536">Verticale (1024x1536)</option>
@@ -809,7 +864,11 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
               </div>
               <label>
                 Prompt
-                <textarea rows={3} value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} />
+                <textarea
+                  rows={3}
+                  value={imagePrompt}
+                  onChange={(event) => setImagePrompt(event.target.value)}
+                />
               </label>
               <div className="row-buttons">
                 <button
@@ -834,7 +893,8 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
               </div>
               {!imageGenerationReady ? (
                 <p className="muted">
-                  Genera In-App non disponibile: manca {missingImageGenerationRequirements.join(', ')}.
+                  Genera In-App non disponibile: manca{' '}
+                  {missingImageGenerationRequirements.join(', ')}.
                 </p>
               ) : null}
               <div className="asset-list">
@@ -852,7 +912,9 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
                             src={imagePreviewSources[image.id]}
                             alt={`Anteprima ${image.imageType}`}
                             onError={() =>
-                              setPreviewErrors((prev) => (prev.includes(image.id) ? prev : [...prev, image.id]))
+                              setPreviewErrors((prev) =>
+                                prev.includes(image.id) ? prev : [...prev, image.id],
+                              )
                             }
                           />
                         )}
@@ -903,7 +965,10 @@ export default function LocationBoard({ currentProject, aiSettings, onStatus }: 
 
       {viewerImage ? (
         <div className="modal-overlay image-viewer-overlay" onClick={() => setViewerImage(null)}>
-          <div className="modal-card image-viewer-modal" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="modal-card image-viewer-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h3>{viewerImage.label}</h3>
             <img src={viewerImage.src} alt={viewerImage.label} className="image-viewer-full" />
             <div className="row-buttons">

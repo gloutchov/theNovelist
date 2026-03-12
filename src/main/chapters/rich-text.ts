@@ -10,6 +10,12 @@ export interface RichTextDocument {
   content?: RichTextNode[];
 }
 
+export type RichTextReferenceType = 'character' | 'location';
+
+export interface CanonicalRichTextReferenceResolver {
+  getLabel: (type: RichTextReferenceType, id: string) => string | null;
+}
+
 export interface RichTextBlock {
   type: 'heading' | 'paragraph' | 'blockquote';
   text: string;
@@ -23,8 +29,77 @@ export function createEmptyRichTextDocument(): RichTextDocument {
   };
 }
 
+function normalizeReferenceMentionNode(
+  node: RichTextNode,
+  resolver: CanonicalRichTextReferenceResolver,
+): RichTextNode | null {
+  const refId = typeof node.attrs?.['refId'] === 'string' ? node.attrs['refId'].trim() : '';
+  const refType = node.attrs?.['refType'];
+  if (!refId || (refType !== 'character' && refType !== 'location')) {
+    return null;
+  }
+
+  const label = resolver.getLabel(refType, refId)?.trim() ?? '';
+  if (!label) {
+    return null;
+  }
+
+  return {
+    type: 'referenceMention',
+    attrs: {
+      refId,
+      refType,
+      label,
+    },
+  };
+}
+
+function canonicalizeNode(
+  node: RichTextNode | undefined,
+  resolver: CanonicalRichTextReferenceResolver,
+): RichTextNode | null {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+
+  if (node.type === 'referenceMention') {
+    return normalizeReferenceMentionNode(node, resolver);
+  }
+
+  const nextNode: RichTextNode = {
+    ...node,
+  };
+
+  if (Array.isArray(node.content)) {
+    nextNode.content = node.content
+      .map((child) => canonicalizeNode(child, resolver))
+      .filter((child): child is RichTextNode => child !== null);
+  }
+
+  return nextNode;
+}
+
+export function canonicalizeRichTextDocumentMentions(
+  document: RichTextDocument,
+  resolver: CanonicalRichTextReferenceResolver,
+): RichTextDocument {
+  const content = Array.isArray(document.content) ? document.content : [];
+
+  return {
+    ...document,
+    type: document.type ?? 'doc',
+    content: content
+      .map((node) => canonicalizeNode(node, resolver))
+      .filter((node): node is RichTextNode => node !== null),
+  };
+}
+
 function collectText(node: RichTextNode | undefined): string {
   if (!node) {
+    return '';
+  }
+
+  if (node.type === 'referenceMention') {
     return '';
   }
 
@@ -86,8 +161,5 @@ export function getWordCountFromDocument(document: RichTextDocument): number {
     return 0;
   }
 
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+  return text.trim().split(/\s+/).filter(Boolean).length;
 }

@@ -11,10 +11,12 @@ import {
   getDefaultExportName,
 } from './chapters/exporters';
 import {
+  canonicalizeRichTextDocumentMentions,
   createEmptyRichTextDocument,
   extractRichTextBlocks,
   getWordCountFromDocument,
   type RichTextDocument,
+  type RichTextReferenceType,
 } from './chapters/rich-text';
 import { CodexCliService, type CodexTransformAction } from './codex/client';
 import {
@@ -577,7 +579,10 @@ interface ResolvedCodexRuntime {
   apiKeyStorage: 'secure_storage' | 'legacy_db' | 'none';
 }
 
-async function resolveCodexRuntime(repository: Repository, projectId: string): Promise<ResolvedCodexRuntime> {
+async function resolveCodexRuntime(
+  repository: Repository,
+  projectId: string,
+): Promise<ResolvedCodexRuntime> {
   let settings = repository.getOrCreateCodexSettings(projectId);
   let runtimeApiKey: string | null = null;
   let apiKeyStorage: ResolvedCodexRuntime['apiKeyStorage'] = 'none';
@@ -613,7 +618,9 @@ function toCodexSettingsResponse(resolved: ResolvedCodexRuntime): CodexSettingsR
     ...resolved.settings,
     apiKey: null,
     hasStoredApiKey: resolved.apiKeyStorage !== 'none',
-    hasRuntimeApiKey: Boolean(resolved.runtimeApiKey?.trim() || process.env['OPENAI_API_KEY']?.trim()),
+    hasRuntimeApiKey: Boolean(
+      resolved.runtimeApiKey?.trim() || process.env['OPENAI_API_KEY']?.trim(),
+    ),
     apiKeyStorage: resolved.apiKeyStorage,
   });
 }
@@ -628,6 +635,32 @@ function parseRichTextDocument(contentJson: string): RichTextDocument {
   } catch {
     return createEmptyRichTextDocument();
   }
+}
+
+function getReferenceLabel(
+  repository: Repository,
+  type: RichTextReferenceType,
+  id: string,
+): string | null {
+  if (type === 'character') {
+    const character = repository.getCharacterCardById(id);
+    if (!character) {
+      return null;
+    }
+    return `${character.firstName} ${character.lastName}`.trim() || null;
+  }
+
+  const location = repository.getLocationCardById(id);
+  return location?.name.trim() || null;
+}
+
+function normalizeRichTextDocumentMentions(
+  repository: Repository,
+  document: RichTextDocument,
+): RichTextDocument {
+  return canonicalizeRichTextDocumentMentions(document, {
+    getLabel: (type, id) => getReferenceLabel(repository, type, id),
+  });
 }
 
 function buildSummaryPrompt(chapterTitle: string, chapterText: string): string {
@@ -749,7 +782,10 @@ function compareChapterNodes(left: ChapterNodeRecord, right: ChapterNodeRecord):
   return left.title.localeCompare(right.title, 'it');
 }
 
-function orderChapterNodesByConnections(nodes: ChapterNodeRecord[], edges: ChapterEdgeRecord[]): ChapterNodeRecord[] {
+function orderChapterNodesByConnections(
+  nodes: ChapterNodeRecord[],
+  edges: ChapterEdgeRecord[],
+): ChapterNodeRecord[] {
   const nodesSorted = [...nodes].sort(compareChapterNodes);
   const nodeById = new Map(nodesSorted.map((node) => [node.id, node]));
   const indegree = new Map<string, number>(nodesSorted.map((node) => [node.id, 0]));
@@ -764,7 +800,9 @@ function orderChapterNodesByConnections(nodes: ChapterNodeRecord[], edges: Chapt
   }
 
   for (const [nodeId, targetIds] of outgoing) {
-    targetIds.sort((leftId, rightId) => compareChapterNodes(nodeById.get(leftId)!, nodeById.get(rightId)!));
+    targetIds.sort((leftId, rightId) =>
+      compareChapterNodes(nodeById.get(leftId)!, nodeById.get(rightId)!),
+    );
     outgoing.set(nodeId, targetIds);
   }
 
@@ -803,7 +841,10 @@ function orderChapterNodesByConnections(nodes: ChapterNodeRecord[], edges: Chapt
   return [...ordered, ...remaining];
 }
 
-function collectManuscriptChapters(repository: Repository, projectId: string): Array<{ title: string; document: RichTextDocument }> {
+function collectManuscriptChapters(
+  repository: Repository,
+  projectId: string,
+): Array<{ title: string; document: RichTextDocument }> {
   const nodes = repository.listChapterNodes(projectId);
   const edges = repository.listChapterEdges(projectId);
   const orderedNodes = orderChapterNodesByConnections(nodes, edges);
@@ -1055,7 +1096,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = createNodeRequestSchema.parse(payload);
 
-    const blockNumber = request.blockNumber ?? repository.getNextBlockNumberForPlot(projectId, request.plotNumber);
+    const blockNumber =
+      request.blockNumber ?? repository.getNextBlockNumberForPlot(projectId, request.plotNumber);
 
     const node = repository.createChapterNode(projectId, {
       title: request.title,
@@ -1136,7 +1178,29 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const existing = repository.getChapterDocumentByNodeId(request.chapterNodeId);
 
     if (existing) {
-      return chapterDocumentResponseSchema.parse(existing);
+      const normalizedDocument = normalizeRichTextDocumentMentions(
+        repository,
+        parseRichTextDocument(existing.contentJson),
+      );
+      const normalizedContentJson = JSON.stringify(normalizedDocument);
+      const normalizedWordCount = getWordCountFromDocument(normalizedDocument);
+      if (
+        existing.contentJson !== normalizedContentJson ||
+        existing.wordCount !== normalizedWordCount
+      ) {
+        const updated = repository.upsertChapterDocument({
+          chapterNodeId: request.chapterNodeId,
+          contentJson: normalizedContentJson,
+          wordCount: normalizedWordCount,
+        });
+        repository.setChapterNodeRichTextDocId(request.chapterNodeId, updated.id);
+        return chapterDocumentResponseSchema.parse(updated);
+      }
+      return chapterDocumentResponseSchema.parse({
+        ...existing,
+        contentJson: normalizedContentJson,
+        wordCount: normalizedWordCount,
+      });
     }
 
     const emptyDocument = createEmptyRichTextDocument();
@@ -1159,17 +1223,18 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     }
 
     const parsedDocument = parseRichTextDocument(request.contentJson);
-    const wordCount = request.wordCount ?? getWordCountFromDocument(parsedDocument);
+    const normalizedDocument = normalizeRichTextDocumentMentions(repository, parsedDocument);
+    const wordCount = getWordCountFromDocument(normalizedDocument);
 
     const saved = repository.upsertChapterDocument({
       chapterNodeId: request.chapterNodeId,
-      contentJson: JSON.stringify(parsedDocument),
+      contentJson: JSON.stringify(normalizedDocument),
       wordCount,
     });
 
     repository.setChapterNodeRichTextDocId(request.chapterNodeId, saved.id);
 
-    const plainText = richTextToPlainText(parsedDocument);
+    const plainText = richTextToPlainText(normalizedDocument);
     const codexSettings = repository.getOrCreateCodexSettings(projectId);
     if (plainText && codexSettings.autoSummarizeDescriptions) {
       const workspaceRoot = sessionManager.getOpenedProject()?.rootPath;
@@ -1199,7 +1264,10 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         }
       }
 
-      const nextDescription = truncateWithEllipsis(summaryText || summarizeTextFallback(plainText), 220);
+      const nextDescription = truncateWithEllipsis(
+        summaryText || summarizeTextFallback(plainText),
+        220,
+      );
       if (nextDescription && nextDescription !== node.description) {
         repository.updateChapterNode(node.id, {
           title: node.title,
@@ -1492,7 +1560,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Character card not found');
     }
 
-    const chapterNodeIds = repository.listCharacterChapterLinks(card.id).map((link) => link.chapterNodeId);
+    const chapterNodeIds = repository
+      .listCharacterChapterLinks(card.id)
+      .map((link) => link.chapterNodeId);
     return chapterLinkIdsResponseSchema.parse(chapterNodeIds);
   });
 
@@ -1511,7 +1581,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       chapterNodeIds,
     });
 
-    const linkedIds = repository.listCharacterChapterLinks(card.id).map((link) => link.chapterNodeId);
+    const linkedIds = repository
+      .listCharacterChapterLinks(card.id)
+      .map((link) => link.chapterNodeId);
     return chapterLinkIdsResponseSchema.parse(linkedIds);
   });
 
@@ -1655,7 +1727,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Location card not found');
     }
 
-    const chapterNodeIds = repository.listLocationChapterLinks(card.id).map((link) => link.chapterNodeId);
+    const chapterNodeIds = repository
+      .listLocationChapterLinks(card.id)
+      .map((link) => link.chapterNodeId);
     return chapterLinkIdsResponseSchema.parse(chapterNodeIds);
   });
 
@@ -1674,7 +1748,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       chapterNodeIds,
     });
 
-    const linkedIds = repository.listLocationChapterLinks(card.id).map((link) => link.chapterNodeId);
+    const linkedIds = repository
+      .listLocationChapterLinks(card.id)
+      .map((link) => link.chapterNodeId);
     return chapterLinkIdsResponseSchema.parse(linkedIds);
   });
 
@@ -1761,12 +1837,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const workspaceRoot = sessionManager.getOpenedProject()?.rootPath;
     const runtime = await resolveCodexRuntime(repository, projectId);
     const settings = runtime.settings;
-    const status = await codexService.getStatus({
-      provider: settings.provider,
-      allowApiCalls: settings.allowApiCalls,
-      apiKey: runtime.runtimeApiKey,
-      apiModel: settings.apiModel,
-    }, workspaceRoot);
+    const status = await codexService.getStatus(
+      {
+        provider: settings.provider,
+        allowApiCalls: settings.allowApiCalls,
+        apiKey: runtime.runtimeApiKey,
+        apiModel: settings.apiModel,
+      },
+      workspaceRoot,
+    );
     return codexStatusResponseSchema.parse(status);
   });
 
@@ -1784,7 +1863,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const nextApiKey = request.apiKey?.trim() ?? '';
 
     if (request.clearStoredApiKey && nextApiKey) {
-      throw new Error('Configurazione API key non valida: non puoi impostare e cancellare la chiave insieme.');
+      throw new Error(
+        'Configurazione API key non valida: non puoi impostare e cancellare la chiave insieme.',
+      );
     }
 
     if (shouldClearStoredApiKey) {
@@ -1798,7 +1879,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     }
 
     const preserveLegacyApiKey =
-      runtime.apiKeyStorage === 'legacy_db' && !isSecureStorageAvailable() && !shouldClearStoredApiKey;
+      runtime.apiKeyStorage === 'legacy_db' &&
+      !isSecureStorageAvailable() &&
+      !shouldClearStoredApiKey;
     const updated = repository.upsertCodexSettings(projectId, {
       enabled: request.enabled,
       provider: request.provider,
@@ -1828,16 +1911,19 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const message = request.context
       ? `${request.message}\n\nContesto:\n${request.context}`
       : request.message;
-    const result = await codexService.chat({
-      message,
-      projectName: request.projectName,
-      workspaceRoot,
-    }, {
-      provider: settings.provider,
-      allowApiCalls: settings.allowApiCalls,
-      apiKey: runtime.runtimeApiKey,
-      apiModel: settings.apiModel,
-    });
+    const result = await codexService.chat(
+      {
+        message,
+        projectName: request.projectName,
+        workspaceRoot,
+      },
+      {
+        provider: settings.provider,
+        allowApiCalls: settings.allowApiCalls,
+        apiKey: runtime.runtimeApiKey,
+        apiModel: settings.apiModel,
+      },
+    );
 
     return codexResultResponseSchema.parse(result);
   });
@@ -1852,19 +1938,22 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     }
 
     const request = codexTransformRequestSchema.parse(payload);
-    const result = await codexService.transformSelection({
-      action: request.action as CodexTransformAction,
-      selectedText: request.selectedText,
-      chapterTitle: request.chapterTitle,
-      projectName: request.projectName,
-      chapterText: request.chapterText,
-      workspaceRoot,
-    }, {
-      provider: settings.provider,
-      allowApiCalls: settings.allowApiCalls,
-      apiKey: runtime.runtimeApiKey,
-      apiModel: settings.apiModel,
-    });
+    const result = await codexService.transformSelection(
+      {
+        action: request.action as CodexTransformAction,
+        selectedText: request.selectedText,
+        chapterTitle: request.chapterTitle,
+        projectName: request.projectName,
+        chapterText: request.chapterText,
+        workspaceRoot,
+      },
+      {
+        provider: settings.provider,
+        allowApiCalls: settings.allowApiCalls,
+        apiKey: runtime.runtimeApiKey,
+        apiModel: settings.apiModel,
+      },
+    );
 
     return codexResultResponseSchema.parse(result);
   });
@@ -1884,18 +1973,21 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Chapter node not found');
     }
 
-    const result = await codexService.chat({
-      message: request.message,
-      chapterTitle: request.chapterTitle,
-      projectName: request.projectName,
-      chapterText: request.chapterText,
-      workspaceRoot,
-    }, {
-      provider: settings.provider,
-      allowApiCalls: settings.allowApiCalls,
-      apiKey: runtime.runtimeApiKey,
-      apiModel: settings.apiModel,
-    });
+    const result = await codexService.chat(
+      {
+        message: request.message,
+        chapterTitle: request.chapterTitle,
+        projectName: request.projectName,
+        chapterText: request.chapterText,
+        workspaceRoot,
+      },
+      {
+        provider: settings.provider,
+        allowApiCalls: settings.allowApiCalls,
+        apiKey: runtime.runtimeApiKey,
+        apiModel: settings.apiModel,
+      },
+    );
 
     if (!result.cancelled && result.output.trim()) {
       repository.appendCodexChatMessage(projectId, {
@@ -1922,7 +2014,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Chapter node not found');
     }
 
-    const messages = repository.listCodexChatMessages(projectId, request.chapterNodeId, request.limit ?? 100);
+    const messages = repository.listCodexChatMessages(
+      projectId,
+      request.chapterNodeId,
+      request.limit ?? 100,
+    );
     return z.array(codexChatMessageResponseSchema).parse(messages);
   });
 

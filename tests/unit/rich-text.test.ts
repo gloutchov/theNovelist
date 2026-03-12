@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canonicalizeRichTextDocumentMentions,
   createEmptyRichTextDocument,
   extractRichTextBlocks,
   getWordCountFromDocument,
@@ -46,6 +47,168 @@ describe('rich-text helpers', () => {
     };
 
     expect(getWordCountFromDocument(document)).toBe(3);
+  });
+
+  it('ignores inline reference mentions in extracted blocks and word count', () => {
+    const document = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Mario entra in scena. ' },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'char-1',
+                refType: 'character',
+                label: 'Mario Rossi',
+              },
+            },
+          ],
+        },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'La piazza e pronta. ' },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'loc-1',
+                refType: 'location',
+                label: 'Piazza Grande',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(extractRichTextBlocks(document)).toEqual([
+      { type: 'paragraph', text: 'Mario entra in scena.' },
+      { type: 'paragraph', text: 'La piazza e pronta.' },
+    ]);
+    expect(getWordCountFromDocument(document)).toBe(8);
+  });
+
+  it('canonicalizes mention labels from trusted entity resolvers', () => {
+    const document = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'char-1',
+                refType: 'character',
+                label: 'Nome Falso',
+              },
+            },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'loc-1',
+                refType: 'location',
+                label: 'Luogo Falso',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const normalized = canonicalizeRichTextDocumentMentions(document, {
+      getLabel: (type, id) => {
+        if (type === 'character' && id === 'char-1') {
+          return 'Mario Rossi';
+        }
+        if (type === 'location' && id === 'loc-1') {
+          return 'Piazza Grande';
+        }
+        return null;
+      },
+    });
+
+    expect(normalized).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'char-1',
+                refType: 'character',
+                label: 'Mario Rossi',
+              },
+            },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'loc-1',
+                refType: 'location',
+                label: 'Piazza Grande',
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('drops malformed or unresolved mention nodes during canonicalization', () => {
+    const document = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Testo ' },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: '',
+                refType: 'character',
+                label: 'Vuoto',
+              },
+            },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'char-2',
+                refType: 'location',
+                label: 'Tipo errato',
+              },
+            },
+            {
+              type: 'referenceMention',
+              attrs: {
+                refId: 'char-3',
+                refType: 'character',
+                label: 'Eliminato',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const normalized = canonicalizeRichTextDocumentMentions(document, {
+      getLabel: () => null,
+    });
+
+    expect(normalized).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Testo ' }],
+        },
+      ],
+    });
   });
 
   it('returns empty default document', () => {

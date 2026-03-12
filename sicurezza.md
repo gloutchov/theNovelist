@@ -1,6 +1,6 @@
 # Sicurezza - The Novelist
 
-Stato documentato al **8 marzo 2026**.
+Stato documentato al **12 marzo 2026**.
 
 Questo documento descrive le misure di sicurezza **attualmente implementate** nell'applicazione, con limiti noti.
 
@@ -78,6 +78,31 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
   - `src/main/projects/snapshots.ts`
   - `src/main/projects/session.ts`
 
+### 2.10 Menzioni capitolo con validazione canonica
+- Personaggi e location possono essere citati nel capitolo con menzioni `@`.
+- Il collegamento capitolo-personaggio/location viene derivato dal contenuto del capitolo e non più da checkbox manuali nelle schede.
+- Le menzioni salvano come identificatore affidabile solo `refId`; la label visibile viene ricalcolata da record canonici.
+- In lettura e in salvataggio, il main process normalizza le menzioni:
+  - corregge label incoerenti rispetto all'entità reale
+  - scarta menzioni malformate
+  - scarta menzioni verso entità non più esistenti
+- Questo riduce il rischio di documenti alterati che mostrino un nome ma colleghino in realtà un'altra entità.
+- Riferimenti:
+  - `src/renderer/src/ChapterEditor.tsx`
+  - `src/main/chapters/rich-text.ts`
+  - `src/main/ipc.ts`
+  - `tests/unit/rich-text.test.ts`
+
+### 2.11 Export e stampa privi di metadati di menzione
+- Le menzioni restano interne all'editor ma vengono escluse da:
+  - conteggio parole
+  - export DOCX/PDF
+  - stampa HTML
+- Evita leakage di metadati editoriali nel manoscritto esportato.
+- Riferimenti:
+  - `src/main/chapters/rich-text.ts`
+  - `src/main/chapters/exporters.ts`
+
 ## 3) Superfici esterne
 
 ### 3.1 Endpoint di rete usati
@@ -101,6 +126,7 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 5. L'app è single-user locale: non ha autenticazione/ruoli.
 6. Canale `project:read-image-data-url` legge un path fornito dal renderer; in un contesto XSS sarebbe una superficie sensibile.
 7. Se `safeStorage` non è disponibile, la chiave nuova non viene salvata in secure storage; resta possibile uso via variabile ambiente.
+8. Le menzioni sono validate lato main process, ma la sincronizzazione dei link capitolo è ancora avviata dal renderer; il modello è robusto per un'app locale, ma un futuro spostamento completo della sincronizzazione nel main process ridurrebbe ulteriormente la superficie di fiducia del renderer.
 
 ## 5) Raccomandazioni pratiche (priorità)
 
@@ -110,6 +136,7 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 4. Ridurre ulteriormente i canali IPC sensibili (es. whitelist path per `read-image-data-url`).
 5. Valutare cifratura del DB progetto o almeno delle sezioni sensibili.
 6. Aggiungere hardening release (dipendenze, SCA, audit periodico, CI security checks).
+7. Valutare lo spostamento della sincronizzazione link capitolo-personaggi/location interamente nel main process.
 
 ## 6) File principali da verificare
 - `src/main/index.ts`
@@ -119,4 +146,3 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 - `src/main/codex/client.ts`
 - `src/main/images/generation.ts`
 - `src/main/persistence/*`
-

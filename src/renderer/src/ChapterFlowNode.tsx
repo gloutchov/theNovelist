@@ -11,8 +11,8 @@ const handleStyle = {
   width: 12,
   height: 12,
   borderRadius: '50%',
-  background: '#1f2937',
-  border: '2px solid #f8fafc',
+  background: 'var(--handle-bg)',
+  border: '2px solid var(--handle-border)',
 } as const;
 
 export default function ChapterFlowNode({ data }: NodeProps) {
