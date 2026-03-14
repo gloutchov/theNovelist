@@ -6,6 +6,7 @@ import { ProjectSessionManager } from './projects/session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectSessionManager = new ProjectSessionManager();
+const ABOUT_COPYRIGHT = 'Copyright © 2026 Gloutchov';
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -33,6 +34,12 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  app.setAboutPanelOptions({
+    applicationName: app.getName(),
+    applicationVersion: app.getVersion(),
+    copyright: ABOUT_COPYRIGHT,
+  });
+
   registerIpcHandlers(ipcMain, projectSessionManager);
   createWindow();
 

@@ -1,6 +1,7 @@
 {
   "name": "the-novelist",
-  "version": "0.1.0",
+  "version": "1.2.0",
+  "copyright": "Copyright © 2026 Gloutchov",
   "private": true,
   "license": "Apache-2.0",
   "description": "Desktop app for novel and short story writing.",

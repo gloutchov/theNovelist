@@ -332,8 +332,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
 
       selectImageFile: async () => null as string | null,
 
-      readImageDataUrl: async (_payload: { filePath: string }) =>
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+      readImageDataUrl: async (payload: { filePath: string }) => {
+        void payload;
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+      },
 
       selectProjectDirectory: async () => state.currentProject?.rootPath ?? '/tmp/the-novelist-mock',
 
