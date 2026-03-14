@@ -19,7 +19,7 @@ async function openChapterEditorWithText(page: Page, projectName: string): Promi
   await createProject(page, projectName);
 
   const nodePanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuovo Blocco' }),
+    has: page.getByRole('heading', { name: 'Nuovo Capitolo' }),
   });
   await nodePanel.getByLabel('Titolo').fill('Capitolo Alpha');
   await nodePanel.getByLabel('Descrizione').fill('Scena iniziale');
@@ -72,7 +72,7 @@ test('character board create and edit card', async ({ page }) => {
   await createProject(page, 'E2E Characters');
 
   const nodePanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuovo Blocco' }),
+    has: page.getByRole('heading', { name: 'Nuovo Capitolo' }),
   });
   await nodePanel.getByLabel('Titolo').fill('Capitolo Personaggi');
   await nodePanel.getByRole('button', { name: 'Crea Blocco' }).click();
@@ -107,7 +107,7 @@ test('location board create and edit card', async ({ page }) => {
   await createProject(page, 'E2E Locations');
 
   const nodePanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuovo Blocco' }),
+    has: page.getByRole('heading', { name: 'Nuovo Capitolo' }),
   });
   await nodePanel.getByLabel('Titolo').fill('Capitolo Location');
   await nodePanel.getByRole('button', { name: 'Crea Blocco' }).click();
