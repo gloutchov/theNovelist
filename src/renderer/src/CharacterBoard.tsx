@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   applyNodeChanges,
   Background,
@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react';
 import { getNearbyCanvasPosition } from './canvas-position';
 import CharacterFlowNode, { type CharacterFlowNodeData } from './CharacterFlowNode';
+import { getStatusTone } from './status-tone';
 import { toImageSource } from './image-path';
 
 type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
@@ -21,8 +22,10 @@ type CharacterImage = Awaited<
 type StoryChapterNode = Awaited<
   ReturnType<(typeof window.novelistApi)['getStoryState']>
 >['nodes'][number];
+type StoryPlot = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>['plots'][number];
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
 type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
+type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 type CharacterCanvasNode = Node<CharacterFlowNodeData, 'character'>;
 
 interface CharacterDraft {
@@ -44,7 +47,11 @@ interface CharacterDraft {
 interface CharacterBoardProps {
   currentProject: ProjectRecord;
   aiSettings: CodexSettings | null;
+  autosaveSettings: AppPreferences | null;
+  statusMessage: string;
   onStatus: (message: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
 }
 
 function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
@@ -126,7 +133,29 @@ function characterToDraft(card: CharacterCard): CharacterDraft {
   };
 }
 
-function mapCardToNode(card: CharacterCard, imageSrc: string | null = null): CharacterCanvasNode {
+function areCharacterDraftsEqual(left: CharacterDraft, right: CharacterDraft): boolean {
+  return (
+    left.firstName === right.firstName &&
+    left.lastName === right.lastName &&
+    left.sex === right.sex &&
+    left.age === right.age &&
+    left.sexualOrientation === right.sexualOrientation &&
+    left.species === right.species &&
+    left.hairColor === right.hairColor &&
+    left.bald === right.bald &&
+    left.beard === right.beard &&
+    left.physique === right.physique &&
+    left.job === right.job &&
+    left.notes === right.notes &&
+    left.plotNumber === right.plotNumber
+  );
+}
+
+function mapCardToNode(
+  card: CharacterCard,
+  imageSrc: string | null = null,
+  options?: { selected?: boolean },
+): CharacterCanvasNode {
   const name = `${card.firstName} ${card.lastName}`.trim();
   const color = colorFromPlotNumber(card.plotNumber);
 
@@ -137,6 +166,7 @@ function mapCardToNode(card: CharacterCard, imageSrc: string | null = null): Cha
       x: card.positionX,
       y: card.positionY,
     },
+    selected: options?.selected,
     data: {
       label: name || 'Personaggio',
       plotNumber: card.plotNumber,
@@ -158,14 +188,23 @@ function formatChapterLabel(node: StoryChapterNode): string {
   return `T${node.plotNumber} • B${node.blockNumber} • ${node.title}`;
 }
 
+function formatPlotLabel(plot: StoryPlot): string {
+  return plot.label?.trim() || `Trama ${plot.number}`;
+}
+
 export default function CharacterBoard({
   currentProject,
   aiSettings,
+  autosaveSettings,
+  statusMessage,
   onStatus,
+  onDirtyChange,
+  onRegisterFlush,
 }: CharacterBoardProps) {
   const [cards, setCards] = useState<CharacterCard[]>([]);
   const [nodes, setNodes] = useState<CharacterCanvasNode[]>([]);
   const [chapterOptions, setChapterOptions] = useState<StoryChapterNode[]>([]);
+  const [plotOptions, setPlotOptions] = useState<StoryPlot[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,6 +226,8 @@ export default function CharacterBoard({
   const [codexPrompting, setCodexPrompting] = useState<boolean>(false);
   const [viewerImage, setViewerImage] = useState<{ src: string; label: string } | null>(null);
   const [codexSettings, setCodexSettings] = useState<CodexSettings | null>(null);
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveInFlightRef = useRef<boolean>(false);
 
   const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const emptyEdges = useMemo(() => [], []);
@@ -195,8 +236,17 @@ export default function CharacterBoard({
     () => (selectedCardId ? (cardsById.get(selectedCardId) ?? null) : null),
     [cardsById, selectedCardId],
   );
+  const currentEditCard = useMemo(
+    () => (editCardId ? (cardsById.get(editCardId) ?? null) : null),
+    [cardsById, editCardId],
+  );
+  const editDirty = useMemo(
+    () => (currentEditCard ? !areCharacterDraftsEqual(editDraft, characterToDraft(currentEditCard)) : false),
+    [currentEditCard, editDraft],
+  );
   const effectiveCodexSettings = aiSettings ?? codexSettings;
   const aiAssistantLabel = getAiAssistantLabel(effectiveCodexSettings);
+  const statusTone = getStatusTone(statusMessage);
   const linkedChapters = useMemo(
     () => chapterOptions.filter((chapter) => linkedChapterIds.includes(chapter.id)),
     [chapterOptions, linkedChapterIds],
@@ -207,13 +257,13 @@ export default function CharacterBoard({
     if (!trimmedPath) {
       return null;
     }
-    if (/^(https?:|data:)/i.test(trimmedPath)) {
+    if (/^(https?:|data:|file:)/i.test(trimmedPath)) {
       return toImageSource(trimmedPath);
     }
     try {
       return await window.novelistApi.readImageDataUrl({ filePath: trimmedPath });
     } catch {
-      return null;
+      return toImageSource(trimmedPath);
     }
   }, []);
 
@@ -239,12 +289,17 @@ export default function CharacterBoard({
 
     setCards(nextCards);
     setNodes(
-      nextCards.map((card) => mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null)),
+      nextCards.map((card) =>
+        mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null, {
+          selected: card.id === selectedCardId,
+        }),
+      ),
     );
-  }, [resolveImageSource]);
+  }, [resolveImageSource, selectedCardId]);
 
   const refreshChapterOptions = useCallback(async (): Promise<void> => {
     const state = await window.novelistApi.getStoryState();
+    const sortedPlots = [...state.plots].sort((left, right) => left.number - right.number);
     const sortedNodes = [...state.nodes].sort((left, right) => {
       if (left.plotNumber !== right.plotNumber) {
         return left.plotNumber - right.plotNumber;
@@ -254,6 +309,7 @@ export default function CharacterBoard({
       }
       return left.title.localeCompare(right.title, 'it');
     });
+    setPlotOptions(sortedPlots);
     setChapterOptions(sortedNodes);
   }, []);
 
@@ -352,6 +408,10 @@ export default function CharacterBoard({
     [],
   );
 
+  const onNodeClick: NodeMouseHandler<CharacterCanvasNode> = useCallback((_event, node) => {
+    setSelectedCardId(node.id);
+  }, []);
+
   const onNodeDoubleClick: NodeMouseHandler<CharacterCanvasNode> = useCallback(
     (_event, node) => {
       const card = cardsById.get(node.id);
@@ -400,7 +460,9 @@ export default function CharacterBoard({
         setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
         setNodes((prev) =>
           prev.map((item) =>
-            item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item,
+            item.id === updated.id
+              ? mapCardToNode(updated, item.data.imageSrc ?? null, { selected: item.selected })
+              : item,
           ),
         );
       } catch (caughtError) {
@@ -481,53 +543,157 @@ export default function CharacterBoard({
     }
   }
 
+  const persistEdit = useCallback(
+    async (options?: {
+      closeAfterSave?: boolean;
+      silent?: boolean;
+      successStatus?: string;
+    }): Promise<boolean> => {
+      if (!editCardId) {
+        return false;
+      }
+
+      const card = cards.find((item) => item.id === editCardId);
+      if (!card) {
+        return false;
+      }
+
+      if (!editDirty) {
+        if (options?.closeAfterSave) {
+          setEditCardId(null);
+        }
+        return false;
+      }
+
+      setBusy(true);
+      setError(null);
+      try {
+        const updated = await window.novelistApi.updateCharacterCard({
+          id: editCardId,
+          firstName: editDraft.firstName.trim(),
+          lastName: editDraft.lastName.trim(),
+          sex: editDraft.sex.trim(),
+          age: editDraft.age ? Number(editDraft.age) : null,
+          sexualOrientation: editDraft.sexualOrientation.trim(),
+          species: editDraft.species.trim(),
+          hairColor: editDraft.hairColor.trim(),
+          bald: editDraft.bald,
+          beard: editDraft.beard.trim(),
+          physique: editDraft.physique.trim(),
+          job: editDraft.job.trim(),
+          notes: editDraft.notes.trim(),
+          plotNumber: editDraft.plotNumber,
+          positionX: card.positionX,
+          positionY: card.positionY,
+        });
+
+        setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        setNodes((prev) =>
+          prev.map((item) =>
+            item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item,
+          ),
+        );
+        setEditDraft(characterToDraft(updated));
+        if (!options?.silent) {
+          onStatus(
+            options?.successStatus ??
+              `Personaggio salvato: ${updated.firstName} ${updated.lastName}`.trim(),
+          );
+        }
+        if (options?.closeAfterSave) {
+          setEditCardId(null);
+        }
+        return true;
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setError(message);
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [cards, editCardId, editDirty, editDraft, onStatus],
+  );
+
   async function handleSaveEdit(): Promise<void> {
-    if (!editCardId) {
-      return;
-    }
-
-    const card = cards.find((item) => item.id === editCardId);
-    if (!card) {
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-    try {
-      const updated = await window.novelistApi.updateCharacterCard({
-        id: editCardId,
-        firstName: editDraft.firstName.trim(),
-        lastName: editDraft.lastName.trim(),
-        sex: editDraft.sex.trim(),
-        age: editDraft.age ? Number(editDraft.age) : null,
-        sexualOrientation: editDraft.sexualOrientation.trim(),
-        species: editDraft.species.trim(),
-        hairColor: editDraft.hairColor.trim(),
-        bald: editDraft.bald,
-        beard: editDraft.beard.trim(),
-        physique: editDraft.physique.trim(),
-        job: editDraft.job.trim(),
-        notes: editDraft.notes.trim(),
-        plotNumber: editDraft.plotNumber,
-        positionX: card.positionX,
-        positionY: card.positionY,
-      });
-
-      setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-      setNodes((prev) =>
-        prev.map((item) =>
-          item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item,
-        ),
-      );
-      onStatus(`Personaggio aggiornato: ${updated.firstName} ${updated.lastName}`.trim());
-      setEditCardId(null);
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-      setError(message);
-    } finally {
-      setBusy(false);
-    }
+    await persistEdit({ closeAfterSave: true });
   }
+
+  useEffect(() => {
+    onDirtyChange?.(editDirty);
+    return () => {
+      onDirtyChange?.(false);
+    };
+  }, [editDirty, onDirtyChange]);
+
+  useEffect(() => {
+    onRegisterFlush?.(() => persistEdit({ closeAfterSave: false, silent: true }));
+    return () => {
+      onRegisterFlush?.(null);
+    };
+  }, [onRegisterFlush, persistEdit]);
+
+  useEffect(() => {
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    if (autosaveSettings?.autosaveMode !== 'auto' || !editCardId || !editDirty) {
+      return;
+    }
+
+    autosaveTimeoutRef.current = setTimeout(() => {
+      if (autosaveInFlightRef.current) {
+        return;
+      }
+
+      autosaveInFlightRef.current = true;
+      void persistEdit({
+        closeAfterSave: false,
+        successStatus: 'Personaggio salvato automaticamente',
+      }).finally(() => {
+        autosaveInFlightRef.current = false;
+      });
+    }, 900);
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+    };
+  }, [autosaveSettings?.autosaveMode, editCardId, editDirty, persistEdit]);
+
+  useEffect(() => {
+    if (autosaveSettings?.autosaveMode !== 'interval' || !editCardId) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      if (!editDirty || autosaveInFlightRef.current) {
+        return;
+      }
+
+      autosaveInFlightRef.current = true;
+      void persistEdit({
+        closeAfterSave: false,
+        successStatus: 'Personaggio salvato automaticamente',
+      }).finally(() => {
+        autosaveInFlightRef.current = false;
+      });
+    }, autosaveSettings.autosaveIntervalMinutes * 60_000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [
+    autosaveSettings?.autosaveIntervalMinutes,
+    autosaveSettings?.autosaveMode,
+    editCardId,
+    editDirty,
+    persistEdit,
+  ]);
 
   async function handleAddImage(): Promise<void> {
     if (!editCardId || !imagePath.trim()) {
@@ -723,21 +889,30 @@ export default function CharacterBoard({
             />
           </label>
           <label>
-            Numero trama
-            <input
-              type="number"
-              min={1}
+            Trama
+            <select
               value={createDraft.plotNumber}
               onChange={(event) =>
                 setCreateDraft((prev) => ({
                   ...prev,
-                  plotNumber: Math.max(1, Number(event.target.value)),
+                  plotNumber: Number(event.target.value),
                 }))
               }
-            />
+            >
+              {plotOptions.length > 0 ? (
+                plotOptions.map((plot) => (
+                  <option key={plot.number} value={plot.number}>
+                    {formatPlotLabel(plot)}
+                  </option>
+                ))
+              ) : (
+                <option value={createDraft.plotNumber}>Trama {createDraft.plotNumber}</option>
+              )}
+            </select>
           </label>
           <button
             type="button"
+            className="sidebar-action-button"
             onClick={() => void handleCreateCard()}
             disabled={busy || !currentProject}
           >
@@ -756,9 +931,10 @@ export default function CharacterBoard({
           <p>
             Trama: <strong>{selectedCard?.plotNumber ?? '-'}</strong>
           </p>
-          <div className="row-buttons">
+          <div className="selection-action-stack">
             <button
               type="button"
+              className="sidebar-action-button danger-action-button"
               onClick={() => void handleDeleteSelectedCard()}
               disabled={!selectedCardId || busy}
             >
@@ -768,7 +944,7 @@ export default function CharacterBoard({
         </div>
 
         <div className="panel status-panel">
-          <p className="status">Canvas Personaggi</p>
+          <p className={`status status-${statusTone}`}>{statusMessage}</p>
           {error ? <p className="error">{error}</p> : null}
         </div>
       </aside>
@@ -780,9 +956,11 @@ export default function CharacterBoard({
           nodeTypes={nodeTypes}
           onlyRenderVisibleElements
           onNodesChange={onNodesChange}
+          onNodeClick={onNodeClick}
           onNodeDragStop={onNodeDragStop}
           onNodeDoubleClick={onNodeDoubleClick}
           onSelectionChange={onSelectionChange}
+          elevateNodesOnSelect
           fitView
           deleteKeyCode={null}
         >
@@ -890,18 +1068,26 @@ export default function CharacterBoard({
                 />
               </label>
               <label>
-                Numero trama
-                <input
-                  type="number"
-                  min={1}
+                Trama
+                <select
                   value={editDraft.plotNumber}
                   onChange={(event) =>
                     setEditDraft((prev) => ({
                       ...prev,
-                      plotNumber: Math.max(1, Number(event.target.value)),
+                      plotNumber: Number(event.target.value),
                     }))
                   }
-                />
+                >
+                  {plotOptions.length > 0 ? (
+                    plotOptions.map((plot) => (
+                      <option key={plot.number} value={plot.number}>
+                        {formatPlotLabel(plot)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={editDraft.plotNumber}>Trama {editDraft.plotNumber}</option>
+                  )}
+                </select>
               </label>
               <label className="checkbox-inline">
                 <input

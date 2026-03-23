@@ -1,6 +1,8 @@
 import { BrowserWindow, dialog, type IpcMain } from 'electron';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
+import { getAppPreferences, updateAppPreferences } from './app-preferences';
 import {
   buildChapterPrintHtml,
   buildManuscriptPrintHtml,
@@ -25,6 +27,7 @@ import {
   saveGeneratedImageToProject,
   type GeneratedImageSize,
 } from './images/generation';
+import { resolveProjectStoredFilePath } from './projects/asset-paths';
 import { openProjectFromDisk, projectExists } from './projects/project-files';
 import type { ProjectSessionManager } from './projects/session';
 import {
@@ -36,8 +39,11 @@ import {
 
 export const IPC_CHANNELS = {
   ping: 'app:ping',
+  appGetPreferences: 'app:get-preferences',
+  appUpdatePreferences: 'app:update-preferences',
   projectCreate: 'project:create',
   projectOpen: 'project:open',
+  projectClose: 'project:close',
   projectInspectPath: 'project:inspect-path',
   projectSelectDirectory: 'project:select-directory',
   projectSelectImageFile: 'project:select-image-file',
@@ -48,6 +54,8 @@ export const IPC_CHANNELS = {
   projectRecoverLatestSnapshot: 'project:recover-latest-snapshot',
   storyGetState: 'story:get-state',
   storyCreatePlot: 'story:create-plot',
+  storyUpdatePlot: 'story:update-plot',
+  storyDeletePlot: 'story:delete-plot',
   storyCreateNode: 'story:create-node',
   storyUpdateNode: 'story:update-node',
   storyDeleteNode: 'story:delete-node',
@@ -102,6 +110,17 @@ const pingResponseSchema = z.object({
   timestamp: z.string(),
 });
 
+const appPreferencesResponseSchema = z.object({
+  autosaveMode: z.enum(['manual', 'interval', 'auto']),
+  autosaveIntervalMinutes: z.number().int().min(1).max(120),
+  updatedAt: z.string(),
+});
+
+const appPreferencesUpdateRequestSchema = z.object({
+  autosaveMode: z.enum(['manual', 'interval', 'auto']).optional(),
+  autosaveIntervalMinutes: z.number().int().min(1).max(120).optional(),
+});
+
 const projectCreateRequestSchema = z.object({
   rootPath: z.string().trim().min(1),
   name: z.string().trim().min(1).max(200),
@@ -127,7 +146,23 @@ const saveSnapshotRequestSchema = z.object({
 const createPlotRequestSchema = z.object({
   number: z.number().int().min(1),
   label: z.string().trim().min(1).max(120).optional(),
+  summary: z.string().max(12_000).optional(),
   color: z.string().trim().min(3).max(40).optional(),
+  positionX: z.number().default(120),
+  positionY: z.number().default(120),
+});
+
+const updatePlotRequestSchema = z.object({
+  id: z.string().trim().min(1),
+  label: z.string().trim().min(1).max(120),
+  summary: z.string().max(12_000).default(''),
+  color: z.string().trim().min(3).max(40).optional(),
+  positionX: z.number().optional(),
+  positionY: z.number().optional(),
+});
+
+const deletePlotRequestSchema = z.object({
+  id: z.string().trim().min(1),
 });
 
 const createNodeRequestSchema = z.object({
@@ -346,7 +381,10 @@ const plotResponseSchema = z.object({
   projectId: z.string(),
   number: z.number().int(),
   label: z.string(),
+  summary: z.string(),
   color: z.string(),
+  positionX: z.number(),
+  positionY: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -502,6 +540,7 @@ const successResponseSchema = z.object({ ok: z.literal(true) });
 
 export type PingRequest = z.infer<typeof pingRequestSchema>;
 export type PingResponse = z.infer<typeof pingResponseSchema>;
+export type AppPreferencesResponse = z.infer<typeof appPreferencesResponseSchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
 export type ProjectInspectPathResponse = z.infer<typeof projectInspectPathResponseSchema>;
 export type SnapshotResponse = z.infer<typeof snapshotResponseSchema>;
@@ -706,6 +745,23 @@ function imageMimeTypeFromPath(filePath: string): string {
     return 'image/svg+xml';
   }
   return 'image/png';
+}
+
+function isPathInsideDirectory(directoryPath: string, targetPath: string): boolean {
+  const relativePath = path.relative(path.resolve(directoryPath), path.resolve(targetPath));
+  return relativePath === '' || (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`));
+}
+
+function isAllowedProjectImageFile(filePath: string): boolean {
+  const normalized = filePath.trim().toLowerCase();
+  return (
+    normalized.endsWith('.png') ||
+    normalized.endsWith('.jpg') ||
+    normalized.endsWith('.jpeg') ||
+    normalized.endsWith('.webp') ||
+    normalized.endsWith('.gif') ||
+    normalized.endsWith('.bmp')
+  );
 }
 
 function summarizeTextFallback(chapterText: string, maxLength = 220): string {
@@ -954,6 +1010,17 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return pingResponseSchema.parse(response);
   });
 
+  ipcMain.handle(IPC_CHANNELS.appGetPreferences, async () => {
+    const preferences = await getAppPreferences();
+    return appPreferencesResponseSchema.parse(preferences);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.appUpdatePreferences, async (_event, payload: unknown) => {
+    const request = appPreferencesUpdateRequestSchema.parse(payload);
+    const preferences = await updateAppPreferences(request);
+    return appPreferencesResponseSchema.parse(preferences);
+  });
+
   ipcMain.handle(IPC_CHANNELS.projectCreate, async (_event, payload: unknown) => {
     const request = projectCreateRequestSchema.parse(payload);
     const project = await sessionManager.createProject({
@@ -969,6 +1036,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const project = await sessionManager.openProject({ rootPath: request.rootPath });
 
     return projectResponseSchema.parse(toProjectResponse(project));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.projectClose, () => {
+    sessionManager.closeProject();
+    return successResponseSchema.parse({ ok: true });
   });
 
   ipcMain.handle(IPC_CHANNELS.projectInspectPath, async (_event, payload: unknown) => {
@@ -1035,8 +1107,25 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
 
   ipcMain.handle(IPC_CHANNELS.projectReadImageDataUrl, async (_event, payload: unknown) => {
     const request = readImageDataUrlRequestSchema.parse(payload);
-    const fileBuffer = await readFile(request.filePath);
-    const mimeType = imageMimeTypeFromPath(request.filePath);
+    const openedProject = sessionManager.getOpenedProject();
+    if (!openedProject) {
+      throw new Error('No open project session');
+    }
+
+    const resolvedFilePath = resolveProjectStoredFilePath({
+      projectRootPath: openedProject.rootPath,
+      assetsPath: openedProject.assetsPath,
+      filePath: request.filePath,
+    });
+    if (
+      !isPathInsideDirectory(openedProject.assetsPath, resolvedFilePath) ||
+      !isAllowedProjectImageFile(resolvedFilePath)
+    ) {
+      throw new Error('Image file access outside project assets is not allowed');
+    }
+
+    const fileBuffer = await readFile(resolvedFilePath);
+    const mimeType = imageMimeTypeFromPath(resolvedFilePath);
     return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
   });
 
@@ -1086,10 +1175,33 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const plot = repository.createPlot(projectId, {
       number: request.number,
       label: request.label ?? `Trama ${request.number}`,
+      summary: request.summary ?? '',
       color: request.color ?? colorFromPlotNumber(request.number),
+      positionX: request.positionX,
+      positionY: request.positionY,
     });
 
     return plotResponseSchema.parse(plot);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.storyUpdatePlot, (_event, payload: unknown) => {
+    const { repository } = getStoryContext(sessionManager);
+    const request = updatePlotRequestSchema.parse(payload);
+    const plot = repository.updatePlot(request.id, {
+      label: request.label,
+      summary: request.summary,
+      color: request.color,
+      positionX: request.positionX,
+      positionY: request.positionY,
+    });
+    return plotResponseSchema.parse(plot);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.storyDeletePlot, (_event, payload: unknown) => {
+    const { repository } = getStoryContext(sessionManager);
+    const request = deletePlotRequestSchema.parse(payload);
+    repository.deletePlot(request.id);
+    return successResponseSchema.parse({ ok: true });
   });
 
   ipcMain.handle(IPC_CHANNELS.storyCreateNode, (_event, payload: unknown) => {

@@ -11,7 +11,10 @@ export interface PlotRecord {
   projectId: string;
   number: number;
   label: string;
+  summary: string;
   color: string;
+  positionX: number;
+  positionY: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,7 +142,18 @@ export interface LocationChapterLinkRecord {
 export interface CreatePlotInput {
   number: number;
   label: string;
+  summary: string;
   color: string;
+  positionX: number;
+  positionY: number;
+}
+
+export interface UpdatePlotInput {
+  label: string;
+  summary: string;
+  color?: string;
+  positionX?: number;
+  positionY?: number;
 }
 
 export interface CreateChapterNodeInput {

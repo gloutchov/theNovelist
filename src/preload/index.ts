@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
+  type AppPreferencesResponse,
   IPC_CHANNELS,
   type ChapterEdgeResponse,
   type ChapterDocumentResponse,
@@ -23,10 +24,17 @@ import {
 
 const novelistApi = {
   ping: (payload: PingRequest): Promise<PingResponse> => ipcRenderer.invoke(IPC_CHANNELS.ping, payload),
+  getAppPreferences: (): Promise<AppPreferencesResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.appGetPreferences),
+  updateAppPreferences: (payload: {
+    autosaveMode?: 'manual' | 'interval' | 'auto';
+    autosaveIntervalMinutes?: number;
+  }): Promise<AppPreferencesResponse> => ipcRenderer.invoke(IPC_CHANNELS.appUpdatePreferences, payload),
   createProject: (payload: { rootPath: string; name: string }): Promise<ProjectResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectCreate, payload),
   openProject: (payload: { rootPath: string }): Promise<ProjectResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectOpen, payload),
+  closeProject: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC_CHANNELS.projectClose),
   inspectProjectPath: (payload: { rootPath: string }): Promise<ProjectInspectPathResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectInspectPath, payload),
   selectProjectDirectory: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.projectSelectDirectory),
@@ -44,8 +52,21 @@ const novelistApi = {
   createPlot: (payload: {
     number: number;
     label?: string;
+    summary?: string;
     color?: string;
+    positionX?: number;
+    positionY?: number;
   }): Promise<PlotResponse> => ipcRenderer.invoke(IPC_CHANNELS.storyCreatePlot, payload),
+  updatePlot: (payload: {
+    id: string;
+    label: string;
+    summary: string;
+    color?: string;
+    positionX?: number;
+    positionY?: number;
+  }): Promise<PlotResponse> => ipcRenderer.invoke(IPC_CHANNELS.storyUpdatePlot, payload),
+  deletePlot: (payload: { id: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.storyDeletePlot, payload),
   createStoryNode: (payload: {
     title: string;
     description?: string;

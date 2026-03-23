@@ -53,7 +53,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         projectId: string;
         number: number;
         label: string;
+        summary: string;
         color: string;
+        positionX: number;
+        positionY: number;
         createdAt: string;
         updatedAt: string;
       }>,
@@ -101,6 +104,11 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         apiKeyStorage: 'none' as 'secure_storage' | 'legacy_db' | 'none',
         apiModel: 'gpt-5-mini',
         createdAt: nowIso(),
+        updatedAt: nowIso(),
+      },
+      appPreferences: {
+        autosaveMode: 'auto' as 'manual' | 'interval' | 'auto',
+        autosaveIntervalMinutes: 5,
         updatedAt: nowIso(),
       },
       codexMessages: [] as Array<{
@@ -246,7 +254,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           projectId,
           number,
           label: `Trama ${number}`,
+          summary: '',
           color: plotColor(number),
+          positionX: 120 + (index % 2) * 340,
+          positionY: 120 + Math.floor(index / 2) * 220,
           createdAt: now,
           updatedAt: now,
         });
@@ -296,6 +307,20 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         timestamp: nowIso(),
       }),
 
+      getAppPreferences: async () => clone(state.appPreferences),
+
+      updateAppPreferences: async (payload: {
+        autosaveMode?: 'manual' | 'interval' | 'auto';
+        autosaveIntervalMinutes?: number;
+      }) => {
+        state.appPreferences = {
+          ...state.appPreferences,
+          ...payload,
+          updatedAt: nowIso(),
+        };
+        return clone(state.appPreferences);
+      },
+
       createProject: async (payload: { rootPath: string; name: string }) => {
         const id = nextId('project');
         state.currentProject = {
@@ -320,6 +345,11 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           return api.createProject({ rootPath: payload.rootPath, name: 'Progetto Mock' });
         }
         return clone(state.currentProject);
+      },
+
+      closeProject: async () => {
+        state.currentProject = null;
+        return { ok: true as const };
       },
 
       inspectProjectPath: async (payload: { rootPath: string }) => {
@@ -358,12 +388,20 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         edges: clone(state.edges),
       }),
 
-      createPlot: async (payload: { number: number; label?: string; color?: string }) => {
+      createPlot: async (payload: {
+        number: number;
+        label?: string;
+        summary?: string;
+        color?: string;
+        positionX?: number;
+        positionY?: number;
+      }) => {
         const project = ensureProject();
         const now = nowIso();
         const existing = state.plots.find((plot) => plot.number === payload.number);
         if (existing) {
           existing.label = payload.label?.trim() || existing.label;
+          existing.summary = payload.summary ?? existing.summary;
           existing.color = payload.color?.trim() || existing.color;
           existing.updatedAt = now;
           return clone(existing);
@@ -374,12 +412,88 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           projectId: project.id,
           number: payload.number,
           label: payload.label?.trim() || `Trama ${payload.number}`,
+          summary: payload.summary ?? '',
           color: payload.color?.trim() || plotColor(payload.number),
+          positionX: payload.positionX ?? 120,
+          positionY: payload.positionY ?? 120,
           createdAt: now,
           updatedAt: now,
         };
         state.plots.push(plot);
         return clone(plot);
+      },
+
+      updatePlot: async (payload: {
+        id: string;
+        label: string;
+        summary: string;
+        color?: string;
+        positionX?: number;
+        positionY?: number;
+      }) => {
+        const plot = state.plots.find((item) => item.id === payload.id);
+        if (!plot) {
+          throw new Error('Plot not found');
+        }
+        plot.label = payload.label.trim();
+        plot.summary = payload.summary;
+        plot.color = payload.color?.trim() || plot.color;
+        plot.positionX = payload.positionX ?? plot.positionX;
+        plot.positionY = payload.positionY ?? plot.positionY;
+        plot.updatedAt = nowIso();
+        return clone(plot);
+      },
+
+      deletePlot: async (payload: { id: string }) => {
+        const plot = state.plots.find((item) => item.id === payload.id);
+        if (!plot) {
+          throw new Error('Plot not found');
+        }
+
+        const deletedNodeIds = new Set(
+          state.nodes
+            .filter((node) => node.projectId === plot.projectId && node.plotNumber === plot.number)
+            .map((node) => node.id),
+        );
+        const deletedCharacterIds = new Set(
+          state.characterCards
+            .filter((card) => card.projectId === plot.projectId && card.plotNumber === plot.number)
+            .map((card) => card.id),
+        );
+        const deletedLocationIds = new Set(
+          state.locationCards
+            .filter((card) => card.projectId === plot.projectId && card.plotNumber === plot.number)
+            .map((card) => card.id),
+        );
+
+        state.nodes = state.nodes.filter((node) => !deletedNodeIds.has(node.id));
+        state.edges = state.edges.filter(
+          (edge) => !deletedNodeIds.has(edge.sourceNodeId) && !deletedNodeIds.has(edge.targetNodeId),
+        );
+        for (const nodeId of deletedNodeIds) {
+          state.chapterDocumentsByNodeId.delete(nodeId);
+        }
+        state.codexMessages = state.codexMessages.filter(
+          (message) => !deletedNodeIds.has(message.chapterNodeId),
+        );
+        state.characterChapterLinks = state.characterChapterLinks.filter(
+          (link) =>
+            !deletedNodeIds.has(link.chapterNodeId) && !deletedCharacterIds.has(link.characterCardId),
+        );
+        state.locationChapterLinks = state.locationChapterLinks.filter(
+          (link) =>
+            !deletedNodeIds.has(link.chapterNodeId) && !deletedLocationIds.has(link.locationCardId),
+        );
+        state.characterCards = state.characterCards.filter((card) => !deletedCharacterIds.has(card.id));
+        state.characterImages = state.characterImages.filter(
+          (image) => !deletedCharacterIds.has(image.characterCardId),
+        );
+        state.locationCards = state.locationCards.filter((card) => !deletedLocationIds.has(card.id));
+        state.locationImages = state.locationImages.filter(
+          (image) => !deletedLocationIds.has(image.locationCardId),
+        );
+        state.plots = state.plots.filter((item) => item.id !== payload.id);
+        return { ok: true as const };
       },
 
       createStoryNode: async (payload: {
@@ -852,11 +966,42 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         message: string;
         context?: string;
         projectName?: string;
-      }) => ({
-        output: `Suggerimento mock: ${payload.message}`,
-        mode: 'fallback' as const,
-        usedCommand: 'mock-codex',
-      }),
+      }) => {
+        if (payload.message.includes('descrizione di personaggio')) {
+          return {
+            output: JSON.stringify({
+              personaggio: {
+                sesso: 'femmina',
+                età: 32,
+                colore_capelli: 'rossi',
+                corporatura: 'slanciata',
+                professione: 'investigatrice',
+              },
+            }),
+            mode: 'fallback' as const,
+            usedCommand: 'mock-codex',
+          };
+        }
+
+        if (payload.message.includes('descrizione di location')) {
+          return {
+            output: JSON.stringify({
+              location: {
+                tipologia_luogo: 'porto',
+                descrizione: 'Porto nebbioso con banchine umide e gru arrugginite.',
+              },
+            }),
+            mode: 'fallback' as const,
+            usedCommand: 'mock-codex',
+          };
+        }
+
+        return {
+          output: `Suggerimento mock: ${payload.message}`,
+          mode: 'fallback' as const,
+          usedCommand: 'mock-codex',
+        };
+      },
 
       codexTransformSelection: async (payload: {
         action: 'correggi' | 'riscrivi' | 'espandi' | 'riduci';

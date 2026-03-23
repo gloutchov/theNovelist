@@ -1,6 +1,7 @@
 import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { toProjectStoredFilePath } from '../projects/asset-paths';
 
 export type GeneratedImageSize = '1024x1024' | '1536x1024' | '1024x1536';
 
@@ -124,7 +125,7 @@ export async function saveGeneratedImageToProject(input: {
   const fileName = `${stamp}-${imageTypeSafe}-${randomUUID().slice(0, 8)}.${input.generated.extension}`;
   const filePath = path.join(directory, fileName);
   await writeFile(filePath, input.generated.bytes);
-  return filePath;
+  return toProjectStoredFilePath(path.dirname(path.resolve(input.assetsPath)), filePath);
 }
 
 function extensionFromFilePath(filePath: string): string {
@@ -156,5 +157,5 @@ export async function importImageToProject(input: {
   const fileName = `${stamp}-${imageTypeSafe}-${randomUUID().slice(0, 8)}.${extension}`;
   const destinationFilePath = path.join(directory, fileName);
   await copyFile(sourceFilePath, destinationFilePath);
-  return destinationFilePath;
+  return toProjectStoredFilePath(path.dirname(path.resolve(input.assetsPath)), destinationFilePath);
 }

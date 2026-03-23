@@ -81,9 +81,20 @@ export async function openProjectFromDisk(rootPath: string): Promise<ProjectCont
       throw new Error(`Project metadata missing in ${paths.dbPath}`);
     }
 
+    if (path.resolve(project.rootPath) !== path.resolve(paths.rootPath)) {
+      repository.updateProjectRootPathAndAssetReferences(project.id, project.rootPath, paths.rootPath);
+    } else {
+      repository.repairProjectAssetReferences(project.id, paths.rootPath);
+    }
+
+    const refreshedProject = repository.getPrimaryProject();
+    if (!refreshedProject) {
+      throw new Error(`Project metadata missing in ${paths.dbPath}`);
+    }
+
     return {
       ...paths,
-      project,
+      project: refreshedProject,
     };
   } finally {
     db.close();

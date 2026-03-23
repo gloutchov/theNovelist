@@ -76,8 +76,9 @@ Il lato sinistro dell'applicazione ha una serie di sezioni così ordinate:
 - Creazione/Apertura di un progetto.
 - Creazione di una Trama.
 - Creazione di un Capitolo.
+- Pulsanti di Stampa ed Export del documento intero.
 - Area oggetto selezionato.
-- Area export/stampa.
+- Area di stato.
 
 ### Canvas (destra)
 Il lato destro è il foglio di lavoro. Si tratta di una lavagna su cui appoggiare i blocchi (ogni blocco rappresenta un capitolo), e decidere come connettere l'uno all'altro.
@@ -85,6 +86,7 @@ Il lato destro è il foglio di lavoro. Si tratta di una lavagna su cui appoggiar
 ### Menù 
 Nell'intestazione del programma c'è un piccolo menù composto da quattro tasti.
 - Struttura Storia: che è l'area principale di lavoro.
+- Trame: è l'area di lavoro per creare trame (principale e secondarie).
 - Personaggi: è l'area di lavoro per creare personaggi.
 - Location: è l'area di lavoro per creare le location.
 - Impostazioni: Qui viene scelto che tipo di interazione con la AI sarà usato.
@@ -102,14 +104,15 @@ E' sufficiente:
 
 ### Creazione/Apertura di un progetto
 Per creare un progetto è sufficiente scegliere una cartella sul vostro computer. Tenete conto che non è un classico documento word, per cui l'intera cartella dovrà essere dedicata a quel solo progetto. Conviene chiamare la cartella col nome del vostro progetto.
-Una volta inserito anche il nome del progetto, è sufficiente cliccare su Crea.
-Una volta creato il progetto, per accedervi, sarà necessario cliccare su Apri.
-Nelle situazioni successive, avendo già creato il progetto, sarà sufficiente selezionare la cartella e cliccare su Apri.
+Una volta inserito anche il nome del progetto, è sufficiente cliccare su Crea e puntare a quella cartella. Il programma farà tutto da solo e vi aprirà il progetto.
+Se il progetto già esiste, per accedervi, sarà necessario cliccare su Apri.
+Il tasto chiudi servirà per chiudere un progetto quando si è finito di lavorare.
 
 ### Trame
 Il programma può gestire più filoni narrativi, qui chiamati semplicemente 'trame'.
 Per creare una trama è sufficiente dargli una etichetta ('Trama Principale', 'Storia del personaggio x', etc), e cliccare su Crea Trama.
 Ogni trama ha assegnato un numero. E i capitoli assegnati alla trama scelta, avranno un colore che li distinguerà dagl'altri.
+E' presente anche un'area di testo in cui è possibile abbozzare la storia nelle sue parti. Grazie a questo testo, se invece di cliccare su Crea Trama, si clicca su Crea Struttura, la AI ipotizzerà una struttura divisa in blocchi (capitoli) collegati tra loro, con tanto di riassunto, da cui si può partire con la stesura della storia vera e propria.
 
 ### Capitoli
 Il programma vede i capitoli come dei blocchi da caricare sul canvas. E' sufficiente inserire il titolo e una breve descrizione. Poi si clicca su 'Crea Blocco', e il capitolo apparirà sul canvas.
@@ -117,34 +120,49 @@ Con un doppioclick sul blocco che rappresenta il capitolo si aprirà una finestr
 
 #### Editor di Testo
 L'editor di testo è molto semplice. Anche in questo caso è diviso in due aree distinte:
+
 - Sul lato sinistro è presente l'editor di scrittura. E' possibile scegliere lo stile, il tipo di font, la giustificazione e la dimensione del font. La scrittura è snella. Riconosce il '-' e i baffi '<<' '>>' per i dialoghi. Mentre se vi serve un elenco puntato (sul serio?) vi basta usare l'asterisco. L'editor mostrerà anche la location associata, e i personaggi. Se si seleziona un testo, è possibile ritoccarlo direttamente tramite la AI.
 - Sul lato destro c'è una interfaccia in stile chatbot per consultare l'AI in caso di bisogno.
 L'editor consente inoltre di esportare il capitolo in formato DOCX, PDF, o di stamparlo.
 Quando si esce dall'editor, la AI farà un riassunto di quanto scritto e lo metterà in descrizione al blocco.
+
 Per richiamare un personaggio, o una location, è sufficiente digitare '@' e scegliere dall'elenco. Il richiamo non sarà visibile in fase di export, ma permetterà di avere una correlazione tra gli elementi, visibile sia nell'editor, sia nelle schede personaggio e nelle schede paesaggio. 
+Se si vuole creare un nuovo personaggio, o una nuova location, senza passare ai Canvas Personaggi/Location (vedi capitoli successivi), è sufficiente scrivere nell'editor la descrizione, selezionare il testo, e cliccarci sopra col tasto destro. Si aprirà un menù ad hoc per generare direttamente ciò che si desidera. Una volta confermato, il programma creerà direttamente la scheda al posto dell'utente, andando a compilare gli attributi grazie alla AI, che cercherà nel testo evidenziato i dati, e li riporterà al posto giusto. Nel caso poi siano attive le API, verrà anche generata una immagine in automatico, sempre basata sulla descrizione.
+Nell'editor di testo, ovviamente, il testo selezionato rimarrà presente, ed apparirà il badge relativo al personaggio, o alla location, appena creata.
 
 ### Selezione
 Quando si seleziona un oggetto sul canvas, in quest'area vengono attivati dei tasti con le possibili azioni che si possono fare. Per cancellare un oggetto è possibile anche usare la scorciatoia, e una volta selezionato, basta premere 'Canc'.
 
-### Canvas Personaggi/Location
-Le due aree non sono molto differenti da quelle già viste. Sia il blocco personaggio, sia il blocco paesaggio permette di inserire delle caratteristiche specifiche, ed eventualmente generare una immagine del personaggio/paesaggio. 
+### Canvas Trame/Personaggi/Location
+Le due aree non sono molto differenti da quelle già viste. Sia il blocco personaggio, sia il blocco paesaggio permette di inserire delle caratteristiche specifiche, ed eventualmente generare una immagine del personaggio/paesaggio.
+Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, alla pressione del tasto Nuove Trame.
 
 Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
 
 ## Impostazioni
-Il menù impostazioni serve principalmente per impostare il servizio AI da usare.
+Il menù impostazioni serve principalmente per:
+- Impostare l'autosave.
+- Impostare il servizio AI da usare.
+
+### Autosave
+Il programma permette di scegliere tra:
+1. Salvataggio manuale.
+2. Salvataggio ogni N Minuti.
+3. Salvataggio automatico, a ogni modifica fatta dall'utente.
+
+### Impostazioni AI
 Il programma prevede tre possibilità:
 1. Chiamare a riga di comando Codex CLI (installato in locale)
 2. Usare una API KEY e i servizi cloud
 3. Usare una AI locale (o cloud) tramite Ollama.
 
-### Codex CLI
+#### Codex CLI
 Codex CLI è il command line interface di OpenAI. Viene installato localmente, ma utilizza i modelli di OpenAI, di conseguenza è necessario un abbonamento a chatGPT (minimo il Plus), o una API KEY da associare.
 
-### API KEY
+#### API KEY
 Questo è l'unico sistema che permette di generare le immagini In-App, sempre che il servizio associato alla vostra chiave API lo permetta. E' prevista la compatibilità alle API KEY di OpenAI, che sono un po' uno standard de facto.
 
-### Ollama
+#### Ollama
 Ollama è un tool che, una volta installato sul proprio computer, permette di scaricare dei modelli AI locali (misurati sulle prestazioni del PC), o di usare dei modelli Open Source in Cloud. Questa soluzione è utile per chi vuole la massima tutela della privacy, a scapito delle prestazioni dei modelli.
 
 Attenzione: le soluzioni Codex CLI e Ollama prevedono che sul computer siano installati i programmi. In caso contrario il servizio AI non sarà attivo.
@@ -154,19 +172,22 @@ Il menù impostazioni presenta anche tre check box importanti:
 2. Abilita chiamate API esterne: Senza questo consenso non potrà funzionare il servizio tramite API KEY.
 3. Auto-riassunto della descrizione blocco al salvataggio: Senza questo consenso non si avrà il riassunto automatico dei capitoli in descrizione al blocco.
 
----
+*Nota:* Le impostazioni AI sono salvate all'interno dei singoli progetti. Le preferenze di autosave invece sono globali utente, quindi restano valide anche quando si apre o si crea un altro progetto.
 
+---
 
 # The Novelist - Tech Notes
 
-App desktop Electron per progettare e scrivere romanzi: canvas narrativo, editor capitoli, schede personaggi/location, export e assistenza AI.
+App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas trame/personaggi/location, editor capitoli, export e assistenza AI.
 
 ## Funzionalita principali
-- Gestione progetto locale con apertura/creazione da path e salvataggio snapshot.
+- Gestione progetto locale con `Crea`, `Apri`, `Salva`, `Chiudi` e snapshot DB.
 - Canvas storia con trame, capitoli, connessioni e ordinamento narrativo.
+- Canvas Trame dedicato con creazione/modifica/eliminazione trame e generazione AI di una bozza struttura a blocchi.
 - Editor capitolo con formattazione ricca, riferimenti rapidi a personaggi/location e azioni AI su selezione.
 - Chat AI contestuale al capitolo.
 - Canvas Personaggi e Location con collegamenti ai capitoli.
+- Autosave configurabile lato utente (`manuale`, `a intervallo`, `automatico`).
 - Gestione immagini per personaggi/location:
   - associazione file locale;
   - anteprima e visualizzazione completa;
@@ -210,12 +231,17 @@ Nelle Impostazioni AI puoi scegliere il provider:
 - `Ollama (locale)`
 
 Note operative:
-- Prompt/suggerimenti/chat usano il provider selezionato.
+- Prompt/suggerimenti/chat/creazione struttura trama usano il provider selezionato.
 - La generazione immagini in-app usa OpenAI Images API, quindi richiede:
   - consenso AI attivo;
   - provider `OpenAI API`;
   - chiamate API abilitate;
   - API key disponibile.
+
+## Preferenze e impostazioni
+- `Autosave`: preferenza utente globale salvata fuori dal progetto.
+- `Impostazioni AI`: salvate per singolo progetto.
+- Quando apri o crei un progetto nuovo, le impostazioni AI vengono caricate dal progetto corrente; l'autosave mantiene invece l'ultima preferenza utente salvata.
 
 ## Variabili ambiente
 - `NOVELIST_CODEX_COMMAND`: comando CLI (default: `codex`).
@@ -250,8 +276,9 @@ Nota:
 - `.snapshots/`: snapshot DB per recovery.
 
 ## IPC (selezione)
-- Progetto: `project:create`, `project:open`, `project:inspect-path`, `project:select-directory`, `project:save-snapshot`.
-- Storia: `story:get-state`, `story:create-node`, `story:update-node`, `story:create-edge`, `story:delete-edge`.
+- App: `app:get-preferences`, `app:update-preferences`.
+- Progetto: `project:create`, `project:open`, `project:close`, `project:inspect-path`, `project:select-directory`, `project:save-snapshot`.
+- Storia: `story:get-state`, `story:create-plot`, `story:update-plot`, `story:delete-plot`, `story:create-node`, `story:update-node`, `story:delete-node`, `story:create-edge`, `story:delete-edge`.
 - Capitoli: `chapter:get-document`, `chapter:save-document`, `chapter:export-docx`, `chapter:export-pdf`, `chapter:print`.
 - Manoscritto: `manuscript:export-docx`, `manuscript:export-pdf`, `manuscript:print`.
 - Personaggi/Location: CRUD schede, link capitoli, immagini (lista/associazione/generazione/eliminazione).

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import type Database from 'better-sqlite3';
+import { repairProjectStoredFilePath } from '../projects/asset-paths';
 import type {
   CharacterChapterLinkRecord,
   ChapterDocumentRecord,
@@ -26,6 +28,7 @@ import type {
   ProjectRecord,
   UpdateChapterNodeInput,
   UpdateCharacterCardInput,
+  UpdatePlotInput,
   UpdateLocationCardInput,
   UpsertChapterDocumentInput,
   UpsertCodexSettingsInput,
@@ -51,7 +54,10 @@ function toPlotRecord(row: Record<string, unknown>): PlotRecord {
     projectId: String(row.project_id),
     number: Number(row.number),
     label: String(row.label),
+    summary: String(row.summary ?? ''),
     color: String(row.color),
+    positionX: Number(row.position_x ?? 120),
+    positionY: Number(row.position_y ?? 120),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -258,6 +264,65 @@ export class NovelistRepository {
       .run(name, nowIso(), id);
   }
 
+  repairProjectAssetReferences(id: string, rootPath: string): void {
+    const normalizedRoot = path.resolve(rootPath.trim());
+    const normalizedAssetsRoot = path.join(normalizedRoot, 'assets');
+    const timestamp = nowIso();
+
+    this.db.transaction(() => {
+      this.db
+        .prepare('UPDATE projects SET root_path = ?, updated_at = ? WHERE id = ?')
+        .run(normalizedRoot, timestamp, id);
+
+      const rewriteCharacterImages = this.db.prepare(
+        'UPDATE character_images SET file_path = @filePath WHERE id = @id',
+      );
+      const characterImageRows = this.db
+        .prepare('SELECT id, file_path FROM character_images')
+        .all() as Array<Record<string, unknown>>;
+      for (const row of characterImageRows) {
+        const currentPath = typeof row.file_path === 'string' ? row.file_path : '';
+        const nextPath = repairProjectStoredFilePath({
+          projectRootPath: normalizedRoot,
+          assetsPath: normalizedAssetsRoot,
+          filePath: currentPath,
+        });
+        if (nextPath && nextPath !== currentPath) {
+          rewriteCharacterImages.run({
+            id: String(row.id),
+            filePath: nextPath,
+          });
+        }
+      }
+
+      const rewriteLocationImages = this.db.prepare(
+        'UPDATE location_images SET file_path = @filePath WHERE id = @id',
+      );
+      const locationImageRows = this.db
+        .prepare('SELECT id, file_path FROM location_images')
+        .all() as Array<Record<string, unknown>>;
+      for (const row of locationImageRows) {
+        const currentPath = typeof row.file_path === 'string' ? row.file_path : '';
+        const nextPath = repairProjectStoredFilePath({
+          projectRootPath: normalizedRoot,
+          assetsPath: normalizedAssetsRoot,
+          filePath: currentPath,
+        });
+        if (nextPath && nextPath !== currentPath) {
+          rewriteLocationImages.run({
+            id: String(row.id),
+            filePath: nextPath,
+          });
+        }
+      }
+    })();
+  }
+
+  updateProjectRootPathAndAssetReferences(id: string, previousRootPath: string, nextRootPath: string): void {
+    void previousRootPath;
+    this.repairProjectAssetReferences(id, nextRootPath);
+  }
+
   createPlot(projectId: string, input: CreatePlotInput): PlotRecord {
     const id = randomUUID();
     const timestamp = nowIso();
@@ -265,8 +330,30 @@ export class NovelistRepository {
     this.db
       .prepare(
         `
-        INSERT INTO plots(id, project_id, number, label, color, created_at, updated_at)
-        VALUES (@id, @projectId, @number, @label, @color, @createdAt, @updatedAt)
+        INSERT INTO plots(
+          id,
+          project_id,
+          number,
+          label,
+          summary,
+          color,
+          position_x,
+          position_y,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          @id,
+          @projectId,
+          @number,
+          @label,
+          @summary,
+          @color,
+          @positionX,
+          @positionY,
+          @createdAt,
+          @updatedAt
+        )
         `,
       )
       .run({
@@ -274,7 +361,10 @@ export class NovelistRepository {
         projectId,
         number: input.number,
         label: input.label,
+        summary: input.summary,
         color: input.color,
+        positionX: input.positionX,
+        positionY: input.positionY,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -288,6 +378,72 @@ export class NovelistRepository {
     }
 
     return toPlotRecord(row);
+  }
+
+  updatePlot(id: string, input: UpdatePlotInput): PlotRecord {
+    const timestamp = nowIso();
+
+    this.db
+      .prepare(
+        `
+        UPDATE plots
+        SET label = @label,
+            summary = @summary,
+            color = COALESCE(@color, color),
+            position_x = COALESCE(@positionX, position_x),
+            position_y = COALESCE(@positionY, position_y),
+            updated_at = @updatedAt
+        WHERE id = @id
+        `,
+      )
+      .run({
+        id,
+        label: input.label,
+        summary: input.summary,
+        color: input.color ?? null,
+        positionX: input.positionX ?? null,
+        positionY: input.positionY ?? null,
+        updatedAt: timestamp,
+      });
+
+    const row = this.db.prepare('SELECT * FROM plots WHERE id = ?').get(id) as
+      | Record<string, unknown>
+      | undefined;
+
+    if (!row) {
+      throw new Error('Plot update failed');
+    }
+
+    return toPlotRecord(row);
+  }
+
+  deletePlot(id: string): void {
+    const row = this.db.prepare('SELECT * FROM plots WHERE id = ?').get(id) as
+      | Record<string, unknown>
+      | undefined;
+
+    if (!row) {
+      throw new Error('Plot not found');
+    }
+
+    const plot = toPlotRecord(row);
+    const deleteChapterNodes = this.db.prepare(
+      'DELETE FROM chapter_nodes WHERE project_id = ? AND plot_number = ?',
+    );
+    const deleteCharacterCards = this.db.prepare(
+      'DELETE FROM character_cards WHERE project_id = ? AND plot_number = ?',
+    );
+    const deleteLocationCards = this.db.prepare(
+      'DELETE FROM location_cards WHERE project_id = ? AND plot_number = ?',
+    );
+    const deletePlotRecord = this.db.prepare('DELETE FROM plots WHERE id = ?');
+
+    this.db.transaction(() => {
+      deleteChapterNodes.run(plot.projectId, plot.number);
+      deleteCharacterCards.run(plot.projectId, plot.number);
+      deleteLocationCards.run(plot.projectId, plot.number);
+      deletePlotRecord.run(id);
+    })();
   }
 
   listPlots(projectId: string): PlotRecord[] {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import {
   Extension,
@@ -12,16 +12,24 @@ import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import TextAlign from '@tiptap/extension-text-align';
+import { getNearbyCanvasPosition } from './canvas-position';
+import {
+  parseCharacterCreationSuggestion,
+  parseLocationCreationSuggestion,
+  splitCharacterName,
+} from './card-extraction';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
 type CodexStatus = Awaited<ReturnType<(typeof window.novelistApi)['codexStatus']>>;
 type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
+type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 type CodexChatHistoryRecord = Awaited<
   ReturnType<(typeof window.novelistApi)['codexGetChatHistory']>
 >[number];
 type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
+type StoryChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>['nodes'][number];
 
 type BlockStyle = 'paragraph' | 'heading' | 'blockquote';
 type ReferenceType = 'character' | 'location';
@@ -84,6 +92,25 @@ interface MentionMenuState {
   top: number;
   items: ReferenceOption[];
   selectedIndex: number;
+}
+
+interface TextSelectionSnapshot {
+  text: string;
+  range: {
+    from: number;
+    to: number;
+  };
+}
+
+interface SelectionContextMenuState extends TextSelectionSnapshot {
+  left: number;
+  top: number;
+}
+
+interface CreateReferenceModalState extends TextSelectionSnapshot {
+  type: ReferenceType;
+  name: string;
+  submitting: boolean;
 }
 
 function mapHistoryMessageToChatMessage(message: CodexChatHistoryRecord): ChatMessage {
@@ -234,6 +261,9 @@ interface ChapterEditorProps {
   onStatus: (message: string) => void;
   onChapterSaved?: () => void | Promise<void>;
   projectName?: string;
+  autosaveSettings?: AppPreferences | null;
+  onDirtyChange?: (dirty: boolean) => void;
+  onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
 }
 
 function getAiAssistantLabel(settings: CodexSettings | null): string {
@@ -244,6 +274,80 @@ function getAiAssistantLabel(settings: CodexSettings | null): string {
     return 'OpenAI';
   }
   return 'Codex';
+}
+
+function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
+  const missing: string[] = [];
+  if (!settings?.enabled) {
+    missing.push('consenso AI');
+  }
+  if (settings?.provider !== 'openai_api') {
+    missing.push('provider OpenAI API');
+  }
+  if (!settings?.allowApiCalls) {
+    missing.push('chiamate API abilitate');
+  }
+  if (!settings?.hasRuntimeApiKey) {
+    missing.push('API key disponibile');
+  }
+  return missing;
+}
+
+function normalizePromptText(text: string, maxLength = 900): string {
+  const normalized = text.trim().replace(/\s+/g, ' ');
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength).trimEnd()}...`;
+}
+
+function buildCharacterAutoImagePrompt(input: {
+  name: string;
+  description: string;
+  suggestion: ReturnType<typeof parseCharacterCreationSuggestion>;
+}): string {
+  const details = [
+    input.suggestion.sex && `sesso: ${input.suggestion.sex}`,
+    input.suggestion.age !== null && `eta: ${input.suggestion.age}`,
+    input.suggestion.species && `specie: ${input.suggestion.species}`,
+    input.suggestion.hairColor && `capelli: ${input.suggestion.hairColor}`,
+    input.suggestion.bald ? 'calvo' : '',
+    input.suggestion.beard && `barba: ${input.suggestion.beard}`,
+    input.suggestion.physique && `corporatura: ${input.suggestion.physique}`,
+    input.suggestion.job && `ruolo: ${input.suggestion.job}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return [
+    `Ritratto narrativo realistico di ${input.name}.`,
+    details ? `Dettagli personaggio: ${details}.` : '',
+    `Usa questa descrizione narrativa come base visiva principale: ${normalizePromptText(input.description, 700)}.`,
+    'Inquadratura mezzo busto, luce cinematografica, espressione coerente con la scena, dettagli del volto nitidi, sfondo discreto, alta qualita.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function buildLocationAutoImagePrompt(input: {
+  name: string;
+  description: string;
+  suggestion: ReturnType<typeof parseLocationCreationSuggestion>;
+}): string {
+  return [
+    `Illustrazione narrativa realistica della location ${input.name}.`,
+    input.suggestion.locationType ? `Tipologia luogo: ${input.suggestion.locationType}.` : '',
+    `Usa questo testo selezionato come riferimento principale per l'ambiente: ${normalizePromptText(
+      input.description,
+      800,
+    )}.`,
+    input.suggestion.description
+      ? `Sintesi ambientale: ${normalizePromptText(input.suggestion.description, 500)}.`
+      : '',
+    'Vista esterna o establishing shot, luce cinematografica, atmosfera coerente con la scena, ricchezza di dettagli ambientali, alta qualita.',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 function getWordCountFromText(text: string): number {
@@ -402,6 +506,28 @@ function buildMentionMenuState(
   };
 }
 
+function getSelectedTextSnapshot(
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+): TextSelectionSnapshot | null {
+  const selection = editor.state.selection;
+  if (selection.empty) {
+    return null;
+  }
+
+  const text = editor.state.doc.textBetween(selection.from, selection.to, ' ').trim();
+  if (!text) {
+    return null;
+  }
+
+  return {
+    text,
+    range: {
+      from: selection.from,
+      to: selection.to,
+    },
+  };
+}
+
 function styleFromEditor(editor: NonNullable<ReturnType<typeof useEditor>>): BlockStyle {
   if (editor.isActive('heading')) {
     return 'heading';
@@ -466,10 +592,14 @@ export default function ChapterEditor({
   onStatus,
   onChapterSaved,
   projectName,
+  autosaveSettings,
+  onDirtyChange,
+  onRegisterFlush,
 }: ChapterEditorProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState<boolean>(false);
   const [documentRecord, setDocumentRecord] = useState<ChapterDocumentRecord | null>(null);
   const [wordCount, setWordCount] = useState<number>(0);
 
@@ -492,14 +622,23 @@ export default function ChapterEditor({
   const [linkedLocations, setLinkedLocations] = useState<LocationCard[]>([]);
   const [availableCharacters, setAvailableCharacters] = useState<CharacterCard[]>([]);
   const [availableLocations, setAvailableLocations] = useState<LocationCard[]>([]);
+  const [chapterRecord, setChapterRecord] = useState<StoryChapterNode | null>(null);
   const [mentionedIds, setMentionedIds] = useState<MentionIds>({
     characterIds: [],
     locationIds: [],
   });
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState | null>(null);
+  const [selectionContextMenu, setSelectionContextMenu] = useState<SelectionContextMenuState | null>(
+    null,
+  );
+  const [createReferenceModal, setCreateReferenceModal] = useState<CreateReferenceModalState | null>(
+    null,
+  );
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveInFlightRef = useRef<boolean>(false);
   const editorRef = useRef<NonNullable<ReturnType<typeof useEditor>> | null>(null);
   const mentionMenuRef = useRef<MentionMenuState | null>(null);
   const referenceOptionsRef = useRef<ReferenceOption[]>([]);
@@ -755,6 +894,9 @@ export default function ChapterEditor({
       editor: NonNullable<ReturnType<typeof useEditor>>;
     }) => {
       syncDocumentStateFromEditor(activeEditor);
+      if (!loading) {
+        setIsDirty(true);
+      }
     };
 
     editor.on('update', handleEditorUpdate);
@@ -762,7 +904,7 @@ export default function ChapterEditor({
     return () => {
       editor.off('update', handleEditorUpdate);
     };
-  }, [editor, scheduleWordCountUpdate]);
+  }, [editor, loading, scheduleWordCountUpdate]);
 
   useEffect(() => {
     if (!editor) {
@@ -785,6 +927,7 @@ export default function ChapterEditor({
           chapterLocations,
           allCharacters,
           allLocations,
+          storyState,
         ] = await Promise.all([
           window.novelistApi.getChapterDocument({ chapterNodeId }),
           window.novelistApi.codexStatus(),
@@ -794,6 +937,7 @@ export default function ChapterEditor({
           window.novelistApi.listChapterLocations({ chapterNodeId }),
           window.novelistApi.listCharacterCards(),
           window.novelistApi.listLocationCards(),
+          window.novelistApi.getStoryState(),
         ]);
 
         if (!isMounted) {
@@ -807,6 +951,7 @@ export default function ChapterEditor({
         setLinkedLocations(chapterLocations);
         setAvailableCharacters(allCharacters);
         setAvailableLocations(allLocations);
+        setChapterRecord(storyState.nodes.find((node) => node.id === chapterNodeId) ?? null);
         setDocumentRecord(record);
         const content = JSON.parse(record.contentJson) as Record<string, unknown>;
         editor.commands.setContent(content);
@@ -814,6 +959,7 @@ export default function ChapterEditor({
         setMentionedIds(extractMentionIds(document));
         setWordCount(getWordCountFromDocument(document));
         setMentionMenu(null);
+        setIsDirty(false);
         onStatus(`Editor aperto: ${chapterTitle}`);
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
@@ -852,12 +998,21 @@ export default function ChapterEditor({
         setSelectedText('');
         setSelectionRange(null);
         setSelectionBubble(null);
+        setSelectionContextMenu(null);
         return;
       }
 
-      const text = activeEditor.state.doc.textBetween(selection.from, selection.to, ' ').trim();
-      setSelectedText(text);
-      setSelectionRange({ from: selection.from, to: selection.to });
+      const snapshot = getSelectedTextSnapshot(activeEditor);
+      if (!snapshot) {
+        setSelectedText('');
+        setSelectionRange(null);
+        setSelectionBubble(null);
+        setSelectionContextMenu(null);
+        return;
+      }
+      setSelectedText(snapshot.text);
+      setSelectionRange(snapshot.range);
+      setSelectionContextMenu(null);
 
       const nativeSelection = window.getSelection();
       if (!nativeSelection || nativeSelection.rangeCount === 0 || nativeSelection.isCollapsed) {
@@ -893,9 +1048,46 @@ export default function ChapterEditor({
     container.scrollTop = container.scrollHeight;
   }, [chatMessages]);
 
+  useEffect(() => {
+    if (!selectionContextMenu) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent): void {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        setSelectionContextMenu(null);
+        return;
+      }
+      if (target.closest('.selection-context-menu')) {
+        return;
+      }
+      setSelectionContextMenu(null);
+    }
+
+    function handleEscape(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        setSelectionContextMenu(null);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [selectionContextMenu]);
+
   async function refreshCodexHistory(): Promise<void> {
     const history = await window.novelistApi.codexGetChatHistory({ chapterNodeId });
     setChatMessages(history.map(mapHistoryMessageToChatMessage));
+  }
+
+  async function refreshCodexSettings(): Promise<CodexSettings> {
+    const settings = await window.novelistApi.codexGetSettings();
+    setCodexSettings(settings);
+    return settings;
   }
 
   async function refreshChapterReferences(): Promise<void> {
@@ -990,7 +1182,7 @@ export default function ChapterEditor({
     }
   }
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(options?: { successStatus?: string; silent?: boolean }): Promise<void> {
     if (!editor) {
       return;
     }
@@ -1016,6 +1208,7 @@ export default function ChapterEditor({
       });
 
       setDocumentRecord(saved);
+      setIsDirty(false);
       let referenceSyncFailed = false;
       try {
         await syncChapterReferences(document);
@@ -1030,8 +1223,8 @@ export default function ChapterEditor({
         onStatus('Capitolo salvato, ma sincronizzazione riferimenti fallita');
       }
       await onChapterSaved?.();
-      if (!referenceSyncFailed) {
-        onStatus(`Capitolo salvato (${saved.wordCount} parole)`);
+      if (!referenceSyncFailed && !options?.silent) {
+        onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
@@ -1041,6 +1234,89 @@ export default function ChapterEditor({
       setSaving(false);
     }
   }
+
+  const flushDirtyDocument = useCallback(
+    async (options?: { successStatus?: string; silent?: boolean }): Promise<boolean> => {
+      if (!isDirty || saving || loading || !editor) {
+        return false;
+      }
+
+      await handleSave(options);
+      return true;
+    },
+    [editor, isDirty, loading, saving],
+  );
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => {
+      onDirtyChange?.(false);
+    };
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    onRegisterFlush?.(() => flushDirtyDocument({ silent: true }));
+    return () => {
+      onRegisterFlush?.(null);
+    };
+  }, [flushDirtyDocument, onRegisterFlush]);
+
+  useEffect(() => {
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    if (autosaveSettings?.autosaveMode !== 'auto' || !isDirty || loading || saving) {
+      return;
+    }
+
+    autosaveTimeoutRef.current = setTimeout(() => {
+      if (autosaveInFlightRef.current) {
+        return;
+      }
+
+      autosaveInFlightRef.current = true;
+      void flushDirtyDocument({ successStatus: 'Capitolo salvato automaticamente' }).finally(() => {
+        autosaveInFlightRef.current = false;
+      });
+    }, 1200);
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+    };
+  }, [autosaveSettings?.autosaveMode, flushDirtyDocument, isDirty, loading, saving]);
+
+  useEffect(() => {
+    if (autosaveSettings?.autosaveMode !== 'interval' || loading) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      if (!isDirty || saving || autosaveInFlightRef.current) {
+        return;
+      }
+
+      autosaveInFlightRef.current = true;
+      void flushDirtyDocument({ successStatus: 'Capitolo salvato automaticamente' }).finally(() => {
+        autosaveInFlightRef.current = false;
+      });
+    }, autosaveSettings.autosaveIntervalMinutes * 60_000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [
+    autosaveSettings?.autosaveIntervalMinutes,
+    autosaveSettings?.autosaveMode,
+    flushDirtyDocument,
+    isDirty,
+    loading,
+    saving,
+  ]);
 
   function applyBlockStyle(style: BlockStyle): void {
     if (!editor) {
@@ -1274,54 +1550,330 @@ export default function ChapterEditor({
     }
   }
 
-  function insertReference(item: ReferenceOption, range?: { from: number; to: number }): void {
+  function insertReference(
+    item: ReferenceOption,
+    range?: { from: number; to: number },
+    options?: { preserveSelectedContent?: boolean },
+  ): void {
     if (!editor) {
       return;
     }
 
+    const insertionRange =
+      range ?? {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      };
+    const preservedContent =
+      options?.preserveSelectedContent && insertionRange.from < insertionRange.to
+        ? (((editor.state.doc.slice(insertionRange.from, insertionRange.to).toJSON().content ??
+            []) as RichTextNodeJson[]))
+        : [];
+
     editor
       .chain()
       .focus()
-      .insertContentAt(
-        range ?? {
-          from: editor.state.selection.from,
-          to: editor.state.selection.to,
+      .insertContentAt(insertionRange, [
+        {
+          type: 'referenceMention',
+          attrs: {
+            refId: item.id,
+            refType: item.type,
+            label: item.label,
+          },
         },
-        [
-          {
-            type: 'referenceMention',
-            attrs: {
-              refId: item.id,
-              refType: item.type,
-              label: item.label,
-            },
-          },
-          {
-            type: 'text',
-            text: ' ',
-          },
-        ],
-      )
+        {
+          type: 'text',
+          text: ' ',
+        },
+        ...preservedContent,
+      ])
       .run();
     setMentionMenu(null);
+    setSelectionContextMenu(null);
   }
 
-  function insertCharacterReference(card: CharacterCard): void {
-    insertReference({
-      id: card.id,
-      type: 'character',
-      label: getCharacterLabel(card),
-      searchText: normalizeReferenceSearch(getCharacterLabel(card)),
+  function insertCharacterReference(
+    card: CharacterCard,
+    range?: { from: number; to: number },
+    options?: { preserveSelectedContent?: boolean },
+  ): void {
+    insertReference(
+      {
+        id: card.id,
+        type: 'character',
+        label: getCharacterLabel(card),
+        searchText: normalizeReferenceSearch(getCharacterLabel(card)),
+      },
+      range,
+      options,
+    );
+  }
+
+  function insertLocationReference(
+    card: LocationCard,
+    range?: { from: number; to: number },
+    options?: { preserveSelectedContent?: boolean },
+  ): void {
+    insertReference(
+      {
+        id: card.id,
+        type: 'location',
+        label: card.name,
+        searchText: normalizeReferenceSearch(card.name),
+      },
+      range,
+      options,
+    );
+  }
+
+  function handleEditorContextMenu(event: ReactMouseEvent<HTMLDivElement>): void {
+    if (!editor) {
+      return;
+    }
+
+    const snapshot = getSelectedTextSnapshot(editor);
+    if (!snapshot) {
+      setSelectionContextMenu(null);
+      return;
+    }
+
+    event.preventDefault();
+    setMentionMenu(null);
+    setSelectionBubble(null);
+    setSelectionContextMenu({
+      ...snapshot,
+      left: event.clientX,
+      top: event.clientY,
     });
   }
 
-  function insertLocationReference(card: LocationCard): void {
-    insertReference({
-      id: card.id,
-      type: 'location',
-      label: card.name,
-      searchText: normalizeReferenceSearch(card.name),
-    });
+  async function requestCharacterSuggestion(
+    name: string,
+    description: string,
+  ): Promise<ReturnType<typeof parseCharacterCreationSuggestion>> {
+    if (!codexSettings?.enabled) {
+      return parseCharacterCreationSuggestion('');
+    }
+
+    try {
+      const response = await window.novelistApi.codexAssist({
+        projectName,
+        message:
+          'Analizza questa descrizione di personaggio e restituisci solo JSON valido con le chiavi sex, age, sexualOrientation, species, hairColor, bald, beard, physique, job. Usa stringhe concise in italiano, null per age se ignota e true per bald solo se esplicito.',
+        context: JSON.stringify({
+          chapterTitle,
+          characterName: name,
+          description,
+        }),
+      });
+
+      if (response.cancelled || !response.output.trim()) {
+        return parseCharacterCreationSuggestion('');
+      }
+
+      return parseCharacterCreationSuggestion(response.output);
+    } catch {
+      return parseCharacterCreationSuggestion('');
+    }
+  }
+
+  async function requestLocationSuggestion(
+    name: string,
+    description: string,
+  ): Promise<ReturnType<typeof parseLocationCreationSuggestion>> {
+    if (!codexSettings?.enabled) {
+      return parseLocationCreationSuggestion('');
+    }
+
+    try {
+      const response = await window.novelistApi.codexAssist({
+        projectName,
+        message:
+          'Analizza questa descrizione di location e restituisci solo JSON valido con le chiavi locationType e description. locationType deve essere breve; description deve essere una sintesi narrativa di una o due frasi in italiano.',
+        context: JSON.stringify({
+          chapterTitle,
+          locationName: name,
+          description,
+        }),
+      });
+
+      if (response.cancelled || !response.output.trim()) {
+        return parseLocationCreationSuggestion('');
+      }
+
+      return parseLocationCreationSuggestion(response.output);
+    } catch {
+      return parseLocationCreationSuggestion('');
+    }
+  }
+
+  async function handleSubmitReferenceCreation(): Promise<void> {
+    if (!createReferenceModal) {
+      return;
+    }
+
+    const name = createReferenceModal.name.trim();
+    if (!name) {
+      onStatus(
+        createReferenceModal.type === 'character'
+          ? 'Inserisci il nome del personaggio.'
+          : 'Inserisci il nome della location.',
+      );
+      return;
+    }
+
+    setCreateReferenceModal((prev) => (prev ? { ...prev, submitting: true } : prev));
+    setError(null);
+
+    try {
+      const currentCodexSettings = await refreshCodexSettings();
+      const missingImageGenerationRequirements = getImageGenerationMissingRequirements(currentCodexSettings);
+      const imageGenerationReady = missingImageGenerationRequirements.length === 0;
+      let autoImageGenerated = false;
+      let autoImageError: string | null = null;
+
+      if (createReferenceModal.type === 'character') {
+        const suggestion = await requestCharacterSuggestion(name, createReferenceModal.text);
+        const { firstName, lastName } = splitCharacterName(name);
+        const nextPosition = getNearbyCanvasPosition(
+          availableCharacters.map((card) => ({
+            x: card.positionX,
+            y: card.positionY,
+          })),
+          {
+            emptyPosition: { x: 120, y: 120 },
+            minDistance: 210,
+            radiusStep: 150,
+          },
+        );
+
+        const created = await window.novelistApi.createCharacterCard({
+          firstName,
+          lastName,
+          sex: suggestion.sex,
+          age: suggestion.age,
+          sexualOrientation: suggestion.sexualOrientation,
+          species: suggestion.species,
+          hairColor: suggestion.hairColor,
+          bald: suggestion.bald,
+          beard: suggestion.beard,
+          physique: suggestion.physique,
+          job: suggestion.job,
+          notes: createReferenceModal.text,
+          plotNumber: chapterRecord?.plotNumber ?? 1,
+          positionX: nextPosition.x,
+          positionY: nextPosition.y,
+        });
+
+        await window.novelistApi.setCharacterChapterLinks({
+          characterCardId: created.id,
+          chapterNodeIds: [chapterNodeId],
+        });
+
+        if (imageGenerationReady) {
+          try {
+            await window.novelistApi.generateCharacterImage({
+              characterCardId: created.id,
+              imageType: 'mezzo-busto',
+              prompt: buildCharacterAutoImagePrompt({
+                name,
+                description: createReferenceModal.text,
+                suggestion,
+              }),
+              size: '1024x1024',
+            });
+            autoImageGenerated = true;
+          } catch (caughtError) {
+            autoImageError =
+              caughtError instanceof Error ? caughtError.message : 'Errore generazione immagine';
+          }
+        }
+
+        insertCharacterReference(created, createReferenceModal.range, {
+          preserveSelectedContent: true,
+        });
+      } else {
+        const suggestion = await requestLocationSuggestion(name, createReferenceModal.text);
+        const nextPosition = getNearbyCanvasPosition(
+          availableLocations.map((card) => ({
+            x: card.positionX,
+            y: card.positionY,
+          })),
+          {
+            emptyPosition: { x: 120, y: 120 },
+            minDistance: 225,
+            radiusStep: 155,
+          },
+        );
+
+        const created = await window.novelistApi.createLocationCard({
+          name,
+          locationType: suggestion.locationType,
+          description: suggestion.description,
+          notes: createReferenceModal.text,
+          plotNumber: chapterRecord?.plotNumber ?? 1,
+          positionX: nextPosition.x,
+          positionY: nextPosition.y,
+        });
+
+        await window.novelistApi.setLocationChapterLinks({
+          locationCardId: created.id,
+          chapterNodeIds: [chapterNodeId],
+        });
+
+        if (imageGenerationReady) {
+          try {
+            await window.novelistApi.generateLocationImage({
+              locationCardId: created.id,
+              imageType: 'esterno',
+              prompt: buildLocationAutoImagePrompt({
+                name,
+                description: createReferenceModal.text,
+                suggestion,
+              }),
+              size: '1024x1024',
+            });
+            autoImageGenerated = true;
+          } catch (caughtError) {
+            autoImageError =
+              caughtError instanceof Error ? caughtError.message : 'Errore generazione immagine';
+          }
+        }
+
+        insertLocationReference(created, createReferenceModal.range, {
+          preserveSelectedContent: true,
+        });
+      }
+
+      await refreshChapterReferences();
+      setSelectionBubble(null);
+      setSelectedText('');
+      setSelectionRange(null);
+      setCreateReferenceModal(null);
+      const baseStatus =
+        createReferenceModal.type === 'character'
+          ? `Personaggio creato e inserito nel testo: @${name}`
+          : `Location creata e inserita nel testo: @${name}`;
+      if (autoImageGenerated) {
+        onStatus(`${baseStatus} con immagine generata automaticamente`);
+      } else if (autoImageError) {
+        onStatus(`${baseStatus}. Immagine automatica non generata: ${autoImageError}`);
+      } else if (missingImageGenerationRequirements.length > 0) {
+        onStatus(
+          `${baseStatus}. Generazione automatica non disponibile: manca ${missingImageGenerationRequirements.join(
+            ', ',
+          )}.`,
+        );
+      } else {
+        onStatus(baseStatus);
+      }
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      onStatus('Errore creazione scheda da selezione');
+      setCreateReferenceModal((prev) => (prev ? { ...prev, submitting: false } : prev));
+    }
   }
 
   const activeStyle = editor ? styleFromEditor(editor) : 'paragraph';
@@ -1482,7 +2034,9 @@ export default function ChapterEditor({
                 </button>
               </div>
             </div>
-            {editor ? <EditorContent editor={editor} /> : null}
+            <div onContextMenu={handleEditorContextMenu}>
+              {editor ? <EditorContent editor={editor} /> : null}
+            </div>
             {mentionMenu ? (
               <div
                 className="mention-menu"
@@ -1515,6 +2069,46 @@ export default function ChapterEditor({
                     <small>{item.type === 'character' ? 'Personaggio' : 'Location'}</small>
                   </button>
                 ))}
+              </div>
+            ) : null}
+            {selectionContextMenu ? (
+              <div
+                className="selection-context-menu"
+                style={{
+                  left: `${selectionContextMenu.left}px`,
+                  top: `${selectionContextMenu.top}px`,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionContextMenu(null);
+                    setCreateReferenceModal({
+                      type: 'character',
+                      text: selectionContextMenu.text,
+                      range: selectionContextMenu.range,
+                      name: '',
+                      submitting: false,
+                    });
+                  }}
+                >
+                  Crea personaggio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionContextMenu(null);
+                    setCreateReferenceModal({
+                      type: 'location',
+                      text: selectionContextMenu.text,
+                      range: selectionContextMenu.range,
+                      name: '',
+                      submitting: false,
+                    });
+                  }}
+                >
+                  Crea location
+                </button>
               </div>
             ) : null}
           </div>
@@ -1719,6 +2313,63 @@ export default function ChapterEditor({
                   disabled={applyingSelectionDiff}
                 >
                   Scarta
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {createReferenceModal ? (
+          <div
+            className="modal-overlay"
+            onClick={() => {
+              if (!createReferenceModal.submitting) {
+                setCreateReferenceModal(null);
+              }
+            }}
+          >
+            <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+              <h3>
+                {createReferenceModal.type === 'character'
+                  ? 'Crea Scheda Personaggio'
+                  : 'Crea Scheda Location'}
+              </h3>
+              <label>
+                {createReferenceModal.type === 'character' ? 'Nome personaggio' : 'Nome location'}
+                <input
+                  autoFocus
+                  value={createReferenceModal.name}
+                  onChange={(event) =>
+                    setCreateReferenceModal((prev) =>
+                      prev ? { ...prev, name: event.target.value } : prev,
+                    )
+                  }
+                />
+              </label>
+              <label>
+                Testo selezionato
+                <textarea rows={6} value={createReferenceModal.text} readOnly />
+              </label>
+              <p className="muted">
+                La descrizione verra salvata nelle note. Se l&apos;AI e disponibile, prova anche a
+                compilare i campi deducibili.
+              </p>
+              <div className="row-buttons">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setCreateReferenceModal(null)}
+                  disabled={createReferenceModal.submitting}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSubmitReferenceCreation()}
+                  disabled={createReferenceModal.submitting}
+                  className={createReferenceModal.submitting ? 'ai-working' : undefined}
+                >
+                  {createReferenceModal.submitting ? 'Creazione...' : 'Crea e inserisci @'}
                 </button>
               </div>
             </div>

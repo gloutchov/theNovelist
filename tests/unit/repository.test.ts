@@ -31,10 +31,26 @@ describe('NovelistRepository', () => {
       const plot = repo.createPlot(project.id, {
         number: 1,
         label: 'Trama principale',
+        summary: 'Bozza iniziale della trama',
         color: '#3366ff',
+        positionX: 120,
+        positionY: 120,
       });
       expect(plot.projectId).toBe(project.id);
+      expect(plot.summary).toBe('Bozza iniziale della trama');
+      expect(plot.positionX).toBe(120);
+      expect(plot.positionY).toBe(120);
       expect(repo.listPlots(project.id)).toHaveLength(1);
+
+      const movedPlot = repo.updatePlot(plot.id, {
+        label: plot.label,
+        summary: plot.summary,
+        color: plot.color,
+        positionX: 420,
+        positionY: 260,
+      });
+      expect(movedPlot.positionX).toBe(420);
+      expect(movedPlot.positionY).toBe(260);
 
       const chapterNode = repo.createChapterNode(project.id, {
         title: 'Capitolo 1',

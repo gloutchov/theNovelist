@@ -36,3 +36,36 @@ jobs:
 
       - name: E2E tests
         run: xvfb-run -a npm run test:e2e
+
+  codex-cli-smoke:
+    name: Codex CLI Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install chromium
+        shell: bash
+
+      - name: Codex CLI smoke on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:smoke:electron:codex
+
+      - name: Codex CLI smoke on Windows
+        if: runner.os == 'Windows'
+        run: npm run test:smoke:electron:codex

@@ -265,6 +265,35 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 7,
+    statements: [
+      `
+      ALTER TABLE plots
+      ADD COLUMN summary TEXT NOT NULL DEFAULT '';
+      `,
+    ],
+  },
+  {
+    version: 8,
+    statements: [
+      `
+      ALTER TABLE plots
+      ADD COLUMN position_x REAL NOT NULL DEFAULT 120;
+      `,
+      `
+      ALTER TABLE plots
+      ADD COLUMN position_y REAL NOT NULL DEFAULT 120;
+      `,
+      `
+      UPDATE plots
+      SET
+        position_x = 120 + ((number - 1) % 2) * 340,
+        position_y = 120 + CAST((number - 1) / 2 AS INTEGER) * 220
+      WHERE position_x = 120 AND position_y = 120;
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

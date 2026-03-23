@@ -2,7 +2,7 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { CodexCliService } from '../../src/main/codex/client';
+import { __testing, CodexCliService } from '../../src/main/codex/client';
 
 const originalCommand = process.env['NOVELIST_CODEX_COMMAND'];
 const originalTimeout = process.env['NOVELIST_CODEX_TIMEOUT_MS'];
@@ -33,6 +33,38 @@ afterEach(async () => {
 });
 
 describe('CodexCliService', () => {
+  it('uses portable login shell candidates on linux builds', () => {
+    const candidates = __testing.getLoginShellCandidates('linux', {});
+
+    expect(candidates).toContain('/bin/sh');
+    expect(candidates).toContain('/bin/bash');
+  });
+
+  it('searches common Windows install locations for Codex CLI', () => {
+    const env = {
+      USERPROFILE: 'C:\\Users\\Writer',
+      APPDATA: 'C:\\Users\\Writer\\AppData\\Roaming',
+      LOCALAPPDATA: 'C:\\Users\\Writer\\AppData\\Local',
+      ProgramFiles: 'C:\\Program Files',
+      'ProgramFiles(x86)': 'C:\\Program Files (x86)',
+    };
+    const candidates = __testing.getCommonCommandCandidates('codex', 'win32', env);
+
+    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
+    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Local\\Programs\\nodejs\\codex.exe');
+    expect(candidates).toContain('C:\\Program Files\\nodejs\\codex.cmd');
+  });
+
+  it('uses a shell for Windows cmd shims only when needed', () => {
+    expect(__testing.shouldUseShellForSpawn('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd', 'win32')).toBe(
+      true,
+    );
+    expect(__testing.shouldUseShellForSpawn('C:\\Program Files\\nodejs\\codex.exe', 'win32')).toBe(
+      false,
+    );
+    expect(__testing.shouldUseShellForSpawn('/usr/local/bin/codex', 'linux')).toBe(false);
+  });
+
   it('returns fallback transform when CLI command is unavailable', async () => {
     process.env['NOVELIST_CODEX_COMMAND'] = '__missing_codex_cli__';
     const service = new CodexCliService();

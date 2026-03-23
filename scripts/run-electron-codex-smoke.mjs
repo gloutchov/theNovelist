@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
 
-function run(command, args, { allowFailure = false } = {}) {
+function run(command, args, { allowFailure = false, env = process.env } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: 'inherit',
-      env: process.env,
+      env,
       shell: process.platform === 'win32',
       windowsHide: process.platform === 'win32',
     });
@@ -25,7 +25,17 @@ let testExitCode = 1;
 try {
   await run('npm', ['run', 'rebuild:electron-native']);
   await run('npm', ['run', 'build']);
-  testExitCode = await run('npm', ['run', 'test:e2e:electron:run'], { allowFailure: true });
+  testExitCode = await run(
+    'npx',
+    ['playwright', 'test', '-c', 'playwright.electron.config.ts', 'tests/e2e/electron-codex-smoke.spec.ts'],
+    {
+      allowFailure: true,
+      env: {
+        ...process.env,
+        PLAYWRIGHT_BROWSERS_PATH: '.playwright-browsers',
+      },
+    },
+  );
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
 } finally {

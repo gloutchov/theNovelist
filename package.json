@@ -1,6 +1,6 @@
 {
   "name": "the-novelist",
-  "version": "1.2.0",
+  "version": "2.1.0",
   "copyright": "Copyright © 2026 Gloutchov",
   "private": true,
   "license": "Apache-2.0",
@@ -28,6 +28,7 @@
     "test:e2e": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test",
     "test:perf": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test -c playwright.perf.config.ts",
     "test:e2e:electron": "node scripts/run-electron-e2e.mjs",
+    "test:smoke:electron:codex": "node scripts/run-electron-codex-smoke.mjs",
     "test:e2e:electron:run": "cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test -c playwright.electron.config.ts",
     "test:e2e:headed": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test --headed",
     "test:e2e:ui": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test --ui"

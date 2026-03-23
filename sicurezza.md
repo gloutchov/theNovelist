@@ -1,6 +1,6 @@
 # Sicurezza - The Novelist
 
-Stato documentato al **12 marzo 2026**.
+Stato documentato al **22 marzo 2026**.
 
 Questo documento descrive le misure di sicurezza **attualmente implementate** nell'applicazione, con limiti noti.
 
@@ -18,6 +18,7 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 - `contextIsolation: true` nel `BrowserWindow` principale.
 - `nodeIntegration: false` nel renderer.
 - API esposte al renderer solo tramite `preload` + `contextBridge` (`window.novelistApi`).
+- Navigazioni inattese e popup (`window.open`) bloccati nel `BrowserWindow` principale.
 - Riferimenti:
   - `src/main/index.ts`
   - `src/preload/index.ts`
@@ -62,8 +63,10 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 - Le immagini associate vengono copiate dentro `assets/img/...` del progetto.
 - Le immagini generate in-app vengono salvate in `assets/generated-images/...`.
 - Evita dipendenza da path esterni volatili.
+- La lettura immagini verso il renderer (`read-image-data-url`) e ora limitata a file raster interni a `assets/` del progetto aperto.
 - Riferimento:
   - `src/main/images/generation.ts`
+  - `src/main/ipc.ts`
 
 ### 2.8 Timeout e cancellazione richieste AI
 - Timeout configurabile per Codex CLI.
@@ -124,16 +127,15 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 3. Build distribuita localmente non firmata/notarizzata (`identity: null` in `electron-builder`).
 4. Database progetto (`project.db`) non cifrato nativamente a riposo.
 5. L'app è single-user locale: non ha autenticazione/ruoli.
-6. Canale `project:read-image-data-url` legge un path fornito dal renderer; in un contesto XSS sarebbe una superficie sensibile.
-7. Se `safeStorage` non è disponibile, la chiave nuova non viene salvata in secure storage; resta possibile uso via variabile ambiente.
-8. Le menzioni sono validate lato main process, ma la sincronizzazione dei link capitolo è ancora avviata dal renderer; il modello è robusto per un'app locale, ma un futuro spostamento completo della sincronizzazione nel main process ridurrebbe ulteriormente la superficie di fiducia del renderer.
+6. Se `safeStorage` non è disponibile, la chiave nuova non viene salvata in secure storage; resta possibile uso via variabile ambiente.
+7. Le menzioni sono validate lato main process, ma la sincronizzazione dei link capitolo è ancora avviata dal renderer; il modello è robusto per un'app locale, ma un futuro spostamento completo della sincronizzazione nel main process ridurrebbe ulteriormente la superficie di fiducia del renderer.
 
 ## 5) Raccomandazioni pratiche (priorità)
 
 1. Abilitare `sandbox: true` dove compatibile con l'app.
 2. Definire una Content Security Policy restrittiva.
 3. Firmare e notarizzare le build macOS/Windows di distribuzione.
-4. Ridurre ulteriormente i canali IPC sensibili (es. whitelist path per `read-image-data-url`).
+4. Estendere lo stesso hardening applicato al `BrowserWindow` principale anche alle finestre ausiliarie, in particolare stampa/preview, se mantengono superfici di navigazione proprie.
 5. Valutare cifratura del DB progetto o almeno delle sezioni sensibili.
 6. Aggiungere hardening release (dipendenze, SCA, audit periodico, CI security checks).
 7. Valutare lo spostamento della sincronizzazione link capitolo-personaggi/location interamente nel main process.

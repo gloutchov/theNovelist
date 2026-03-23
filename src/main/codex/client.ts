@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -60,6 +60,11 @@ const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   apiKey: null,
   apiModel: 'gpt-5-mini',
 };
+const resolvedCommandCache = new Map<string, Promise<string>>();
+const resolvedPathCache = new Map<string, Promise<string | null>>();
+const WINDOWS_COMMAND_EXTENSIONS = ['.cmd', '.exe', '.bat'] as const;
+
+type RuntimePlatform = NodeJS.Platform;
 
 function normalizeSettings(settings?: Partial<CodexRuntimeSettings>): CodexRuntimeSettings {
   return {
@@ -75,6 +80,285 @@ function normalizeSettings(settings?: Partial<CodexRuntimeSettings>): CodexRunti
 
 function resolveCommandName(): string {
   return process.env['NOVELIST_CODEX_COMMAND']?.trim() || 'codex';
+}
+
+function isExplicitCommandPath(commandName: string): boolean {
+  return commandName.includes(path.sep) || (path.sep === '/' && commandName.includes('\\'));
+}
+
+function shellEscape(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function windowsCmdEscape(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function getHomePath(env: NodeJS.ProcessEnv = process.env): string {
+  return env['HOME']?.trim() || env['USERPROFILE']?.trim() || '';
+}
+
+function getPathValue(env: NodeJS.ProcessEnv = process.env): string {
+  return env['PATH']?.trim() || env['Path']?.trim() || '';
+}
+
+function getLoginShellCandidates(
+  platform: RuntimePlatform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  if (platform === 'win32') {
+    return [];
+  }
+
+  const envShell = env['SHELL']?.trim() || '';
+  const defaults =
+    platform === 'darwin'
+      ? ['/bin/zsh', '/bin/bash', '/bin/sh']
+      : ['/bin/bash', '/bin/sh', '/usr/bin/bash', '/usr/bin/sh'];
+
+  return [...new Set([envShell, ...defaults].filter(Boolean))];
+}
+
+function getWindowsCommandCandidates(
+  commandName: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const winPath = path.win32;
+  const homePath = getHomePath(env);
+  const appData =
+    env['APPDATA']?.trim() || (homePath ? winPath.join(homePath, 'AppData', 'Roaming') : '');
+  const localAppData =
+    env['LOCALAPPDATA']?.trim() || (homePath ? winPath.join(homePath, 'AppData', 'Local') : '');
+  const programFiles = env['ProgramFiles']?.trim() || '';
+  const programFilesX86 = env['ProgramFiles(x86)']?.trim() || '';
+  const nvmSymlink = env['NVM_SYMLINK']?.trim() || '';
+  const scoopShims = homePath ? winPath.join(homePath, 'scoop', 'shims') : '';
+  const baseDirs = [
+    appData ? winPath.join(appData, 'npm') : '',
+    localAppData ? winPath.join(localAppData, 'Programs', 'nodejs') : '',
+    programFiles ? winPath.join(programFiles, 'nodejs') : '',
+    programFilesX86 ? winPath.join(programFilesX86, 'nodejs') : '',
+    nvmSymlink,
+    scoopShims,
+  ].filter(Boolean);
+
+  const hasExtension = winPath.extname(commandName).length > 0;
+  const fileNames = hasExtension
+    ? [commandName]
+    : [commandName, ...WINDOWS_COMMAND_EXTENSIONS.map((ext) => `${commandName}${ext}`)];
+
+  return baseDirs.flatMap((dir) => fileNames.map((fileName) => winPath.join(dir, fileName)));
+}
+
+function getWindowsCommandDirectories(
+  commandName: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  return [
+    ...new Set(getWindowsCommandCandidates(commandName, env).map((candidate) => path.win32.dirname(candidate))),
+  ];
+}
+
+function getCommonCommandCandidates(
+  commandName: string,
+  platform: RuntimePlatform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  if (platform === 'win32') {
+    return getWindowsCommandCandidates(commandName, env);
+  }
+
+  const homePath = getHomePath(env);
+  return [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/snap/bin',
+    homePath ? path.join(homePath, '.local', 'bin') : '',
+    homePath ? path.join(homePath, '.npm-global', 'bin') : '',
+  ]
+    .filter(Boolean)
+    .map((directory) => path.join(directory, commandName));
+}
+
+function shouldUseShellForSpawn(
+  commandName: string,
+  platform: RuntimePlatform = process.platform,
+): boolean {
+  return platform === 'win32' && /\.(cmd|bat)$/i.test(commandName);
+}
+
+async function fileIsExecutable(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveCommandViaPosixShell(
+  commandName: string,
+  shellPath: string,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    const child = spawn(shellPath, ['-lc', `command -v ${shellEscape(commandName)}`], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: process.env,
+    });
+
+    let stdout = '';
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      stdout += chunk.toString();
+    });
+    child.on('error', () => resolve(null));
+    child.on('close', (code) => {
+      const resolvedPath = stdout.trim().split('\n').find((line) => line.trim())?.trim() ?? '';
+      if (code === 0 && resolvedPath) {
+        resolve(resolvedPath);
+        return;
+      }
+
+      resolve(null);
+    });
+  });
+}
+
+async function resolveCommandViaWindowsShell(commandName: string): Promise<string | null> {
+  const shellPath = process.env['ComSpec']?.trim() || 'cmd.exe';
+  return new Promise((resolve) => {
+    const child = spawn(shellPath, ['/d', '/s', '/c', `where ${windowsCmdEscape(commandName)}`], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: process.env,
+      windowsHide: true,
+    });
+
+    let stdout = '';
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      stdout += chunk.toString();
+    });
+    child.on('error', () => resolve(null));
+    child.on('close', (code) => {
+      const resolvedPath = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line);
+
+      if (code === 0 && resolvedPath) {
+        resolve(resolvedPath);
+        return;
+      }
+
+      resolve(null);
+    });
+  });
+}
+
+async function resolveCommandViaLoginShell(commandName: string): Promise<string | null> {
+  if (process.platform === 'win32') {
+    return resolveCommandViaWindowsShell(commandName);
+  }
+
+  for (const shellPath of getLoginShellCandidates()) {
+    const resolved = await resolveCommandViaPosixShell(commandName, shellPath);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
+function resolveSearchPathEntry(commandName: string): Promise<string | null> {
+  const trimmed = commandName.trim();
+  const cached = resolvedPathCache.get(trimmed);
+  if (cached) {
+    return cached;
+  }
+
+  const resolution = resolveCommandViaLoginShell(trimmed);
+  resolvedPathCache.set(trimmed, resolution);
+  return resolution;
+}
+
+async function resolveCommandFromCommonPaths(commandName: string): Promise<string | null> {
+  for (const candidate of getCommonCommandCandidates(commandName)) {
+    if (await fileIsExecutable(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveRunnableCommandName(commandName: string): Promise<string> {
+  const trimmed = commandName.trim() || 'codex';
+  const cached = resolvedCommandCache.get(trimmed);
+  if (cached) {
+    return cached;
+  }
+
+  const resolution = (async () => {
+    if (isExplicitCommandPath(trimmed)) {
+      return trimmed;
+    }
+
+    const shellResolved = await resolveCommandViaLoginShell(trimmed);
+    if (shellResolved) {
+      return shellResolved;
+    }
+
+    const commonPathResolved = await resolveCommandFromCommonPaths(trimmed);
+    if (commonPathResolved) {
+      return commonPathResolved;
+    }
+
+    return trimmed;
+  })();
+
+  resolvedCommandCache.set(trimmed, resolution);
+  return resolution;
+}
+
+async function buildCliEnvironment(commandPath: string): Promise<NodeJS.ProcessEnv> {
+  const currentPath = getPathValue();
+  const pathEntries = currentPath ? currentPath.split(path.delimiter).filter(Boolean) : [];
+  const commandDirectory = isExplicitCommandPath(commandPath) ? path.dirname(commandPath) : '';
+  const resolvedNodePath = await resolveSearchPathEntry('node');
+  const nodeDirectory = resolvedNodePath?.trim() ? path.dirname(resolvedNodePath.trim()) : '';
+  const homePath = getHomePath();
+  const fallbackEntries =
+    process.platform === 'win32'
+      ? [
+          commandDirectory,
+          nodeDirectory,
+          ...getWindowsCommandDirectories('node'),
+          ...getWindowsCommandDirectories(path.basename(commandPath || 'codex')),
+        ].filter(Boolean)
+      : [
+          commandDirectory,
+          nodeDirectory,
+          '/opt/homebrew/bin',
+          '/usr/local/bin',
+          '/usr/bin',
+          '/bin',
+          '/usr/sbin',
+          '/sbin',
+          '/snap/bin',
+          homePath ? path.join(homePath, '.local', 'bin') : '',
+          homePath ? path.join(homePath, '.npm-global', 'bin') : '',
+        ].filter(Boolean);
+
+  const mergedPath = [...new Set([...fallbackEntries, ...pathEntries])].join(path.delimiter);
+  const nextEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: mergedPath,
+  };
+  if (process.platform === 'win32') {
+    nextEnv['Path'] = mergedPath;
+  }
+  return nextEnv;
 }
 
 function resolveTimeoutMs(): number {
@@ -440,11 +724,14 @@ function runCodexCli(
         args.push('--output-last-message', outputPath);
       }
       args.push('-');
+      const cliEnv = await buildCliEnvironment(commandName);
 
       const child = spawn(commandName, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: process.env,
+        env: cliEnv,
         cwd: options?.cwd?.trim() || process.cwd(),
+        shell: shouldUseShellForSpawn(commandName),
+        windowsHide: process.platform === 'win32',
       });
 
       let stdout = '';
@@ -578,6 +865,12 @@ function runCodexCli(
   });
 }
 
+export const __testing = {
+  getLoginShellCandidates,
+  getCommonCommandCandidates,
+  shouldUseShellForSpawn,
+};
+
 export class CodexCliService {
   private readonly commandName = resolveCommandName();
   private readonly timeoutMs = resolveTimeoutMs();
@@ -653,8 +946,9 @@ export class CodexCliService {
       };
     }
 
+    const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
     const probe = await runCodexCli(
-      this.commandName,
+      resolvedCommandName,
       'Rispondi solo con: ok',
       Math.min(this.timeoutMs, 10_000),
       {
@@ -665,7 +959,7 @@ export class CodexCliService {
     if (probe.mode === 'cli') {
       return {
         available: true,
-        command: this.commandName,
+        command: resolvedCommandName,
         mode: 'cli',
         activeRequest: this.activeRequest !== null,
         queuedRequests: this.queuedRequests,
@@ -676,7 +970,7 @@ export class CodexCliService {
 
     return {
       available: false,
-      command: this.commandName,
+      command: resolvedCommandName,
       mode: 'fallback',
       reason: probe.error ?? 'Codex CLI non raggiungibile',
       activeRequest: this.activeRequest !== null,
@@ -734,6 +1028,7 @@ export class CodexCliService {
       this.activeRequest = { id: requestId, abortController };
 
       try {
+        const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
         const apiKey = runtime.apiKey?.trim() || process.env['OPENAI_API_KEY']?.trim() || '';
         const shouldTryApi = runtime.provider === 'openai_api' && runtime.allowApiCalls && Boolean(apiKey);
         const shouldTryOllama = runtime.provider === 'ollama' && runtime.allowApiCalls;
@@ -754,7 +1049,7 @@ export class CodexCliService {
           }
 
           const cliFallback = await runCodexCli(
-            this.commandName,
+            resolvedCommandName,
             prompt,
             this.timeoutMs,
             {
@@ -787,7 +1082,7 @@ export class CodexCliService {
           }
 
           const cliFallback = await runCodexCli(
-            this.commandName,
+            resolvedCommandName,
             prompt,
             this.timeoutMs,
             {
@@ -806,7 +1101,7 @@ export class CodexCliService {
         }
 
         const cliResult = await runCodexCli(
-          this.commandName,
+          resolvedCommandName,
           prompt,
           this.timeoutMs,
           {
