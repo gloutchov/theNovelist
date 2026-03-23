@@ -186,11 +186,16 @@ test('create character card from editor selection', async ({ page }) => {
   await page.getByRole('button', { name: 'Personaggi', exact: true }).click();
   const canvas = page.locator('.canvas-wrap');
   await expect(canvas.getByText('Anna Rossi')).toBeVisible();
-  await canvas.getByText('Anna Rossi').dblclick();
+  await canvas
+    .locator('.react-flow__node')
+    .filter({ hasText: 'Anna Rossi' })
+    .first()
+    .dispatchEvent('dblclick');
 
   const editModal = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Modifica Personaggio' }),
   });
+  await expect(editModal).toBeVisible();
   await expect(editModal.getByLabel('Lavoro')).toHaveValue('investigatrice');
   await expect(editModal.getByLabel('Colore capelli')).toHaveValue('rossi');
   await expect(editModal.getByLabel('Età')).toHaveValue('32');
