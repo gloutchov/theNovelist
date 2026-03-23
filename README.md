@@ -250,13 +250,51 @@ Note operative:
 - `NOVELIST_IMAGE_MODEL`: override modello immagini (default runtime: `gpt-image-1`).
 - `OLLAMA_HOST`: endpoint Ollama (default: `http://127.0.0.1:11434`).
 
-## Build macOS
+## Build release
+Nota pratica: per questo progetto e preferibile generare i pacchetti sul sistema operativo nativo di destinazione, oppure usare la GitHub Action di release multi-piattaforma. Il motivo e che la build include anche moduli nativi Electron, come `better-sqlite3`.
+
+### Build macOS
 1. Esegui:
    - `npm run dist:mac`
 2. Troverai gli artefatti in `release/`:
    - `The Novelist-<version>-arm64.dmg`
    - `The Novelist-<version>-arm64-mac.zip`
 3. Installa aprendo il `.dmg` e trascinando `The Novelist.app` in `Applicazioni`.
+
+### Build Windows
+1. Esegui su Windows:
+   - `npm run dist:win`
+2. Troverai gli artefatti in `release/`:
+   - `The Novelist Setup <version>.exe`
+   - eventuali file `.blockmap`
+   - `latest.yml` se la release e configurata per auto-update
+3. Il target configurato e `nsis`, con build per:
+   - `x64`
+   - `arm64`
+
+### Build Linux
+1. Esegui su Linux:
+   - `npm run dist:linux`
+2. Troverai gli artefatti in `release/`:
+   - `The Novelist-<version>.AppImage`
+   - eventuali file `.blockmap`
+   - `latest-linux.yml` se presente
+3. Per avviare il pacchetto:
+   - rendi eseguibile il file `AppImage`
+   - avvialo direttamente dal file manager o da terminale
+
+### Release GitHub multi-piattaforma
+Nel repository e presente anche un workflow GitHub Actions di release che costruisce in automatico:
+- macOS su `macos-latest`
+- Windows su `windows-latest`
+- Linux su `ubuntu-latest`
+
+Flusso consigliato:
+1. aggiorna la versione in `package.json`
+2. crea e pubblica il tag, ad esempio `v2.1.0`
+3. lascia che GitHub Actions produca gli artifact e li alleghi alla release
+
+Il workflow supporta anche avvio manuale (`workflow_dispatch`) passando il tag da rilasciare.
 
 Nota:
 - la build locale e non firmata/notarizzata; al primo avvio potrebbe essere necessario `tasto destro > Apri`.
