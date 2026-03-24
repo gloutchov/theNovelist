@@ -31,12 +31,25 @@ async function launchBuiltElectronApp(
 }
 
 async function createProjectFromUi(window: Page, rootPath: string, name: string): Promise<void> {
-  const projectPanel = window.locator('.panel').filter({
-    has: window.getByRole('heading', { name: 'Progetto' }),
+  await window.evaluate((selectedRootPath) => {
+    (
+      globalThis as typeof globalThis & {
+        novelistApi: {
+          selectProjectDirectory: () => Promise<string | null>;
+        };
+      }
+    ).novelistApi.selectProjectDirectory = async () => selectedRootPath;
+  }, rootPath);
+
+  await window.getByRole('button', { name: 'Crea', exact: true }).click();
+
+  const createProjectModal = window.locator('.modal-card').filter({
+    has: window.getByRole('heading', { name: 'Crea Progetto' }),
   });
-  await projectPanel.getByLabel('Path progetto').fill(rootPath);
-  await projectPanel.getByLabel('Nome progetto').fill(name);
-  await projectPanel.getByRole('button', { name: 'Crea' }).click();
+  await expect(createProjectModal).toBeVisible({ timeout: 10_000 });
+  await createProjectModal.getByRole('button', { name: 'Sfoglia...' }).click();
+  await createProjectModal.getByLabel('Nome progetto').fill(name);
+  await createProjectModal.getByRole('button', { name: 'Crea e Apri' }).click();
   await expect(window.getByRole('button', { name: 'Personaggi' })).toBeEnabled({ timeout: 10_000 });
 }
 
