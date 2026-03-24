@@ -17,11 +17,12 @@ async function launchBuiltElectronApp(
 ): Promise<{ app: ElectronApplication; window: Page }> {
   const entryPath = path.join(process.cwd(), 'out/main/index.js');
   const app = await electron.launch({
-    args: [entryPath],
+    args: process.platform === 'linux' ? ['--no-sandbox', entryPath] : [entryPath],
     env: {
       ...process.env,
       ...envOverrides,
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+      ...(process.platform === 'linux' ? { ELECTRON_DISABLE_SANDBOX: 'true' } : {}),
     },
   });
   const window = await app.firstWindow();
