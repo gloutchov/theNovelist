@@ -128,6 +128,20 @@ test('plots canvas keeps dragged plot node selected and above the others', async
   await expectNodeSelectedAndElevated(primaryNode, secondaryNode);
 });
 
+test('plots canvas brings the selected overlapping plot node to the front', async ({ page }) => {
+  await createProject(page, 'E2E Plot Overlap Layering');
+  await createPlot(page, 'Trama Alpha');
+  await createPlot(page, 'Trama Beta');
+
+  const primaryNode = getCanvasNodeByText(page, 'Trama Alpha');
+  const secondaryNode = getCanvasNodeByText(page, 'Trama Beta');
+
+  await dragNode(page, secondaryNode, -250, 10);
+  await selectNode(primaryNode);
+  await dragNode(page, primaryNode, 40, 20);
+  await expectNodeSelectedAndElevated(primaryNode, secondaryNode);
+});
+
 test('characters canvas keeps dragged character node selected and above the others', async ({ page }) => {
   await createProject(page, 'E2E Character Layering');
   await createPlot(page, 'Trama Base');

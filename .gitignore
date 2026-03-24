@@ -6,6 +6,8 @@ coverage
 playwright-report
 test-results
 .playwright-browsers
+.npm-cache
+.node-gyp
 .DS_Store
 .env
 .env.*

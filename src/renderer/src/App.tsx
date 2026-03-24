@@ -181,6 +181,34 @@ function mapPlotRecordToFlowNode(record: PlotRecord, options?: { selected?: bool
   };
 }
 
+function syncPlotFlowNodes(
+  records: PlotRecord[],
+  previousNodes: PlotCanvasNode[],
+  selectedPlotId: string | null,
+): PlotCanvasNode[] {
+  const previousById = new Map(previousNodes.map((node) => [node.id, node]));
+
+  return sortPlots(records).map((record) => {
+    const nextNode = mapPlotRecordToFlowNode(record, { selected: record.id === selectedPlotId });
+    const previousNode = previousById.get(record.id);
+
+    if (!previousNode) {
+      return nextNode;
+    }
+
+    return {
+      ...previousNode,
+      ...nextNode,
+      position: nextNode.position,
+      data: nextNode.data,
+      style: nextNode.style,
+      width: nextNode.width,
+      height: nextNode.height,
+      selected: nextNode.selected,
+    };
+  });
+}
+
 function mapEdgeRecordToFlowEdge(
   record: StoryEdgeRecord,
   handles?: {
@@ -292,6 +320,7 @@ export default function App() {
   const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState<boolean>(false);
 
   const [plots, setPlots] = useState<PlotRecord[]>([]);
+  const [plotNodes, setPlotNodes] = useState<PlotCanvasNode[]>([]);
   const [nodes, setNodes] = useState<ChapterCanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
@@ -337,13 +366,6 @@ export default function App() {
 
   const plotsById = useMemo(() => new Map(plots.map((plot) => [plot.id, plot])), [plots]);
   const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
-  const plotNodes = useMemo(
-    () =>
-      sortPlots(plots).map((plot) =>
-        mapPlotRecordToFlowNode(plot, { selected: plot.id === selectedPlotId }),
-      ),
-    [plots, selectedPlotId],
-  );
   const selectedPlot = useMemo(
     () => (selectedPlotId ? (plotsById.get(selectedPlotId) ?? null) : null),
     [plotsById, selectedPlotId],
@@ -403,8 +425,13 @@ export default function App() {
     setEditNodeId(null);
   }, []);
 
+  useEffect(() => {
+    setPlotNodes((prev) => syncPlotFlowNodes(plots, prev, selectedPlotId));
+  }, [plots, selectedPlotId]);
+
   const resetStoryWorkspace = useCallback(() => {
     setPlots([]);
+    setPlotNodes([]);
     setNodes([]);
     setEdges([]);
     setSelectedPlotId(null);
@@ -1366,27 +1393,8 @@ export default function App() {
   );
 
   const onPlotNodesChange: OnNodesChange<PlotCanvasNode> = useCallback((changes) => {
-    setPlots((prev) => {
-      const currentNodes = sortPlots(prev).map((plot) =>
-        mapPlotRecordToFlowNode(plot, { selected: plot.id === selectedPlotId }),
-      );
-      const nextNodes = applyNodeChanges(changes, currentNodes);
-      const nextPositions = new Map(nextNodes.map((node) => [node.id, node.position]));
-
-      return sortPlots(prev).map((plot) => {
-        const position = nextPositions.get(plot.id);
-        if (!position) {
-          return plot;
-        }
-
-        return {
-          ...plot,
-          positionX: position.x,
-          positionY: position.y,
-        };
-      });
-    });
-  }, [selectedPlotId]);
+    setPlotNodes((prev) => applyNodeChanges(changes, prev));
+  }, []);
 
   const onPlotNodeDragStop: NodeMouseHandler<PlotCanvasNode> = useCallback(
     async (_event, node) => {
