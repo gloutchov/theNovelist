@@ -1090,7 +1090,7 @@ export default function ChapterEditor({
     return settings;
   }
 
-  async function refreshChapterReferences(): Promise<void> {
+  const refreshChapterReferences = useCallback(async (): Promise<void> => {
     const [chapterCharacters, chapterLocations, allCharacters, allLocations] = await Promise.all([
       window.novelistApi.listChapterCharacters({ chapterNodeId }),
       window.novelistApi.listChapterLocations({ chapterNodeId }),
@@ -1101,54 +1101,57 @@ export default function ChapterEditor({
     setLinkedLocations(chapterLocations);
     setAvailableCharacters(allCharacters);
     setAvailableLocations(allLocations);
-  }
+  }, [chapterNodeId]);
 
-  async function syncChapterReferences(document: RichTextDocumentJson): Promise<void> {
-    const references = extractMentionIds(document);
-    const mentionedCharacterIds = new Set(references.characterIds);
-    const mentionedLocationIds = new Set(references.locationIds);
-    const [allCharacters, allLocations] = await Promise.all([
-      window.novelistApi.listCharacterCards(),
-      window.novelistApi.listLocationCards(),
-    ]);
+  const syncChapterReferences = useCallback(
+    async (document: RichTextDocumentJson): Promise<void> => {
+      const references = extractMentionIds(document);
+      const mentionedCharacterIds = new Set(references.characterIds);
+      const mentionedLocationIds = new Set(references.locationIds);
+      const [allCharacters, allLocations] = await Promise.all([
+        window.novelistApi.listCharacterCards(),
+        window.novelistApi.listLocationCards(),
+      ]);
 
-    await Promise.all([
-      ...allCharacters.map(async (character) => {
-        const currentLinks = await window.novelistApi.listCharacterChapterLinks({
-          characterCardId: character.id,
-        });
-        const nextLinks = buildNextChapterLinks(
-          currentLinks,
-          chapterNodeId,
-          mentionedCharacterIds.has(character.id),
-        );
-        if (areStringArraysEqual(currentLinks, nextLinks)) {
-          return;
-        }
-        await window.novelistApi.setCharacterChapterLinks({
-          characterCardId: character.id,
-          chapterNodeIds: nextLinks,
-        });
-      }),
-      ...allLocations.map(async (location) => {
-        const currentLinks = await window.novelistApi.listLocationChapterLinks({
-          locationCardId: location.id,
-        });
-        const nextLinks = buildNextChapterLinks(
-          currentLinks,
-          chapterNodeId,
-          mentionedLocationIds.has(location.id),
-        );
-        if (areStringArraysEqual(currentLinks, nextLinks)) {
-          return;
-        }
-        await window.novelistApi.setLocationChapterLinks({
-          locationCardId: location.id,
-          chapterNodeIds: nextLinks,
-        });
-      }),
-    ]);
-  }
+      await Promise.all([
+        ...allCharacters.map(async (character) => {
+          const currentLinks = await window.novelistApi.listCharacterChapterLinks({
+            characterCardId: character.id,
+          });
+          const nextLinks = buildNextChapterLinks(
+            currentLinks,
+            chapterNodeId,
+            mentionedCharacterIds.has(character.id),
+          );
+          if (areStringArraysEqual(currentLinks, nextLinks)) {
+            return;
+          }
+          await window.novelistApi.setCharacterChapterLinks({
+            characterCardId: character.id,
+            chapterNodeIds: nextLinks,
+          });
+        }),
+        ...allLocations.map(async (location) => {
+          const currentLinks = await window.novelistApi.listLocationChapterLinks({
+            locationCardId: location.id,
+          });
+          const nextLinks = buildNextChapterLinks(
+            currentLinks,
+            chapterNodeId,
+            mentionedLocationIds.has(location.id),
+          );
+          if (areStringArraysEqual(currentLinks, nextLinks)) {
+            return;
+          }
+          await window.novelistApi.setLocationChapterLinks({
+            locationCardId: location.id,
+            chapterNodeIds: nextLinks,
+          });
+        }),
+      ]);
+    },
+    [chapterNodeId],
+  );
 
   async function handleToggleCodexConsent(enabled: boolean): Promise<void> {
     setCodexSettingsBusy(true);
@@ -1182,58 +1185,61 @@ export default function ChapterEditor({
     }
   }
 
-  async function handleSave(options?: { successStatus?: string; silent?: boolean }): Promise<void> {
-    if (!editor) {
-      return;
-    }
+  const handleSave = useCallback(
+    async (options?: { successStatus?: string; silent?: boolean }): Promise<void> => {
+      if (!editor) {
+        return;
+      }
 
-    if (wordCountTimeoutRef.current) {
-      clearTimeout(wordCountTimeoutRef.current);
-      wordCountTimeoutRef.current = null;
-    }
+      if (wordCountTimeoutRef.current) {
+        clearTimeout(wordCountTimeoutRef.current);
+        wordCountTimeoutRef.current = null;
+      }
 
-    const document = editor.getJSON() as RichTextDocumentJson;
-    const currentWordCount = getWordCountFromDocument(document);
-    setWordCount(currentWordCount);
+      const document = editor.getJSON() as RichTextDocumentJson;
+      const currentWordCount = getWordCountFromDocument(document);
+      setWordCount(currentWordCount);
 
-    setSaving(true);
-    setError(null);
+      setSaving(true);
+      setError(null);
 
-    try {
-      const contentJson = JSON.stringify(document);
-      const saved = await window.novelistApi.saveChapterDocument({
-        chapterNodeId,
-        contentJson,
-        wordCount: currentWordCount,
-      });
-
-      setDocumentRecord(saved);
-      setIsDirty(false);
-      let referenceSyncFailed = false;
       try {
-        await syncChapterReferences(document);
-        await refreshChapterReferences();
-      } catch (caughtReferenceError) {
-        referenceSyncFailed = true;
-        const message =
-          caughtReferenceError instanceof Error
-            ? caughtReferenceError.message
-            : 'Errore sincronizzazione riferimenti';
-        setError(`Capitolo salvato, ma sincronizzazione riferimenti fallita: ${message}`);
-        onStatus('Capitolo salvato, ma sincronizzazione riferimenti fallita');
+        const contentJson = JSON.stringify(document);
+        const saved = await window.novelistApi.saveChapterDocument({
+          chapterNodeId,
+          contentJson,
+          wordCount: currentWordCount,
+        });
+
+        setDocumentRecord(saved);
+        setIsDirty(false);
+        let referenceSyncFailed = false;
+        try {
+          await syncChapterReferences(document);
+          await refreshChapterReferences();
+        } catch (caughtReferenceError) {
+          referenceSyncFailed = true;
+          const message =
+            caughtReferenceError instanceof Error
+              ? caughtReferenceError.message
+              : 'Errore sincronizzazione riferimenti';
+          setError(`Capitolo salvato, ma sincronizzazione riferimenti fallita: ${message}`);
+          onStatus('Capitolo salvato, ma sincronizzazione riferimenti fallita');
+        }
+        await onChapterSaved?.();
+        if (!referenceSyncFailed && !options?.silent) {
+          onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
+        }
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setError(message);
+        onStatus('Errore salvataggio capitolo');
+      } finally {
+        setSaving(false);
       }
-      await onChapterSaved?.();
-      if (!referenceSyncFailed && !options?.silent) {
-        onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
-      }
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-      setError(message);
-      onStatus('Errore salvataggio capitolo');
-    } finally {
-      setSaving(false);
-    }
-  }
+    },
+    [chapterNodeId, editor, onChapterSaved, onStatus, refreshChapterReferences, syncChapterReferences],
+  );
 
   const flushDirtyDocument = useCallback(
     async (options?: { successStatus?: string; silent?: boolean }): Promise<boolean> => {
@@ -1244,7 +1250,7 @@ export default function ChapterEditor({
       await handleSave(options);
       return true;
     },
-    [editor, isDirty, loading, saving],
+    [editor, handleSave, isDirty, loading, saving],
   );
 
   useEffect(() => {
