@@ -129,9 +129,11 @@ function getCommonCommandCandidates(
 }
 
 function shouldUseShellForSpawn(
-  _commandName: string,
-  _platform: RuntimePlatform = process.platform,
+  commandName: string,
+  platform: RuntimePlatform = process.platform,
 ): boolean {
+  void commandName;
+  void platform;
   return false;
 }
 
