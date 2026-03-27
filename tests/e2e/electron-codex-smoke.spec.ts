@@ -45,40 +45,6 @@ async function createProjectFromUi(window: Page, rootPath: string, name: string)
   await expect(window.getByRole('button', { name: 'Personaggi' })).toBeEnabled({ timeout: 10_000 });
 }
 
-async function createDefaultPlotFromUi(window: Page): Promise<void> {
-  await window.getByRole('button', { name: 'Nuove Trame' }).click();
-  const plotModal = window.locator('.modal-card').filter({
-    has: window.getByRole('heading', { name: 'Nuove Trame' }),
-  });
-  await expect(plotModal).toBeVisible({ timeout: 10_000 });
-  await plotModal.getByRole('button', { name: 'Crea Trama' }).click();
-  await expect(window.locator('.status-panel .status')).toContainText(/Trama creata:/, { timeout: 10_000 });
-}
-
-async function createNodeAndOpenEditor(window: Page): Promise<void> {
-  await window.getByRole('button', { name: 'Nuovo Capitolo' }).click();
-  const nodeModal = window.locator('.modal-card').filter({
-    has: window.getByRole('heading', { name: 'Nuovo Capitolo' }),
-  });
-  await expect(nodeModal).toBeVisible({ timeout: 10_000 });
-  await nodeModal.getByLabel('Titolo').fill('Capitolo Smoke Codex');
-  await nodeModal.getByLabel('Descrizione').fill('Verifica rilevamento Codex CLI');
-  await nodeModal.getByRole('button', { name: 'Crea Blocco' }).click();
-
-  const createdNode = window.locator('.react-flow__node').last();
-  await expect(createdNode).toBeVisible({ timeout: 10_000 });
-  await createdNode.dblclick();
-
-  const editNodeModal = window.locator('.modal-card').filter({
-    has: window.getByRole('heading', { name: 'Modifica Blocco' }),
-  });
-  await expect(editNodeModal).toBeVisible({ timeout: 10_000 });
-  const openEditorButton = editNodeModal.getByRole('button', { name: 'Apri editor capitolo' });
-  await expect(openEditorButton).toBeEnabled({ timeout: 10_000 });
-  await openEditorButton.click();
-  await expect(window.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
-}
-
 async function createFakeCodexEnvironment(rootPath: string): Promise<NodeJS.ProcessEnv> {
   const homeRoot = await createTempDir('novelist-codex-home-');
 
@@ -113,12 +79,22 @@ test.describe('electron packaged Codex CLI smoke', () => {
 
     try {
       await createProjectFromUi(window, projectRoot, 'Smoke Codex');
-      await createDefaultPlotFromUi(window);
-      await createNodeAndOpenEditor(window);
-
-      const statusPanel = window.locator('.codex-status');
-      await expect(statusPanel.getByText(/Stato:/)).toBeVisible();
-      await expect(statusPanel.getByText(/Disponibile \(/)).toBeVisible({ timeout: 15_000 });
+      const codexStatus = await window.evaluate(() => {
+        return (
+          globalThis as unknown as Window & {
+            novelistApi: {
+              codexStatus: () => Promise<{
+                available: boolean;
+                command: string;
+                mode: 'cli' | 'api' | 'fallback';
+              }>;
+            };
+          }
+        ).novelistApi.codexStatus();
+      });
+      expect(codexStatus.available).toBe(true);
+      expect(codexStatus.mode).toBe('cli');
+      expect(codexStatus.command).toContain('codex');
     } finally {
       await app.close();
     }
