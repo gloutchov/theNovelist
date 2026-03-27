@@ -15,12 +15,15 @@ async function createTempProjectRoot(prefix: string): Promise<string> {
   return dir;
 }
 
-async function launchBuiltElectronApp(): Promise<{ app: ElectronApplication; window: Page }> {
+async function launchBuiltElectronApp(
+  envOverrides: NodeJS.ProcessEnv = {},
+): Promise<{ app: ElectronApplication; window: Page }> {
   const entryPath = path.join(process.cwd(), 'out/main/index.js');
   const app = await electron.launch({
     args: [entryPath],
     env: {
       ...process.env,
+      ...envOverrides,
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
     },
   });
@@ -30,16 +33,6 @@ async function launchBuiltElectronApp(): Promise<{ app: ElectronApplication; win
 }
 
 async function createProjectFromUi(window: Page, rootPath: string, name: string): Promise<void> {
-  await window.evaluate((selectedRootPath) => {
-    (
-      globalThis as typeof globalThis & {
-        novelistApi: {
-          selectProjectDirectory: () => Promise<string | null>;
-        };
-      }
-    ).novelistApi.selectProjectDirectory = async () => selectedRootPath;
-  }, rootPath);
-
   await window.getByRole('button', { name: 'Crea', exact: true }).click();
 
   const createProjectModal = window.locator('.modal-card').filter({
@@ -92,7 +85,9 @@ test.describe('electron real e2e workflows', () => {
   test('persists chapter node and document through real IPC/SQLite', async () => {
     const rootPath = await createTempProjectRoot('novelist-electron-story-');
     const projectName = 'E2E Electron Story';
-    const { app, window } = await launchBuiltElectronApp();
+    const { app, window } = await launchBuiltElectronApp({
+      NOVELIST_TEST_PROJECT_DIRECTORY: rootPath,
+    });
 
     try {
       await expect(window.getByRole('heading', { name: 'The Novelist' })).toBeVisible();
@@ -147,7 +142,9 @@ test.describe('electron real e2e workflows', () => {
   test('persists character and location cards through real IPC/SQLite', async () => {
     const rootPath = await createTempProjectRoot('novelist-electron-cards-');
     const projectName = 'E2E Electron Cards';
-    const { app, window } = await launchBuiltElectronApp();
+    const { app, window } = await launchBuiltElectronApp({
+      NOVELIST_TEST_PROJECT_DIRECTORY: rootPath,
+    });
 
     try {
       await createProjectFromUi(window, rootPath, projectName);

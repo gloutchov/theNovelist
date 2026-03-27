@@ -30,16 +30,6 @@ async function launchBuiltElectronApp(
 }
 
 async function createProjectFromUi(window: Page, rootPath: string, name: string): Promise<void> {
-  await window.evaluate((selectedRootPath) => {
-    (
-      globalThis as typeof globalThis & {
-        novelistApi: {
-          selectProjectDirectory: () => Promise<string | null>;
-        };
-      }
-    ).novelistApi.selectProjectDirectory = async () => selectedRootPath;
-  }, rootPath);
-
   await window.getByRole('button', { name: 'Crea', exact: true }).click();
 
   const createProjectModal = window.locator('.modal-card').filter({
@@ -78,7 +68,7 @@ async function createNodeAndOpenEditor(window: Page): Promise<void> {
   await expect(window.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
 }
 
-async function createFakeCodexEnvironment(): Promise<NodeJS.ProcessEnv> {
+async function createFakeCodexEnvironment(rootPath: string): Promise<NodeJS.ProcessEnv> {
   const homeRoot = await createTempDir('novelist-codex-home-');
 
   const binDir = path.join(homeRoot, '.local', 'bin');
@@ -93,6 +83,7 @@ async function createFakeCodexEnvironment(): Promise<NodeJS.ProcessEnv> {
 
   return {
     HOME: homeRoot,
+    NOVELIST_TEST_PROJECT_DIRECTORY: rootPath,
     PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
   };
 }
@@ -106,7 +97,7 @@ test.describe('electron packaged Codex CLI smoke', () => {
 
   test('finds Codex CLI from common macOS shell locations even with a reduced PATH', async () => {
     const projectRoot = await createTempDir('novelist-codex-project-');
-    const fakeCodexEnv = await createFakeCodexEnvironment();
+    const fakeCodexEnv = await createFakeCodexEnvironment(projectRoot);
     const { app, window } = await launchBuiltElectronApp(fakeCodexEnv);
 
     try {

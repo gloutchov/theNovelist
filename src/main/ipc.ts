@@ -1068,6 +1068,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
   });
 
   ipcMain.handle(IPC_CHANNELS.projectSelectDirectory, async (event) => {
+    const forcedProjectDirectory = process.env['NOVELIST_TEST_PROJECT_DIRECTORY']?.trim();
+    if (forcedProjectDirectory) {
+      return forcedProjectDirectory;
+    }
+
     const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const openResult = browserWindow
       ? await dialog.showOpenDialog(browserWindow, {
