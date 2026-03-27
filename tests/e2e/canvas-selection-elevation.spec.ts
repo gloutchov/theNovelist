@@ -103,7 +103,7 @@ async function expectNodeSelectedAndElevated(primary: Locator, secondary: Locato
 }
 
 async function selectNode(node: Locator): Promise<void> {
-  await node.click();
+  await node.click({ force: true });
   await expect.poll(async () => {
     const state = await getNodeVisualState(node);
     return state.selected;

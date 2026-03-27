@@ -56,12 +56,14 @@ async function createDefaultPlotFromUi(window: Page): Promise<void> {
 }
 
 async function createNodeAndOpenEditor(window: Page): Promise<void> {
-  const nodePanel = window.locator('.panel').filter({
-    has: window.getByRole('heading', { name: 'Nuovo Blocco' }),
+  await window.getByRole('button', { name: 'Nuovo Capitolo' }).click();
+  const nodeModal = window.locator('.modal-card').filter({
+    has: window.getByRole('heading', { name: 'Nuovo Capitolo' }),
   });
-  await nodePanel.getByLabel('Titolo').fill('Capitolo Smoke Codex');
-  await nodePanel.getByLabel('Descrizione').fill('Verifica rilevamento Codex CLI');
-  await nodePanel.getByRole('button', { name: 'Crea Blocco' }).click();
+  await expect(nodeModal).toBeVisible({ timeout: 10_000 });
+  await nodeModal.getByLabel('Titolo').fill('Capitolo Smoke Codex');
+  await nodeModal.getByLabel('Descrizione').fill('Verifica rilevamento Codex CLI');
+  await nodeModal.getByRole('button', { name: 'Crea Blocco' }).click();
 
   const createdNode = window.locator('.react-flow__node').last();
   await expect(createdNode).toBeVisible({ timeout: 10_000 });

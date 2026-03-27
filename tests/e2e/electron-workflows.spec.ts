@@ -99,12 +99,14 @@ test.describe('electron real e2e workflows', () => {
       await createProjectFromUi(window, rootPath, projectName);
       await createDefaultPlotFromUi(window);
 
-      const nodePanel = window.locator('.panel').filter({
-        has: window.getByRole('heading', { name: 'Nuovo Blocco' }),
+      await window.getByRole('button', { name: 'Nuovo Capitolo' }).click();
+      const nodeModal = window.locator('.modal-card').filter({
+        has: window.getByRole('heading', { name: 'Nuovo Capitolo' }),
       });
-      await nodePanel.getByLabel('Titolo').fill('Capitolo DB Reale');
-      await nodePanel.getByLabel('Descrizione').fill('Persistenza editor in SQLite');
-      await nodePanel.getByRole('button', { name: 'Crea Blocco' }).click();
+      await expect(nodeModal).toBeVisible({ timeout: 10_000 });
+      await nodeModal.getByLabel('Titolo').fill('Capitolo DB Reale');
+      await nodeModal.getByLabel('Descrizione').fill('Persistenza editor in SQLite');
+      await nodeModal.getByRole('button', { name: 'Crea Blocco' }).click();
 
       const createdNode = window.locator('.react-flow__node').last();
       await expect(createdNode).toBeVisible({ timeout: 10_000 });
@@ -155,11 +157,13 @@ test.describe('electron real e2e workflows', () => {
       await createProjectFromUi(window, rootPath, projectName);
       await createDefaultPlotFromUi(window);
 
-      const nodePanel = window.locator('.panel').filter({
-        has: window.getByRole('heading', { name: 'Nuovo Blocco' }),
+      await window.getByRole('button', { name: 'Nuovo Capitolo' }).click();
+      const nodeModal = window.locator('.modal-card').filter({
+        has: window.getByRole('heading', { name: 'Nuovo Capitolo' }),
       });
-      await nodePanel.getByLabel('Titolo').fill('Capitolo Supporto');
-      await nodePanel.getByRole('button', { name: 'Crea Blocco' }).click();
+      await expect(nodeModal).toBeVisible({ timeout: 10_000 });
+      await nodeModal.getByLabel('Titolo').fill('Capitolo Supporto');
+      await nodeModal.getByRole('button', { name: 'Crea Blocco' }).click();
 
       await window.getByRole('button', { name: 'Personaggi' }).click();
       await expect(window.getByRole('heading', { name: 'Nuovo Personaggio' })).toBeVisible();
