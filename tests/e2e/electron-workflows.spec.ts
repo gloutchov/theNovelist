@@ -18,11 +18,10 @@ async function createTempProjectRoot(prefix: string): Promise<string> {
 async function launchBuiltElectronApp(): Promise<{ app: ElectronApplication; window: Page }> {
   const entryPath = path.join(process.cwd(), 'out/main/index.js');
   const app = await electron.launch({
-    args: process.platform === 'linux' ? ['--no-sandbox', entryPath] : [entryPath],
+    args: [entryPath],
     env: {
       ...process.env,
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-      ...(process.platform === 'linux' ? { ELECTRON_DISABLE_SANDBOX: 'true' } : {}),
     },
   });
   const window = await app.firstWindow();

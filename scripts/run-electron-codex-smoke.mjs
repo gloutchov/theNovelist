@@ -5,8 +5,6 @@ function run(command, args, { allowFailure = false, env = process.env } = {}) {
     const child = spawn(command, args, {
       stdio: 'inherit',
       env,
-      shell: process.platform === 'win32',
-      windowsHide: process.platform === 'win32',
     });
 
     child.on('exit', (code) => {

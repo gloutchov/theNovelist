@@ -1,6 +1,6 @@
 {
   "name": "the-novelist",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "copyright": "Copyright © 2026 Gloutchov",
   "private": true,
   "license": "Apache-2.0",
@@ -14,10 +14,8 @@
     "prestart": "npm run rebuild:electron-native",
     "start": "electron-vite preview",
     "pack": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
-    "dist": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "dist": "npm run dist:mac",
     "dist:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
-    "dist:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
-    "dist:linux": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux",
     "rebuild:electron-native": "node scripts/rebuild-electron-native.mjs",
     "rebuild:node-native": "node scripts/rebuild-node-native.mjs",
     "lint": "eslint .",
@@ -66,25 +64,6 @@
         "zip"
       ],
       "category": "public.app-category.productivity"
-    },
-    "win": {
-      "icon": "build/icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ]
-    },
-    "linux": {
-      "icon": "build/icon.png",
-      "target": [
-        "AppImage"
-      ],
-      "category": "Office"
     }
   },
   "dependencies": {

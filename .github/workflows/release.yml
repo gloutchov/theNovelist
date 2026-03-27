@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Tag da rilasciare (es. v2.1.0)'
+        description: 'Tag da rilasciare (es. v2.2.0)'
         required: true
         type: string
 
@@ -20,24 +20,8 @@ concurrency:
 
 jobs:
   build:
-    name: Build (${{ matrix.label }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            label: macOS
-            build_command: npm run dist:mac
-            artifact_name: release-macos
-          - os: windows-latest
-            label: Windows
-            build_command: npm run dist:win
-            artifact_name: release-windows
-          - os: ubuntu-latest
-            label: Linux
-            build_command: npm run dist:linux
-            artifact_name: release-linux
+    name: Build (macOS)
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -58,45 +42,22 @@ jobs:
         run: npm run typecheck
 
       - name: Build distributable
-        run: ${{ matrix.build_command }}
+        run: npm run dist:mac
 
       - name: List release outputs
         run: ls -1 release
         shell: bash
 
       - name: Upload macOS artifacts
-        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
+          name: release-macos
           if-no-files-found: error
           path: |
             release/*.dmg
             release/*.zip
             release/*.blockmap
             release/latest-mac.yml
-
-      - name: Upload Windows artifacts
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          if-no-files-found: error
-          path: |
-            release/*.exe
-            release/*.blockmap
-            release/latest.yml
-
-      - name: Upload Linux artifacts
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          if-no-files-found: error
-          path: |
-            release/*.AppImage
-            release/*.blockmap
-            release/latest-linux.yml
 
   publish:
     name: Publish GitHub Release

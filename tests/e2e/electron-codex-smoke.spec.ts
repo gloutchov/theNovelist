@@ -17,12 +17,11 @@ async function launchBuiltElectronApp(
 ): Promise<{ app: ElectronApplication; window: Page }> {
   const entryPath = path.join(process.cwd(), 'out/main/index.js');
   const app = await electron.launch({
-    args: process.platform === 'linux' ? ['--no-sandbox', entryPath] : [entryPath],
+    args: [entryPath],
     env: {
       ...process.env,
       ...envOverrides,
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-      ...(process.platform === 'linux' ? { ELECTRON_DISABLE_SANDBOX: 'true' } : {}),
     },
   });
   const window = await app.firstWindow();
@@ -79,32 +78,6 @@ async function createNodeAndOpenEditor(window: Page): Promise<void> {
 async function createFakeCodexEnvironment(): Promise<NodeJS.ProcessEnv> {
   const homeRoot = await createTempDir('novelist-codex-home-');
 
-  if (process.platform === 'win32') {
-    const systemRoot = process.env['SystemRoot']?.trim() || 'C:\\Windows';
-    const appData = path.win32.join(homeRoot, 'AppData', 'Roaming');
-    const localAppData = path.win32.join(homeRoot, 'AppData', 'Local');
-    const npmDir = path.win32.join(appData, 'npm');
-    const commandPath = path.win32.join(npmDir, 'codex.cmd');
-
-    await mkdir(npmDir, { recursive: true });
-    await mkdir(localAppData, { recursive: true });
-    await writeFile(
-      commandPath,
-      '@echo off\r\nif "%1"=="exec" (\r\n  echo ok\r\n  exit /b 0\r\n)\r\necho unsupported\r\nexit /b 1\r\n',
-      'utf8',
-    );
-
-    const minimalPath = [path.win32.join(systemRoot, 'System32'), systemRoot].join(';');
-    return {
-      USERPROFILE: homeRoot,
-      APPDATA: appData,
-      LOCALAPPDATA: localAppData,
-      ComSpec: path.win32.join(systemRoot, 'System32', 'cmd.exe'),
-      PATH: minimalPath,
-      Path: minimalPath,
-    };
-  }
-
   const binDir = path.join(homeRoot, '.local', 'bin');
   const commandPath = path.join(binDir, 'codex');
   await mkdir(binDir, { recursive: true });
@@ -128,7 +101,7 @@ test.describe('electron packaged Codex CLI smoke', () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
-  test('finds Codex CLI from common OS install locations even with a reduced PATH', async () => {
+  test('finds Codex CLI from common macOS shell locations even with a reduced PATH', async () => {
     const projectRoot = await createTempDir('novelist-codex-project-');
     const fakeCodexEnv = await createFakeCodexEnvironment();
     const { app, window } = await launchBuiltElectronApp(fakeCodexEnv);

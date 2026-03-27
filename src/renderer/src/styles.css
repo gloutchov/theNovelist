@@ -459,7 +459,7 @@ button:disabled {
   line-height: 1.45;
   color: var(--text-body-strong);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-wrap;

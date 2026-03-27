@@ -33,36 +33,28 @@ afterEach(async () => {
 });
 
 describe('CodexCliService', () => {
-  it('uses portable login shell candidates on linux builds', () => {
-    const candidates = __testing.getLoginShellCandidates('linux', {});
+  it('uses macOS login shell candidates', () => {
+    const candidates = __testing.getLoginShellCandidates('darwin', {});
 
+    expect(candidates).toContain('/bin/zsh');
     expect(candidates).toContain('/bin/sh');
     expect(candidates).toContain('/bin/bash');
   });
 
-  it('searches common Windows install locations for Codex CLI', () => {
+  it('searches common macOS command locations for Codex CLI', () => {
     const env = {
-      USERPROFILE: 'C:\\Users\\Writer',
-      APPDATA: 'C:\\Users\\Writer\\AppData\\Roaming',
-      LOCALAPPDATA: 'C:\\Users\\Writer\\AppData\\Local',
-      ProgramFiles: 'C:\\Program Files',
-      'ProgramFiles(x86)': 'C:\\Program Files (x86)',
+      HOME: '/Users/Writer',
     };
-    const candidates = __testing.getCommonCommandCandidates('codex', 'win32', env);
+    const candidates = __testing.getCommonCommandCandidates('codex', env);
 
-    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
-    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Local\\Programs\\nodejs\\codex.exe');
-    expect(candidates).toContain('C:\\Program Files\\nodejs\\codex.cmd');
+    expect(candidates).toContain('/opt/homebrew/bin/codex');
+    expect(candidates).toContain('/usr/local/bin/codex');
+    expect(candidates).toContain('/Users/Writer/.local/bin/codex');
   });
 
-  it('uses a shell for Windows cmd shims only when needed', () => {
-    expect(__testing.shouldUseShellForSpawn('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd', 'win32')).toBe(
-      true,
-    );
-    expect(__testing.shouldUseShellForSpawn('C:\\Program Files\\nodejs\\codex.exe', 'win32')).toBe(
-      false,
-    );
-    expect(__testing.shouldUseShellForSpawn('/usr/local/bin/codex', 'linux')).toBe(false);
+  it('does not require a shell to spawn macOS executables', () => {
+    expect(__testing.shouldUseShellForSpawn('/opt/homebrew/bin/codex', 'darwin')).toBe(false);
+    expect(__testing.shouldUseShellForSpawn('/usr/local/bin/codex', 'darwin')).toBe(false);
   });
 
   it('returns fallback transform when CLI command is unavailable', async () => {

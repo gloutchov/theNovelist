@@ -358,7 +358,11 @@ export default function App() {
   const chapterEditorFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const characterBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const locationBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const storyFlowRef = useRef<ReactFlowInstance<ChapterCanvasNode, Edge> | null>(null);
   const plotFlowRef = useRef<ReactFlowInstance<PlotCanvasNode> | null>(null);
+  const previousStoryTabRef = useRef<WorkspaceTab>('story');
+  const previousStoryNodeCountRef = useRef<number>(0);
+  const previousStoryProjectRootRef = useRef<string | null>(null);
   const previousPlotTabRef = useRef<WorkspaceTab>('story');
   const previousPlotCountRef = useRef<number>(0);
   const storyAutosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1520,6 +1524,36 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    const previousTab = previousStoryTabRef.current;
+    const previousNodeCount = previousStoryNodeCountRef.current;
+    const previousProjectRoot = previousStoryProjectRootRef.current;
+    const currentProjectRoot = currentProject?.rootPath ?? null;
+
+    previousStoryTabRef.current = activeTab;
+    previousStoryNodeCountRef.current = nodes.length;
+    previousStoryProjectRootRef.current = currentProjectRoot;
+
+    if (activeTab !== 'story' || nodes.length === 0) {
+      return;
+    }
+
+    const enteringStoryTab = previousTab !== 'story';
+    const nodeCountChanged = previousNodeCount !== nodes.length;
+    const projectChanged = previousProjectRoot !== currentProjectRoot;
+    if (!enteringStoryTab && !nodeCountChanged && !projectChanged) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      storyFlowRef.current?.fitView({ padding: 0.18 });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeTab, currentProject?.rootPath, nodes.length]);
+
+  useEffect(() => {
     const previousTab = previousPlotTabRef.current;
     const previousPlotCount = previousPlotCountRef.current;
 
@@ -1746,6 +1780,9 @@ export default function App() {
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              onInit={(instance) => {
+                storyFlowRef.current = instance;
+              }}
               connectionMode={ConnectionMode.Loose}
               onlyRenderVisibleElements
               onNodesChange={onNodesChange}

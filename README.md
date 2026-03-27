@@ -24,7 +24,7 @@ Tutto ciò ha portato a The Novelist.
 L'applicazione è stata interamente generata da Codex CLI. L'interfaccia è un po' 'techie', ma non mi dispiace, anche se avrei potuto insistere un po' di più per renderla maggiormente user-friendly.
 
 E' perfetta?
-Diciamo che funziona, e non mi pare che abbia bug evidenti. Può essere compilata sia per Mac, per Windows, e pure per Linux.
+Diciamo che funziona, e non mi pare che abbia bug evidenti. Da questa fase in poi il progetto viene mantenuto e distribuito solo per macOS, cosi da allineare supporto dichiarato e supporto realmente verificato.
 Un Dev professionista potrebbe trovarci molti difetti, e qualche vulnerabilità che mi è scappata. Lascio a loro l'onere e l'onore di sistemare ciò che i miei occhi imberbi non hanno scovato.
 Rimane comunque, e sempre, una app realizzata in vibe-coding.
 
@@ -48,6 +48,7 @@ Rimane comunque, e sempre, una app realizzata in vibe-coding.
 
 ## Introduzione
 The Novelist è un progetto sperimentale pensato per gli scrittori. L'applicazione ha una dotazione di tool utili per strutturare una narrativa complessa, e gestirne le singole parti.
+Attualmente il progetto viene mantenuto e distribuito ufficialmente solo per macOS.
 
 Funzionalità principali:
 - Struttura a Nodi per definire la traccia del romanzo/racconto.
@@ -66,7 +67,7 @@ Funzionalità secondarie:
 
 ## Come iniziare
 ### Avvio di The Novelist
-E' sufficiente fare doppioclick sull'icona del programma.
+Su macOS è sufficiente fare doppioclick sull'icona del programma.
 
 ## L'interfaccia
 L'interfaccia principale è divisa in due aree distinte.
@@ -210,10 +211,8 @@ App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas
 - `npm run dev`: avvio sviluppo Electron + renderer.
 - `npm run build`: build main/preload/renderer in `out/`.
 - `npm run pack`: crea app unpacked locale in `release/`.
-- `npm run dist`: crea artefatti per la piattaforma corrente.
+- `npm run dist`: crea gli artefatti macOS ufficiali.
 - `npm run dist:mac`: crea artefatti macOS (`dmg`, `zip`).
-- `npm run dist:win`: crea artefatti Windows (`nsis`).
-- `npm run dist:linux`: crea artefatti Linux (`AppImage`).
 - `npm run rebuild:electron-native`: rebuild moduli nativi (es. `better-sqlite3`) per Electron.
 - `npm run rebuild:node-native`: rebuild moduli nativi per runtime Node locale.
 - `npm run lint`: lint.
@@ -251,47 +250,23 @@ Note operative:
 - `OLLAMA_HOST`: endpoint Ollama (default: `http://127.0.0.1:11434`).
 
 ## Build release
-Nota pratica: per questo progetto e preferibile generare i pacchetti sul sistema operativo nativo di destinazione, oppure usare la GitHub Action di release multi-piattaforma. Il motivo e che la build include anche moduli nativi Electron, come `better-sqlite3`.
+Nota pratica: il progetto e distribuito ufficialmente solo per macOS. La scelta serve a mantenere una base di codice e una pipeline che tu possa verificare davvero, senza promettere supporto su piattaforme che non riesci a testare con continuita. La build include anche moduli nativi Electron, come `better-sqlite3`, quindi ha senso generare i pacchetti sul sistema operativo di destinazione.
 
 ### Build macOS
 1. Esegui:
-   - `npm run dist:mac`
+   - `npm run dist`
+   - oppure `npm run dist:mac`
 2. Troverai gli artefatti in `release/`:
    - `The Novelist-<version>-arm64.dmg`
    - `The Novelist-<version>-arm64-mac.zip`
 3. Installa aprendo il `.dmg` e trascinando `The Novelist.app` in `Applicazioni`.
 
-### Build Windows
-1. Esegui su Windows:
-   - `npm run dist:win`
-2. Troverai gli artefatti in `release/`:
-   - `The Novelist Setup <version>.exe`
-   - eventuali file `.blockmap`
-   - `latest.yml` se la release e configurata per auto-update
-3. Il target configurato e `nsis`, con build per:
-   - `x64`
-   - `arm64`
-
-### Build Linux
-1. Esegui su Linux:
-   - `npm run dist:linux`
-2. Troverai gli artefatti in `release/`:
-   - `The Novelist-<version>.AppImage`
-   - eventuali file `.blockmap`
-   - `latest-linux.yml` se presente
-3. Per avviare il pacchetto:
-   - rendi eseguibile il file `AppImage`
-   - avvialo direttamente dal file manager o da terminale
-
-### Release GitHub multi-piattaforma
-Nel repository e presente anche un workflow GitHub Actions di release che costruisce in automatico:
-- macOS su `macos-latest`
-- Windows su `windows-latest`
-- Linux su `ubuntu-latest`
+### Release GitHub macOS
+Nel repository e presente anche un workflow GitHub Actions di release che costruisce in automatico la sola versione macOS su `macos-latest`.
 
 Flusso consigliato:
 1. aggiorna la versione in `package.json`
-2. crea e pubblica il tag, ad esempio `v2.1.0`
+2. crea e pubblica il tag, ad esempio `v2.2.0`
 3. lascia che GitHub Actions produca gli artifact e li alleghi alla release
 
 Il workflow supporta anche avvio manuale (`workflow_dispatch`) passando il tag da rilasciare.

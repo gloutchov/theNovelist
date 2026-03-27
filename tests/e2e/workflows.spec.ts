@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installNovelistApiMock } from './helpers/mock-novelist-api';
 
-const selectAllShortcut = process.platform === 'darwin' ? 'Meta+A' : 'Control+A';
+const selectAllShortcut = 'Meta+A';
 
 async function createProject(page: Page, name: string): Promise<void> {
   await page.evaluate(() => {

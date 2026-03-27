@@ -62,7 +62,6 @@ const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
 };
 const resolvedCommandCache = new Map<string, Promise<string>>();
 const resolvedPathCache = new Map<string, Promise<string | null>>();
-const WINDOWS_COMMAND_EXTENSIONS = ['.cmd', '.exe', '.bat'] as const;
 
 type RuntimePlatform = NodeJS.Platform;
 
@@ -90,10 +89,6 @@ function shellEscape(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-function windowsCmdEscape(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
 function getHomePath(env: NodeJS.ProcessEnv = process.env): string {
   return env['HOME']?.trim() || env['USERPROFILE']?.trim() || '';
 }
@@ -106,10 +101,6 @@ function getLoginShellCandidates(
   platform: RuntimePlatform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
-  if (platform === 'win32') {
-    return [];
-  }
-
   const envShell = env['SHELL']?.trim() || '';
   const defaults =
     platform === 'darwin'
@@ -119,55 +110,10 @@ function getLoginShellCandidates(
   return [...new Set([envShell, ...defaults].filter(Boolean))];
 }
 
-function getWindowsCommandCandidates(
-  commandName: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  const winPath = path.win32;
-  const homePath = getHomePath(env);
-  const appData =
-    env['APPDATA']?.trim() || (homePath ? winPath.join(homePath, 'AppData', 'Roaming') : '');
-  const localAppData =
-    env['LOCALAPPDATA']?.trim() || (homePath ? winPath.join(homePath, 'AppData', 'Local') : '');
-  const programFiles = env['ProgramFiles']?.trim() || '';
-  const programFilesX86 = env['ProgramFiles(x86)']?.trim() || '';
-  const nvmSymlink = env['NVM_SYMLINK']?.trim() || '';
-  const scoopShims = homePath ? winPath.join(homePath, 'scoop', 'shims') : '';
-  const baseDirs = [
-    appData ? winPath.join(appData, 'npm') : '',
-    localAppData ? winPath.join(localAppData, 'Programs', 'nodejs') : '',
-    programFiles ? winPath.join(programFiles, 'nodejs') : '',
-    programFilesX86 ? winPath.join(programFilesX86, 'nodejs') : '',
-    nvmSymlink,
-    scoopShims,
-  ].filter(Boolean);
-
-  const hasExtension = winPath.extname(commandName).length > 0;
-  const fileNames = hasExtension
-    ? [commandName]
-    : [commandName, ...WINDOWS_COMMAND_EXTENSIONS.map((ext) => `${commandName}${ext}`)];
-
-  return baseDirs.flatMap((dir) => fileNames.map((fileName) => winPath.join(dir, fileName)));
-}
-
-function getWindowsCommandDirectories(
-  commandName: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  return [
-    ...new Set(getWindowsCommandCandidates(commandName, env).map((candidate) => path.win32.dirname(candidate))),
-  ];
-}
-
 function getCommonCommandCandidates(
   commandName: string,
-  platform: RuntimePlatform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
-  if (platform === 'win32') {
-    return getWindowsCommandCandidates(commandName, env);
-  }
-
   const homePath = getHomePath(env);
   return [
     '/opt/homebrew/bin',
@@ -183,10 +129,10 @@ function getCommonCommandCandidates(
 }
 
 function shouldUseShellForSpawn(
-  commandName: string,
-  platform: RuntimePlatform = process.platform,
+  _commandName: string,
+  _platform: RuntimePlatform = process.platform,
 ): boolean {
-  return platform === 'win32' && /\.(cmd|bat)$/i.test(commandName);
+  return false;
 }
 
 async function fileIsExecutable(filePath: string): Promise<boolean> {
@@ -225,41 +171,7 @@ async function resolveCommandViaPosixShell(
   });
 }
 
-async function resolveCommandViaWindowsShell(commandName: string): Promise<string | null> {
-  const shellPath = process.env['ComSpec']?.trim() || 'cmd.exe';
-  return new Promise((resolve) => {
-    const child = spawn(shellPath, ['/d', '/s', '/c', `where ${windowsCmdEscape(commandName)}`], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: process.env,
-      windowsHide: true,
-    });
-
-    let stdout = '';
-    child.stdout.on('data', (chunk: Buffer | string) => {
-      stdout += chunk.toString();
-    });
-    child.on('error', () => resolve(null));
-    child.on('close', (code) => {
-      const resolvedPath = stdout
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line);
-
-      if (code === 0 && resolvedPath) {
-        resolve(resolvedPath);
-        return;
-      }
-
-      resolve(null);
-    });
-  });
-}
-
 async function resolveCommandViaLoginShell(commandName: string): Promise<string | null> {
-  if (process.platform === 'win32') {
-    return resolveCommandViaWindowsShell(commandName);
-  }
-
   for (const shellPath of getLoginShellCandidates()) {
     const resolved = await resolveCommandViaPosixShell(commandName, shellPath);
     if (resolved) {
@@ -328,37 +240,25 @@ async function buildCliEnvironment(commandPath: string): Promise<NodeJS.ProcessE
   const resolvedNodePath = await resolveSearchPathEntry('node');
   const nodeDirectory = resolvedNodePath?.trim() ? path.dirname(resolvedNodePath.trim()) : '';
   const homePath = getHomePath();
-  const fallbackEntries =
-    process.platform === 'win32'
-      ? [
-          commandDirectory,
-          nodeDirectory,
-          ...getWindowsCommandDirectories('node'),
-          ...getWindowsCommandDirectories(path.basename(commandPath || 'codex')),
-        ].filter(Boolean)
-      : [
-          commandDirectory,
-          nodeDirectory,
-          '/opt/homebrew/bin',
-          '/usr/local/bin',
-          '/usr/bin',
-          '/bin',
-          '/usr/sbin',
-          '/sbin',
-          '/snap/bin',
-          homePath ? path.join(homePath, '.local', 'bin') : '',
-          homePath ? path.join(homePath, '.npm-global', 'bin') : '',
-        ].filter(Boolean);
+  const fallbackEntries = [
+    commandDirectory,
+    nodeDirectory,
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+    '/snap/bin',
+    homePath ? path.join(homePath, '.local', 'bin') : '',
+    homePath ? path.join(homePath, '.npm-global', 'bin') : '',
+  ].filter(Boolean);
 
   const mergedPath = [...new Set([...fallbackEntries, ...pathEntries])].join(path.delimiter);
-  const nextEnv: NodeJS.ProcessEnv = {
+  return {
     ...process.env,
     PATH: mergedPath,
   };
-  if (process.platform === 'win32') {
-    nextEnv['Path'] = mergedPath;
-  }
-  return nextEnv;
 }
 
 function resolveTimeoutMs(): number {
@@ -731,7 +631,6 @@ function runCodexCli(
         env: cliEnv,
         cwd: options?.cwd?.trim() || process.cwd(),
         shell: shouldUseShellForSpawn(commandName),
-        windowsHide: process.platform === 'win32',
       });
 
       let stdout = '';
