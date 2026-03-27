@@ -110,9 +110,13 @@ test.describe('electron real e2e workflows', () => {
 
       const createdNode = window.locator('.react-flow__node').last();
       await expect(createdNode).toBeVisible({ timeout: 10_000 });
-      await createdNode.click();
+      await createdNode.dblclick();
 
-      const openEditorButton = window.getByRole('button', { name: 'Apri Editor Capitolo' });
+      const editNodeModal = window.locator('.modal-card').filter({
+        has: window.getByRole('heading', { name: 'Modifica Blocco' }),
+      });
+      await expect(editNodeModal).toBeVisible({ timeout: 10_000 });
+      const openEditorButton = editNodeModal.getByRole('button', { name: 'Apri editor capitolo' });
       await expect(openEditorButton).toBeEnabled({ timeout: 10_000 });
       await openEditorButton.click();
 
