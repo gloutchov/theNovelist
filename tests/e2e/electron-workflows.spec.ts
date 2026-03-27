@@ -63,7 +63,7 @@ async function createDefaultPlotFromUi(window: Page): Promise<void> {
   });
   await expect(plotModal).toBeVisible({ timeout: 10_000 });
   await plotModal.getByRole('button', { name: 'Crea Trama' }).click();
-  await expect(window.locator('.status-panel .status')).toContainText(/Trama .* creata/, { timeout: 10_000 });
+  await expect(window.locator('.status-panel .status')).toContainText(/Trama creata:/, { timeout: 10_000 });
 }
 
 function toSqlLiteral(value: string): string {
