@@ -266,7 +266,7 @@ Nel repository e presente anche un workflow GitHub Actions di release che costru
 
 Flusso consigliato:
 1. aggiorna la versione in `package.json`
-2. crea e pubblica il tag, ad esempio `v2.2.2`
+2. crea e pubblica il tag, ad esempio `v2.2.3`
 3. lascia che GitHub Actions produca gli artifact e li alleghi alla release
 
 Il workflow supporta anche avvio manuale (`workflow_dispatch`) passando il tag da rilasciare.
