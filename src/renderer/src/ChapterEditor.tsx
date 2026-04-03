@@ -638,6 +638,7 @@ export default function ChapterEditor({
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef<boolean>(false);
   const editorRef = useRef<NonNullable<ReturnType<typeof useEditor>> | null>(null);
   const mentionMenuRef = useRef<MentionMenuState | null>(null);
@@ -985,7 +986,13 @@ export default function ChapterEditor({
     const activeEditor = editor;
 
     function syncSelectionFromEditor(): void {
+      if (selectionTimeoutRef.current) {
+        clearTimeout(selectionTimeoutRef.current);
+      }
+
       const selection = activeEditor.state.selection;
+      
+      // Update mention menu immediately as it's for typing @...
       setMentionMenu((previous) => {
         const previousSelectedId =
           previous && previous.items.length > 0
@@ -1002,40 +1009,46 @@ export default function ChapterEditor({
         return;
       }
 
-      const snapshot = getSelectedTextSnapshot(activeEditor);
-      if (!snapshot) {
-        setSelectedText('');
-        setSelectionRange(null);
-        setSelectionBubble(null);
+      // Debounce the AI bubble menu appearance
+      selectionTimeoutRef.current = setTimeout(() => {
+        const snapshot = getSelectedTextSnapshot(activeEditor);
+        if (!snapshot) {
+          setSelectedText('');
+          setSelectionRange(null);
+          setSelectionBubble(null);
+          setSelectionContextMenu(null);
+          return;
+        }
+        setSelectedText(snapshot.text);
+        setSelectionRange(snapshot.range);
         setSelectionContextMenu(null);
-        return;
-      }
-      setSelectedText(snapshot.text);
-      setSelectionRange(snapshot.range);
-      setSelectionContextMenu(null);
 
-      const nativeSelection = window.getSelection();
-      if (!nativeSelection || nativeSelection.rangeCount === 0 || nativeSelection.isCollapsed) {
-        setSelectionBubble(null);
-        return;
-      }
+        const nativeSelection = window.getSelection();
+        if (!nativeSelection || nativeSelection.rangeCount === 0 || nativeSelection.isCollapsed) {
+          setSelectionBubble(null);
+          return;
+        }
 
-      const rect = nativeSelection.getRangeAt(0).getBoundingClientRect();
-      if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top)) {
-        setSelectionBubble(null);
-        return;
-      }
+        const rect = nativeSelection.getRangeAt(0).getBoundingClientRect();
+        if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top)) {
+          setSelectionBubble(null);
+          return;
+        }
 
-      setSelectionBubble({
-        x: rect.left + rect.width / 2,
-        y: rect.top + window.scrollY - 12,
-      });
+        setSelectionBubble({
+          x: rect.left + rect.width / 2,
+          y: rect.top + window.scrollY - 20, // Increased offset to avoid covering text
+        });
+      }, 450);
     }
 
     activeEditor.on('selectionUpdate', syncSelectionFromEditor);
 
     return () => {
       activeEditor.off('selectionUpdate', syncSelectionFromEditor);
+      if (selectionTimeoutRef.current) {
+        clearTimeout(selectionTimeoutRef.current);
+      }
     };
   }, [editor]);
 

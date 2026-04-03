@@ -1681,7 +1681,7 @@ export default function App() {
                   type="button"
                   className="sidebar-action-button"
                   onClick={() => void handleSaveProject()}
-                  disabled={!canSaveProject}
+                  disabled={!canSaveProject || !hasUnsavedChanges}
                 >
                   Salva
                 </button>

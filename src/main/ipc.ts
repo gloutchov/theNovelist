@@ -1352,7 +1352,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     repository.setChapterNodeRichTextDocId(request.chapterNodeId, saved.id);
 
     const plainText = richTextToPlainText(normalizedDocument);
-    const codexSettings = repository.getOrCreateCodexSettings(projectId);
+    const runtime = await resolveCodexRuntime(repository, projectId);
+    const codexSettings = runtime.settings;
     if (plainText && codexSettings.autoSummarizeDescriptions) {
       const workspaceRoot = sessionManager.getOpenedProject()?.rootPath;
       const summaryRequest = buildSummaryPrompt(node.title, plainText);
@@ -1369,9 +1370,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
               workspaceRoot,
             },
             {
-              provider: 'codex_cli',
-              allowApiCalls: false,
-              apiKey: null,
+              provider: codexSettings.provider,
+              allowApiCalls: codexSettings.allowApiCalls,
+              apiKey: runtime.runtimeApiKey,
               apiModel: codexSettings.apiModel,
             },
           );
