@@ -33,11 +33,13 @@ export interface ChapterNodeRecord {
   updatedAt: string;
 }
 
-export interface ChapterEdgeRecord {
+export interface StoryEdgeRecord {
   id: string;
   projectId: string;
-  sourceNodeId: string;
-  targetNodeId: string;
+  sourceId: string;
+  targetId: string;
+  sourceHandle: string | null;
+  targetHandle: string | null;
   label: string | null;
   createdAt: string;
 }
@@ -175,9 +177,11 @@ export interface UpdateChapterNodeInput {
   richTextDocId: string | null;
 }
 
-export interface CreateChapterEdgeInput {
-  sourceNodeId: string;
-  targetNodeId: string;
+export interface CreateStoryEdgeInput {
+  sourceId: string;
+  targetId: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
   label?: string | null;
 }
 

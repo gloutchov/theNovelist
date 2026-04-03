@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   type AppPreferencesResponse,
   IPC_CHANNELS,
-  type ChapterEdgeResponse,
+  type StoryEdgeResponse,
   type ChapterDocumentResponse,
   type ChapterNodeResponse,
   type CharacterCardResponse,
@@ -88,10 +88,12 @@ const novelistApi = {
   deleteStoryNode: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.storyDeleteNode, payload),
   createStoryEdge: (payload: {
-    sourceNodeId: string;
-    targetNodeId: string;
+    sourceId: string;
+    targetId: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
     label?: string;
-  }): Promise<ChapterEdgeResponse> => ipcRenderer.invoke(IPC_CHANNELS.storyCreateEdge, payload),
+  }): Promise<StoryEdgeResponse> => ipcRenderer.invoke(IPC_CHANNELS.storyCreateEdge, payload),
   deleteStoryEdge: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.storyDeleteEdge, payload),
   getChapterDocument: (payload: { chapterNodeId: string }): Promise<ChapterDocumentResponse> =>

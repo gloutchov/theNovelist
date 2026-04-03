@@ -190,8 +190,10 @@ const deleteNodeRequestSchema = z.object({
 });
 
 const createEdgeRequestSchema = z.object({
-  sourceNodeId: z.string().trim().min(1),
-  targetNodeId: z.string().trim().min(1),
+  sourceId: z.string().trim().min(1),
+  targetId: z.string().trim().min(1),
+  sourceHandle: z.string().trim().nullable().optional(),
+  targetHandle: z.string().trim().nullable().optional(),
   label: z.string().trim().max(200).optional(),
 });
 
@@ -403,11 +405,13 @@ const chapterNodeResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
-const chapterEdgeResponseSchema = z.object({
+const storyEdgeResponseSchema = z.object({
   id: z.string(),
   projectId: z.string(),
-  sourceNodeId: z.string(),
-  targetNodeId: z.string(),
+  sourceId: z.string(),
+  targetId: z.string(),
+  sourceHandle: z.string().nullable(),
+  targetHandle: z.string().nullable(),
   label: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -415,7 +419,7 @@ const chapterEdgeResponseSchema = z.object({
 const storyStateResponseSchema = z.object({
   plots: z.array(plotResponseSchema),
   nodes: z.array(chapterNodeResponseSchema),
-  edges: z.array(chapterEdgeResponseSchema),
+  edges: z.array(storyEdgeResponseSchema),
 });
 
 const chapterDocumentResponseSchema = z.object({
@@ -1169,7 +1173,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return storyStateResponseSchema.parse({
       plots: repository.listPlots(projectId),
       nodes: repository.listChapterNodes(projectId),
-      edges: repository.listChapterEdges(projectId),
+      edges: repository.listStoryEdges(projectId),
     });
   });
 
@@ -1267,20 +1271,29 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = createEdgeRequestSchema.parse(payload);
 
-    const edge = repository.createChapterEdge(projectId, {
-      sourceNodeId: request.sourceNodeId,
-      targetNodeId: request.targetNodeId,
+    if (!repository.isIdInProject(projectId, request.sourceId)) {
+      throw new Error(`Source entity does not belong to the project: ${request.sourceId}`);
+    }
+    if (!repository.isIdInProject(projectId, request.targetId)) {
+      throw new Error(`Target entity does not belong to the project: ${request.targetId}`);
+    }
+
+    const edge = repository.createStoryEdge(projectId, {
+      sourceId: request.sourceId,
+      targetId: request.targetId,
+      sourceHandle: request.sourceHandle,
+      targetHandle: request.targetHandle,
       label: request.label ?? null,
     });
 
-    return chapterEdgeResponseSchema.parse(edge);
+    return storyEdgeResponseSchema.parse(edge);
   });
 
   ipcMain.handle(IPC_CHANNELS.storyDeleteEdge, (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = deleteEdgeRequestSchema.parse(payload);
 
-    repository.deleteChapterEdge(request.id);
+    repository.deleteStoryEdge(request.id);
     return successResponseSchema.parse({ ok: true });
   });
 

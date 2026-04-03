@@ -5,7 +5,7 @@ import { repairProjectStoredFilePath } from '../projects/asset-paths';
 import type {
   CharacterChapterLinkRecord,
   ChapterDocumentRecord,
-  ChapterEdgeRecord,
+  StoryEdgeRecord,
   CodexChatMessageRecord,
   CodexSettingsRecord,
   ChapterNodeRecord,
@@ -14,7 +14,7 @@ import type {
   CreateCodexChatMessageInput,
   CreateCharacterCardInput,
   CreateCharacterImageInput,
-  CreateChapterEdgeInput,
+  CreateStoryEdgeInput,
   CreateChapterNodeInput,
   CreateLocationCardInput,
   CreateLocationImageInput,
@@ -79,12 +79,14 @@ function toChapterNodeRecord(row: Record<string, unknown>): ChapterNodeRecord {
   };
 }
 
-function toChapterEdgeRecord(row: Record<string, unknown>): ChapterEdgeRecord {
+function toStoryEdgeRecord(row: Record<string, unknown>): StoryEdgeRecord {
   return {
     id: String(row.id),
     projectId: String(row.project_id),
-    sourceNodeId: String(row.source_node_id),
-    targetNodeId: String(row.target_node_id),
+    sourceId: String(row.source_id),
+    targetId: String(row.target_id),
+    sourceHandle: row.source_handle ? String(row.source_handle) : null,
+    targetHandle: row.target_handle ? String(row.target_handle) : null,
     label: row.label ? String(row.label) : null,
     createdAt: String(row.created_at),
   };
@@ -578,47 +580,68 @@ export class NovelistRepository {
       .run(documentId, nowIso(), nodeId);
   }
 
-  createChapterEdge(projectId: string, input: CreateChapterEdgeInput): ChapterEdgeRecord {
+  createStoryEdge(projectId: string, input: CreateStoryEdgeInput): StoryEdgeRecord {
     const id = randomUUID();
     const timestamp = nowIso();
 
     this.db
       .prepare(
         `
-        INSERT INTO chapter_edges(id, project_id, source_node_id, target_node_id, label, created_at)
-        VALUES (@id, @projectId, @sourceNodeId, @targetNodeId, @label, @createdAt)
+        INSERT INTO story_edges(id, project_id, source_id, target_id, source_handle, target_handle, label, created_at)
+        VALUES (@id, @projectId, @sourceId, @targetId, @sourceHandle, @targetHandle, @label, @createdAt)
         `,
       )
       .run({
         id,
         projectId,
-        sourceNodeId: input.sourceNodeId,
-        targetNodeId: input.targetNodeId,
+        sourceId: input.sourceId,
+        targetId: input.targetId,
+        sourceHandle: input.sourceHandle ?? null,
+        targetHandle: input.targetHandle ?? null,
         label: input.label ?? null,
         createdAt: timestamp,
       });
 
-    const row = this.db.prepare('SELECT * FROM chapter_edges WHERE id = ?').get(id) as
+    const row = this.db.prepare('SELECT * FROM story_edges WHERE id = ?').get(id) as
       | Record<string, unknown>
       | undefined;
 
     if (!row) {
-      throw new Error('Chapter edge creation failed');
+      throw new Error('Story edge creation failed');
     }
 
-    return toChapterEdgeRecord(row);
+    return toStoryEdgeRecord(row);
   }
 
-  listChapterEdges(projectId: string): ChapterEdgeRecord[] {
+  listStoryEdges(projectId: string): StoryEdgeRecord[] {
     const rows = this.db
-      .prepare('SELECT * FROM chapter_edges WHERE project_id = ? ORDER BY created_at ASC')
+      .prepare('SELECT * FROM story_edges WHERE project_id = ? ORDER BY created_at ASC')
       .all(projectId) as Record<string, unknown>[];
 
-    return rows.map(toChapterEdgeRecord);
+    return rows.map(toStoryEdgeRecord);
   }
 
-  deleteChapterEdge(edgeId: string): void {
-    this.db.prepare('DELETE FROM chapter_edges WHERE id = ?').run(edgeId);
+  deleteStoryEdge(edgeId: string): void {
+    this.db.prepare('DELETE FROM story_edges WHERE id = ?').run(edgeId);
+  }
+
+  isIdInProject(projectId: string, entityId: string): boolean {
+    const chapterExists = this.db
+      .prepare('SELECT 1 FROM chapter_nodes WHERE project_id = ? AND id = ?')
+      .get(projectId, entityId);
+    if (chapterExists) return true;
+
+    const characterExists = this.db
+      .prepare('SELECT 1 FROM character_cards WHERE project_id = ? AND id = ?')
+      .get(projectId, entityId);
+    if (characterExists) return true;
+
+    const locationExists = this.db
+      .prepare('SELECT 1 FROM location_cards WHERE project_id = ? AND id = ?')
+      .get(projectId, entityId);
+    if (locationExists) return true;
+
+    return false;
   }
 
   upsertChapterDocument(input: UpsertChapterDocumentInput): ChapterDocumentRecord {

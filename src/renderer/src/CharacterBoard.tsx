@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  applyEdgeChanges,
   applyNodeChanges,
   Background,
+  ConnectionMode,
   Controls,
+  MarkerType,
   MiniMap,
   ReactFlow,
+  type Connection,
+  type Edge,
   type Node,
   type NodeMouseHandler,
+  type OnEdgesChange,
   type OnNodesChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
@@ -172,6 +178,7 @@ function mapCardToNode(
       plotNumber: card.plotNumber,
       subtitle: card.job || card.species || card.physique || 'Scheda personaggio',
       imageSrc,
+      isBoard: true,
     },
     style: {
       border: `2px solid ${color}`,
@@ -203,6 +210,7 @@ export default function CharacterBoard({
 }: CharacterBoardProps) {
   const [cards, setCards] = useState<CharacterCard[]>([]);
   const [nodes, setNodes] = useState<CharacterCanvasNode[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
   const [chapterOptions, setChapterOptions] = useState<StoryChapterNode[]>([]);
   const [plotOptions, setPlotOptions] = useState<StoryPlot[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -268,7 +276,16 @@ export default function CharacterBoard({
   }, []);
 
   const refreshCards = useCallback(async (): Promise<void> => {
-    const nextCards = await window.novelistApi.listCharacterCards();
+    const [nextCards, state] = await Promise.all([
+      window.novelistApi.listCharacterCards(),
+      window.novelistApi.getStoryState(),
+    ]);
+    
+    const cardIds = new Set(nextCards.map((c) => c.id));
+    const relevantEdges = state.edges.filter(
+      (edge) => cardIds.has(edge.sourceId) && cardIds.has(edge.targetId)
+    );
+
     const primaryImageByCardId = new Map<string, string | null>();
 
     await Promise.all(
@@ -288,6 +305,15 @@ export default function CharacterBoard({
     );
 
     setCards(nextCards);
+    setEdges(relevantEdges.map((edge) => ({
+      id: edge.id,
+      source: edge.sourceId,
+      target: edge.targetId,
+      sourceHandle: edge.sourceHandle ?? 'handle-bottom',
+      targetHandle: edge.targetHandle ?? 'handle-top',
+      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
+      style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
+    })));
     setNodes(
       nextCards.map((card) =>
         mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null, {
@@ -400,6 +426,69 @@ export default function CharacterBoard({
   const onNodesChange: OnNodesChange<CharacterCanvasNode> = useCallback((changes) => {
     setNodes((prev) => applyNodeChanges(changes, prev));
   }, []);
+
+  const onEdgesChange: OnEdgesChange = useCallback((changes) => {
+    setEdges((prev) => applyEdgeChanges(changes, prev));
+  }, []);
+
+  async function handleConnect(connection: Connection): Promise<void> {
+    if (!connection.source || !connection.target) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const created = await window.novelistApi.createStoryEdge({
+        sourceId: connection.source,
+        targetId: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+      });
+
+      setEdges((prev) => [
+        ...prev,
+        {
+          id: created.id,
+          source: created.sourceId,
+          target: created.targetId,
+          sourceHandle: created.sourceHandle ?? 'handle-bottom',
+          targetHandle: created.targetHandle ?? 'handle-top',
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
+          style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
+        },
+      ]);
+      onStatus('Connessione creata');
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const onEdgesDelete = useCallback(
+    async (deletedEdges: Edge[]) => {
+      if (deletedEdges.length === 0) {
+        return;
+      }
+
+      setBusy(true);
+      try {
+        await Promise.all(
+          deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
+        );
+        onStatus(`${deletedEdges.length} connessioni eliminate`);
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setError(message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onStatus],
+  );
 
   const onSelectionChange = useCallback(
     (selection: OnSelectionChangeParams<CharacterCanvasNode>) => {
@@ -950,19 +1039,23 @@ export default function CharacterBoard({
       </aside>
 
       <section className="canvas-wrap">
-        <ReactFlow
+        <ReactFlow<CharacterCanvasNode, Edge>
           nodes={nodes}
-          edges={emptyEdges}
+          edges={edges}
           nodeTypes={nodeTypes}
           onlyRenderVisibleElements
+          connectionMode={ConnectionMode.Loose}
           onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           onNodeClick={onNodeClick}
           onNodeDragStop={onNodeDragStop}
           onNodeDoubleClick={onNodeDoubleClick}
           onSelectionChange={onSelectionChange}
+          onConnect={(connection) => void handleConnect(connection)}
+          onEdgesDelete={onEdgesDelete}
           elevateNodesOnSelect
           fitView
-          deleteKeyCode={null}
+          deleteKeyCode={['Backspace', 'Delete']}
         >
           <MiniMap zoomable pannable />
           <Controls />

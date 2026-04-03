@@ -294,6 +294,44 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 9,
+    statements: [
+      `
+      CREATE TABLE IF NOT EXISTS story_edges (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        label TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      INSERT INTO story_edges (id, project_id, source_id, target_id, label, created_at)
+      SELECT id, project_id, source_node_id, target_node_id, label, created_at
+      FROM chapter_edges;
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_story_edges_project_id ON story_edges(project_id);
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_story_edges_source_id ON story_edges(source_id);
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_story_edges_target_id ON story_edges(target_id);
+      `,
+    ],
+  },
+  {
+    version: 10,
+    statements: [
+      `ALTER TABLE story_edges ADD COLUMN source_handle TEXT;`,
+      `ALTER TABLE story_edges ADD COLUMN target_handle TEXT;`,
+      `UPDATE story_edges SET source_handle = 'handle-right', target_handle = 'handle-left';`,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

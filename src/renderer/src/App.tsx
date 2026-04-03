@@ -24,8 +24,10 @@ import '@xyflow/react/dist/style.css';
 import ChapterEditor from './ChapterEditor';
 import ChapterFlowNode, { type ChapterFlowNodeData } from './ChapterFlowNode';
 import CharacterBoard from './CharacterBoard';
+import CharacterFlowNode, { type CharacterFlowNodeData } from './CharacterFlowNode';
 import { getNearbyCanvasPosition } from './canvas-position';
 import LocationBoard from './LocationBoard';
+import LocationFlowNode, { type LocationFlowNodeData } from './LocationFlowNode';
 import PlotFlowNode, { type PlotFlowNodeData } from './PlotFlowNode';
 import { getStatusTone } from './status-tone';
 
@@ -38,7 +40,10 @@ type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSet
 type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 type CreatedChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['createStoryNode']>>;
 type ChapterCanvasNode = Node<ChapterFlowNodeData, 'chapter'>;
+type CharacterCanvasNode = Node<CharacterFlowNodeData, 'character'>;
+type LocationCanvasNode = Node<LocationFlowNodeData, 'location'>;
 type PlotCanvasNode = Node<PlotFlowNodeData, 'plot'>;
+type StoryCanvasNode = Node<any, string>;
 
 type WorkspaceTab = 'story' | 'plots' | 'characters' | 'locations';
 
@@ -121,6 +126,67 @@ function mapNodeRecordToFlowNode(record: StoryNodeRecord, plots: PlotRecord[]): 
       border: `2px solid ${color}`,
       borderRadius: '12px',
       width: 260,
+      background: 'var(--surface-primary)',
+      boxShadow: 'var(--flow-node-shadow)',
+      padding: '10px',
+    },
+  };
+}
+
+function mapCharacterCardToFlowNode(
+  record: Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number],
+  plots: PlotRecord[],
+): CharacterCanvasNode {
+  const color = getPlotColor(record.plotNumber, plots);
+  const name = `${record.firstName} ${record.lastName}`.trim();
+
+  return {
+    id: record.id,
+    type: 'character',
+    position: {
+      x: record.positionX,
+      y: record.positionY,
+    },
+    data: {
+      label: name,
+      plotNumber: record.plotNumber,
+      subtitle: record.job || 'Personaggio',
+      imageSrc: null,
+    },
+    style: {
+      border: `2px solid ${color}`,
+      borderRadius: '12px',
+      width: 240,
+      background: 'var(--surface-primary)',
+      boxShadow: 'var(--flow-node-shadow)',
+      padding: '10px',
+    },
+  };
+}
+
+function mapLocationCardToFlowNode(
+  record: Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number],
+  plots: PlotRecord[],
+): LocationCanvasNode {
+  const color = getPlotColor(record.plotNumber, plots);
+
+  return {
+    id: record.id,
+    type: 'location',
+    position: {
+      x: record.positionX,
+      y: record.positionY,
+    },
+    data: {
+      label: record.name,
+      plotNumber: record.plotNumber,
+      subtitle: record.locationType || 'Location',
+      imageSrc: null,
+    },
+    style: {
+      border: `2px solid ${color}`,
+      borderRadius: '12px',
+      width: 240,
       background: 'var(--surface-primary)',
       boxShadow: 'var(--flow-node-shadow)',
       padding: '10px',
@@ -218,10 +284,10 @@ function mapEdgeRecordToFlowEdge(
 ): Edge {
   return {
     id: record.id,
-    source: record.sourceNodeId,
-    target: record.targetNodeId,
-    sourceHandle: handles?.sourceHandle ?? 'handle-right',
-    targetHandle: handles?.targetHandle ?? 'handle-left',
+    source: record.sourceId,
+    target: record.targetId,
+    sourceHandle: handles?.sourceHandle ?? record.sourceHandle ?? 'handle-right',
+    targetHandle: handles?.targetHandle ?? record.targetHandle ?? 'handle-left',
     label: record.label ?? '',
     markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
     style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
@@ -321,7 +387,7 @@ export default function App() {
 
   const [plots, setPlots] = useState<PlotRecord[]>([]);
   const [plotNodes, setPlotNodes] = useState<PlotCanvasNode[]>([]);
-  const [nodes, setNodes] = useState<ChapterCanvasNode[]>([]);
+  const [nodes, setNodes] = useState<StoryCanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
   const [newPlotNumber, setNewPlotNumber] = useState<number>(1);
@@ -417,7 +483,14 @@ export default function App() {
   const canOpenStoryCreationTools = Boolean(currentProject) && !busy;
   const hasUnsavedChanges =
     isStoryEditDirty || chapterEditorDirty || characterBoardDirty || locationBoardDirty;
-  const nodeTypes = useMemo(() => ({ chapter: ChapterFlowNode }), []);
+  const nodeTypes = useMemo(
+    () => ({
+      chapter: ChapterFlowNode,
+      character: CharacterFlowNode,
+      location: LocationFlowNode,
+    }),
+    [],
+  );
   const plotNodeTypes = useMemo(() => ({ plot: PlotFlowNode }), []);
   const statusTone = getStatusTone(status);
   const handleWorkspaceStatus = useCallback((message: string) => {
@@ -1099,15 +1172,17 @@ export default function App() {
 
     try {
       const created = await window.novelistApi.createStoryEdge({
-        sourceNodeId: connection.source,
-        targetNodeId: connection.target,
+        sourceId: connection.source,
+        targetId: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
       });
 
       setEdges((prev) => [
         ...prev,
         mapEdgeRecordToFlowEdge(created, {
-          sourceHandle: connection.sourceHandle ?? 'handle-right',
-          targetHandle: connection.targetHandle ?? 'handle-left',
+          sourceHandle: connection.sourceHandle,
+          targetHandle: connection.targetHandle,
         }),
       ]);
       setStatus('Connessione creata');
@@ -1120,32 +1195,63 @@ export default function App() {
     }
   }
 
-  const handleNodeDragStop: NodeMouseHandler<ChapterCanvasNode> = async (_event, node) => {
+  const handleNodeDragStop: NodeMouseHandler<StoryCanvasNode> = async (_event, node) => {
     setError(null);
 
     try {
-      const data = node.data;
-      const updated = await window.novelistApi.updateStoryNode({
-        id: node.id,
-        title: data.title,
-        description: data.description,
-        plotNumber: data.plotNumber,
-        blockNumber: data.blockNumber,
-        positionX: node.position.x,
-        positionY: node.position.y,
-      });
+      if (node.type === 'chapter') {
+        const data = node.data as ChapterFlowNodeData;
+        const updated = await window.novelistApi.updateStoryNode({
+          id: node.id,
+          title: data.title,
+          description: data.description,
+          plotNumber: data.plotNumber,
+          blockNumber: data.blockNumber,
+          positionX: node.position.x,
+          positionY: node.position.y,
+        });
 
-      setNodes((prev) =>
-        prev.map((item) =>
-          item.id === node.id
-            ? {
-                ...mapNodeRecordToFlowNode(updated, plots),
-                selected: item.selected,
-              }
-            : item,
-        ),
-      );
-      setStatus(`Posizione blocco salvata: ${updated.title}`);
+        setNodes((prev) =>
+          prev.map((item) =>
+            item.id === node.id
+              ? {
+                  ...mapNodeRecordToFlowNode(updated, plots),
+                  selected: item.selected,
+                }
+              : item,
+          ),
+        );
+        setStatus(`Posizione blocco salvata: ${updated.title}`);
+      } else if (node.type === 'character') {
+        const data = node.data as CharacterFlowNodeData;
+        const [firstName, ...lastNameParts] = data.label.split(' ');
+        const lastName = lastNameParts.join(' ');
+
+        const card = await window.novelistApi.listCharacterCards();
+        const existing = card.find((c) => c.id === node.id);
+        if (!existing) return;
+
+        await window.novelistApi.updateCharacterCard({
+          ...existing,
+          positionX: node.position.x,
+          positionY: node.position.y,
+        });
+
+        setStatus(`Posizione personaggio salvata: ${data.label}`);
+      } else if (node.type === 'location') {
+        const data = node.data as LocationFlowNodeData;
+        const cards = await window.novelistApi.listLocationCards();
+        const existing = cards.find((c) => c.id === node.id);
+        if (!existing) return;
+
+        await window.novelistApi.updateLocationCard({
+          ...existing,
+          positionX: node.position.x,
+          positionY: node.position.y,
+        });
+
+        setStatus(`Posizione location salvata: ${data.label}`);
+      }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
@@ -1776,7 +1882,7 @@ export default function App() {
           </aside>
 
           <section className="canvas-wrap">
-            <ReactFlow<ChapterCanvasNode, Edge>
+            <ReactFlow<StoryCanvasNode, Edge>
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}

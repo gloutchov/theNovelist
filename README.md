@@ -117,6 +117,7 @@ E' presente anche un'area di testo in cui è possibile abbozzare la storia nelle
 
 ### Capitoli
 Il programma vede i capitoli come dei blocchi da caricare sul canvas. E' sufficiente inserire il titolo e una breve descrizione. Poi si clicca su 'Crea Blocco', e il capitolo apparirà sul canvas.
+Tutti i blocchi sono dotati di maniglie, così che ogni capitolo possa essere collegato con il successivo, così da andare a comporre la struttura della storia. Tale struttura verrà rispettata sia in fase di stampa, sia di export. In ogni momento è possibile cambiare l'ordine dei capitoli cancellando le connessioni e ricreandole come più si desidera.
 Con un doppioclick sul blocco che rappresenta il capitolo si aprirà una finestra riassuntiva, e cliccando su 'Apri Editor di Testo' si potrà iniziare a scrivere.
 
 #### Editor di Testo
@@ -136,6 +137,7 @@ Quando si seleziona un oggetto sul canvas, in quest'area vengono attivati dei ta
 
 ### Canvas Trame/Personaggi/Location
 Le due aree non sono molto differenti da quelle già viste. Sia il blocco personaggio, sia il blocco paesaggio permette di inserire delle caratteristiche specifiche, ed eventualmente generare una immagine del personaggio/paesaggio.
+Sia i blocchi personaggio, sia i blocchi location, sono dotati di 'maniglie', esattamente come avviene nel Canvas dells Struttura Progetto. Ciò permette di collegare tra loro personaggi che hanno un legame, o location legate tra loro. 
 Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, alla pressione del tasto Nuove Trame.
 
 Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
@@ -282,6 +284,11 @@ Nota:
 - `src/main/projects`: gestione progetto su disco + snapshot/recovery.
 - `tests/unit`: test unitari.
 - `tests/e2e`: test end-to-end.
+
+## Integrità e Sicurezza (Note Tecniche)
+- **Validazione IPC**: Ogni payload è validato via `zod` lato Main Process.
+- **Appartenenza Progetto**: Tutte le operazioni su nodi e connessioni verificano che gli ID coinvolti appartengano al progetto aperto. Questo impedisce manipolazioni dei collegamenti tra progetti diversi.
+- **Gestione Chiavi**: Le chiavi API sono gestite via `safeStorage` (dove disponibile) e mai inviate in chiaro al renderer.
 
 ## Struttura progetto narrativo su disco
 - `project.db`: database SQLite del progetto.
