@@ -1496,20 +1496,6 @@ export default function ChapterEditor({
     }
   }
 
-  async function handleExportPdf(): Promise<void> {
-    setError(null);
-    try {
-      await handleSave();
-      const result = await window.novelistApi.exportChapterPdf({ chapterNodeId });
-      if (result) {
-        onStatus(`PDF esportato: ${result.filePath}`);
-      }
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-      setError(message);
-    }
-  }
-
   async function handleSendChat(): Promise<void> {
     const message = chatInput.trim();
     if (!message || !editor) {
@@ -2226,13 +2212,6 @@ export default function ChapterEditor({
               disabled={saving || !editor}
             >
               Esporta DOCX
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleExportPdf()}
-              disabled={saving || !editor}
-            >
-              Esporta PDF
             </button>
             <button type="button" onClick={() => void handlePrint()} disabled={!editor}>
               Stampa

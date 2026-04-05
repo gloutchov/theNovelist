@@ -238,7 +238,6 @@ export default function CharacterBoard({
   const autosaveInFlightRef = useRef<boolean>(false);
 
   const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
-  const emptyEdges = useMemo(() => [], []);
   const nodeTypes = useMemo(() => ({ character: CharacterFlowNode }), []);
   const selectedCard = useMemo(
     () => (selectedCardId ? (cardsById.get(selectedCardId) ?? null) : null),

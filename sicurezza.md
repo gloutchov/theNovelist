@@ -1,6 +1,6 @@
 # Sicurezza - The Novelist
 
-Stato documentato al **22 marzo 2026**.
+Stato documentato al **5 aprile 2026**.
 
 Questo documento descrive le misure di sicurezza **attualmente implementate** nell'applicazione, con limiti noti.
 
@@ -17,11 +17,26 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 ### 2.1 Isolamento renderer/main
 - `contextIsolation: true` nel `BrowserWindow` principale.
 - `nodeIntegration: false` nel renderer.
+- `sandbox: true` nel `BrowserWindow` principale e nella finestra di stampa.
 - API esposte al renderer solo tramite `preload` + `contextBridge` (`window.novelistApi`).
+- Il `preload` usa canali IPC condivisi definiti in un modulo separato, senza dipendenze dal codice `main` che richieda moduli nativi o privilegi del main process. Questo evita rotture del bridge in ambiente sandboxato.
 - Navigazioni inattese e popup (`window.open`) bloccati nel `BrowserWindow` principale.
 - Riferimenti:
   - `src/main/index.ts`
   - `src/preload/index.ts`
+  - `src/shared/ipc-channels.ts`
+
+### 2.1-bis Content Security Policy
+- CSP esplicita nel renderer principale via `meta http-equiv="Content-Security-Policy"`.
+- Policy restrittiva per:
+  - bloccare `object-src`
+  - limitare `script-src` a `self`
+  - confinare `connect-src` a `self` e agli endpoint locali necessari per il dev server Vite
+- Nota: essendo una CSP via `meta`, alcune direttive come `frame-ancestors` non sono applicabili e andrebbero eventualmente imposte via header se in futuro si introducesse una catena di delivery HTTP.
+- Le viste HTML usate per la stampa includono una CSP dedicata minimale, senza script e con soli stili inline/immagini locali o data URL.
+- Riferimenti:
+  - `src/renderer/index.html`
+  - `src/main/chapters/exporters.ts`
 
 ### 2.2 IPC con validazione input/output
 - Ogni canale IPC usa schemi `zod` per parsing/validazione payload.
@@ -122,29 +137,33 @@ Questo documento descrive le misure di sicurezza **attualmente implementate** ne
 
 ## 4) Limiti noti (stato attuale)
 
-1. `sandbox: false` in Electron (`BrowserWindow` principale e finestra di stampa).
-2. Nessuna CSP esplicita in `src/renderer/index.html`.
-3. Build distribuita localmente non firmata/notarizzata (`identity: null` in `electron-builder`).
-4. Database progetto (`project.db`) non cifrato nativamente a riposo.
-5. L'app è single-user locale: non ha autenticazione/ruoli.
-6. Se `safeStorage` non è disponibile, la chiave nuova non viene salvata in secure storage; resta possibile uso via variabile ambiente.
-7. Le menzioni sono validate lato main process, ma la sincronizzazione dei link capitolo è ancora avviata dal renderer; il modello è robusto per un'app locale, ma un futuro spostamento completo della sincronizzazione nel main process ridurrebbe ulteriormente la superficie di fiducia del renderer.
+1. Build distribuita localmente non firmata/notarizzata (`identity: null` in `electron-builder`).
+2. Database progetto (`project.db`) non cifrato nativamente a riposo.
+3. L'app è single-user locale: non ha autenticazione/ruoli.
+4. Se `safeStorage` non è disponibile, la chiave nuova non viene salvata in secure storage; resta possibile uso via variabile ambiente.
+5. Le menzioni sono validate lato main process, ma la sincronizzazione dei link capitolo è ancora avviata dal renderer; il modello è robusto per un'app locale, ma un futuro spostamento completo della sincronizzazione nel main process ridurrebbe ulteriormente la superficie di fiducia del renderer.
 
 ## 5) Raccomandazioni pratiche (priorità)
 
-1. Abilitare `sandbox: true` dove compatibile con l'app.
-2. Definire una Content Security Policy restrittiva.
-3. Firmare e notarizzare le build macOS/Windows di distribuzione.
-4. Estendere lo stesso hardening applicato al `BrowserWindow` principale anche alle finestre ausiliarie, in particolare stampa/preview, se mantengono superfici di navigazione proprie.
-5. Valutare cifratura del DB progetto o almeno delle sezioni sensibili.
-6. Aggiungere hardening release (dipendenze, SCA, audit periodico, CI security checks).
-7. Valutare lo spostamento della sincronizzazione link capitolo-personaggi/location interamente nel main process.
+1. Firmare e notarizzare le build macOS/Windows di distribuzione.
+2. Valutare cifratura del DB progetto o almeno delle sezioni sensibili.
+3. Aggiungere hardening release (dipendenze, SCA, audit periodico, CI security checks).
+4. Valutare lo spostamento della sincronizzazione link capitolo-personaggi/location interamente nel main process.
 
 ## 6) File principali da verificare
 - `src/main/index.ts`
 - `src/preload/index.ts`
+- `src/shared/ipc-channels.ts`
 - `src/main/ipc.ts`
 - `src/main/security/secure-settings.ts`
 - `src/main/codex/client.ts`
 - `src/main/images/generation.ts`
 - `src/main/persistence/*`
+
+## 7) Verifiche consigliate
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- `npm run test:smoke:electron:codex`
+- Nota pratica per macOS: alcuni rebuild nativi e test che passano da `npm test` richiedono anche toolchain Xcode configurata e licenza accettata.
+- Questo requisito riguarda sviluppo, CI locale e debug del repository sorgente; non riguarda l'utente finale che installa una build gia pacchettizzata.

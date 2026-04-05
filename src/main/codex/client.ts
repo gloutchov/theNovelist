@@ -116,13 +116,13 @@ function getCommonCommandCandidates(
 ): string[] {
   const homePath = getHomePath(env);
   return [
+    homePath ? path.join(homePath, '.local', 'bin') : '',
+    homePath ? path.join(homePath, '.npm-global', 'bin') : '',
     '/opt/homebrew/bin',
     '/usr/local/bin',
     '/usr/bin',
     '/bin',
     '/snap/bin',
-    homePath ? path.join(homePath, '.local', 'bin') : '',
-    homePath ? path.join(homePath, '.npm-global', 'bin') : '',
   ]
     .filter(Boolean)
     .map((directory) => path.join(directory, commandName));
@@ -196,6 +196,11 @@ function resolveSearchPathEntry(commandName: string): Promise<string | null> {
   return resolution;
 }
 
+function clearResolvedCommandCaches(): void {
+  resolvedCommandCache.clear();
+  resolvedPathCache.clear();
+}
+
 async function resolveCommandFromCommonPaths(commandName: string): Promise<string | null> {
   for (const candidate of getCommonCommandCandidates(commandName)) {
     if (await fileIsExecutable(candidate)) {
@@ -218,14 +223,14 @@ function resolveRunnableCommandName(commandName: string): Promise<string> {
       return trimmed;
     }
 
-    const shellResolved = await resolveCommandViaLoginShell(trimmed);
-    if (shellResolved) {
-      return shellResolved;
-    }
-
     const commonPathResolved = await resolveCommandFromCommonPaths(trimmed);
     if (commonPathResolved) {
       return commonPathResolved;
+    }
+
+    const shellResolved = await resolveCommandViaLoginShell(trimmed);
+    if (shellResolved) {
+      return shellResolved;
     }
 
     return trimmed;
@@ -767,8 +772,10 @@ function runCodexCli(
 }
 
 export const __testing = {
+  clearResolvedCommandCaches,
   getLoginShellCandidates,
   getCommonCommandCandidates,
+  resolveRunnableCommandName,
   shouldUseShellForSpawn,
 };
 

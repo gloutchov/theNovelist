@@ -32,6 +32,8 @@ Rimane comunque, e sempre, una app realizzata in vibe-coding.
 
 > Questa app è stata realizzata in vibecoding con codex CLI. Attualmente è da intendersi come alpha funzionante. Potrebbe necessitare di ottimizzazione, pulizia di codice orfano, interventi di sicurezza, e molto altro ancora...
 
+Nota aggiornata: il renderer gira con `sandbox: true`, `contextIsolation: true` e CSP esplicita. Il bridge `window.novelistApi` passa solo dal preload Electron.
+
 ## Sommario
 - Introduzione
 - Come iniziare
@@ -203,11 +205,20 @@ App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas
 - Node.js 22+
 - npm 10+
 
+Nota per chi usa il repository sorgente:
+- il vincolo su toolchain/licenza Xcode riguarda sviluppo e test locali su macOS, non l'uso dell'app gia buildata;
+- chi scarica una release `.dmg` non deve installare Xcode o ricompilare moduli nativi.
+
 ## Avvio rapido
 1. Installa dipendenze:
    - `npm install`
 2. Avvia in sviluppo:
    - `npm run dev`
+
+## Nota sviluppo macOS
+- `npm test` passa da `pretest` e lancia `npm run rebuild:node-native`.
+- Questo step serve a chi sviluppa o testa il sorgente localmente e puo richiedere toolchain Xcode configurata e licenza accettata.
+- Non impatta gli utenti finali che scaricano la build `.dmg` o l'app gia pacchettizzata.
 
 ## Comandi utili
 - `npm run dev`: avvio sviluppo Electron + renderer.
@@ -224,6 +235,7 @@ App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas
 - `npm run test:e2e`: suite e2e renderer.
 - `npm run test:perf`: benchmark e2e performance.
 - `npm run test:e2e:electron`: suite e2e Electron reale (IPC + DB).
+- `npm run test:smoke:electron:codex`: smoke Electron reale su build pacchettizzata per verificare preload sandboxato, `Crea/Apri progetto` e rilevamento Codex CLI con `PATH` ridotto.
 
 ## AI: provider e comportamento
 Nelle Impostazioni AI puoi scegliere il provider:
@@ -253,6 +265,12 @@ Note operative:
 
 ## Build release
 Nota pratica: il progetto e distribuito ufficialmente solo per macOS. La scelta serve a mantenere una base di codice e una pipeline che tu possa verificare davvero, senza promettere supporto su piattaforme che non riesci a testare con continuita. La build include anche moduli nativi Electron, come `better-sqlite3`, quindi ha senso generare i pacchetti sul sistema operativo di destinazione.
+
+Per verifiche locali affidabili prima del rilascio conviene eseguire almeno:
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- `npm run test:smoke:electron:codex`
 
 ### Build macOS
 1. Esegui:

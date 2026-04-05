@@ -2,6 +2,7 @@ export interface RichTextNode {
   type?: string;
   text?: string;
   attrs?: Record<string, unknown>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
   content?: RichTextNode[];
 }
 
@@ -16,10 +17,19 @@ export interface CanonicalRichTextReferenceResolver {
   getLabel: (type: RichTextReferenceType, id: string) => string | null;
 }
 
+export interface RichTextSpan {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  fontSize?: string | null;
+  fontFamily?: string | null;
+}
+
 export interface RichTextBlock {
   type: 'heading' | 'paragraph' | 'blockquote';
-  text: string;
+  spans: RichTextSpan[];
   level?: number;
+  align?: 'left' | 'center' | 'right' | 'justify';
 }
 
 export function createEmptyRichTextDocument(): RichTextDocument {
@@ -94,24 +104,42 @@ export function canonicalizeRichTextDocumentMentions(
   };
 }
 
-function collectText(node: RichTextNode | undefined): string {
+function collectSpans(node: RichTextNode | undefined): RichTextSpan[] {
   if (!node) {
-    return '';
+    return [];
   }
 
   if (node.type === 'referenceMention') {
-    return '';
+    return [];
+  }
+
+  if (node.type === 'hardBreak') {
+    return [{ text: '\n' }];
   }
 
   if (typeof node.text === 'string') {
-    return node.text;
+    const bold = node.marks?.some((m) => m.type === 'bold');
+    const italic = node.marks?.some((m) => m.type === 'italic');
+    const textStyle = node.marks?.find((m) => m.type === 'textStyle');
+    const fontSize = textStyle?.attrs?.['fontSize'];
+    const fontFamily = textStyle?.attrs?.['fontFamily'];
+
+    return [
+      {
+        text: node.text,
+        bold,
+        italic,
+        fontSize: typeof fontSize === 'string' ? fontSize : null,
+        fontFamily: typeof fontFamily === 'string' ? fontFamily : null,
+      },
+    ];
   }
 
   if (!Array.isArray(node.content)) {
-    return '';
+    return [];
   }
 
-  return node.content.map(collectText).join('');
+  return node.content.flatMap(collectSpans);
 }
 
 export function extractRichTextBlocks(document: RichTextDocument): RichTextBlock[] {
@@ -120,18 +148,24 @@ export function extractRichTextBlocks(document: RichTextDocument): RichTextBlock
 
   for (const node of content) {
     const type = node.type;
-    const text = collectText(node).trim();
-
-    if (!text) {
+    if (type !== 'paragraph' && type !== 'heading' && type !== 'blockquote') {
       continue;
     }
+
+    const spans = collectSpans(node);
+    if (spans.length === 0) {
+      continue;
+    }
+
+    const align = node.attrs?.['textAlign'] as RichTextBlock['align'];
 
     if (type === 'heading') {
       const level = Number(node.attrs?.['level'] ?? 1);
       blocks.push({
         type: 'heading',
-        text,
+        spans,
         level: Number.isFinite(level) ? level : 1,
+        align,
       });
       continue;
     }
@@ -139,14 +173,16 @@ export function extractRichTextBlocks(document: RichTextDocument): RichTextBlock
     if (type === 'blockquote') {
       blocks.push({
         type: 'blockquote',
-        text,
+        spans,
+        align,
       });
       continue;
     }
 
     blocks.push({
       type: 'paragraph',
-      text,
+      spans,
+      align,
     });
   }
 
@@ -155,11 +191,14 @@ export function extractRichTextBlocks(document: RichTextDocument): RichTextBlock
 
 export function getWordCountFromDocument(document: RichTextDocument): number {
   const blocks = extractRichTextBlocks(document);
-  const text = blocks.map((block) => block.text).join(' ');
+  const text = blocks
+    .map((block) => block.spans.map((s) => s.text || '').join(''))
+    .join(' ');
 
-  if (!text.trim()) {
+  const cleaned = text.trim();
+  if (!cleaned) {
     return 0;
   }
 
-  return text.trim().split(/\s+/).filter(Boolean).length;
+  return cleaned.split(/\s+/).filter(Boolean).length;
 }

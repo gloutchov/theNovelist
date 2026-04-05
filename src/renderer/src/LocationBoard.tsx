@@ -203,7 +203,6 @@ export default function LocationBoard({
   const autosaveInFlightRef = useRef<boolean>(false);
 
   const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
-  const emptyEdges = useMemo(() => [], []);
   const nodeTypes = useMemo(() => ({ location: LocationFlowNode }), []);
   const selectedCard = useMemo(
     () => (selectedCardId ? (cardsById.get(selectedCardId) ?? null) : null),

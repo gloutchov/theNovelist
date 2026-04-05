@@ -83,12 +83,12 @@ describe('NovelistRepository', () => {
       expect(reloadedNode?.title).toBe('Capitolo 1 - Rev');
       expect(reloadedNode?.richTextDocId).toBe('doc-1');
 
-      const edge = repo.createChapterEdge(project.id, {
-        sourceNodeId: chapterNode.id,
-        targetNodeId: chapterNode.id,
+      const edge = repo.createStoryEdge(project.id, {
+        sourceId: chapterNode.id,
+        targetId: chapterNode.id,
         label: 'self',
       });
-      expect(repo.listChapterEdges(project.id)[0]?.id).toBe(edge.id);
+      expect(repo.listStoryEdges(project.id)[0]?.id).toBe(edge.id);
 
       const document = repo.upsertChapterDocument({
         chapterNodeId: chapterNode.id,
@@ -195,8 +195,8 @@ describe('NovelistRepository', () => {
       expect(repo.listLocationChapterLinks(location.id).map((link) => link.chapterNodeId)).toEqual([chapterNode2.id]);
       expect(repo.listLocationsForChapter(project.id, chapterNode2.id)).toHaveLength(1);
 
-      repo.deleteChapterEdge(edge.id);
-      expect(repo.listChapterEdges(project.id)).toHaveLength(0);
+      repo.deleteStoryEdge(edge.id);
+      expect(repo.listStoryEdges(project.id)).toHaveLength(0);
 
       repo.deleteChapterNode(chapterNode.id);
       repo.deleteChapterNode(chapterNode2.id);

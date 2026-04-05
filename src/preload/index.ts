@@ -1,25 +1,27 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
-  type AppPreferencesResponse,
   IPC_CHANNELS,
-  type StoryEdgeResponse,
-  type ChapterDocumentResponse,
-  type ChapterNodeResponse,
-  type CharacterCardResponse,
-  type CharacterImageResponse,
-  type CodexChatMessageResponse,
-  type CodexResultResponse,
-  type CodexSettingsResponse,
-  type CodexStatusResponse,
-  type LocationCardResponse,
-  type LocationImageResponse,
-  type PingRequest,
-  type PingResponse,
-  type PlotResponse,
-  type ProjectInspectPathResponse,
-  type ProjectResponse,
-  type SnapshotResponse,
-  type StoryStateResponse,
+} from '../shared/ipc-channels';
+import type {
+  AppPreferencesResponse,
+  StoryEdgeResponse,
+  ChapterDocumentResponse,
+  ChapterNodeResponse,
+  CharacterCardResponse,
+  CharacterImageResponse,
+  CodexChatMessageResponse,
+  CodexResultResponse,
+  CodexSettingsResponse,
+  CodexStatusResponse,
+  LocationCardResponse,
+  LocationImageResponse,
+  PingRequest,
+  PingResponse,
+  PlotResponse,
+  ProjectInspectPathResponse,
+  ProjectResponse,
+  SnapshotResponse,
+  StoryStateResponse,
 } from '../main/ipc';
 
 const novelistApi = {
@@ -105,14 +107,10 @@ const novelistApi = {
   }): Promise<ChapterDocumentResponse> => ipcRenderer.invoke(IPC_CHANNELS.chapterSaveDocument, payload),
   exportChapterDocx: (payload: { chapterNodeId: string }): Promise<{ filePath: string } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterExportDocx, payload),
-  exportChapterPdf: (payload: { chapterNodeId: string }): Promise<{ filePath: string } | null> =>
-    ipcRenderer.invoke(IPC_CHANNELS.chapterExportPdf, payload),
   printChapter: (payload: { chapterNodeId: string }): Promise<{ ok: true } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterPrint, payload),
   exportManuscriptDocx: (): Promise<{ filePath: string } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.manuscriptExportDocx),
-  exportManuscriptPdf: (): Promise<{ filePath: string } | null> =>
-    ipcRenderer.invoke(IPC_CHANNELS.manuscriptExportPdf),
   printManuscript: (): Promise<{ ok: true } | null> => ipcRenderer.invoke(IPC_CHANNELS.manuscriptPrint),
   listChapterCharacters: (payload: { chapterNodeId: string }): Promise<CharacterCardResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterListCharacters, payload),

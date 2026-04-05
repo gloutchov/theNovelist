@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -15,6 +15,8 @@ async function createTempDir(prefix: string): Promise<string> {
 }
 
 afterEach(() => {
+  __testing.clearResolvedCommandCaches();
+
   if (originalCommand === undefined) {
     delete process.env['NOVELIST_CODEX_COMMAND'];
   } else {
@@ -50,6 +52,29 @@ describe('CodexCliService', () => {
     expect(candidates).toContain('/opt/homebrew/bin/codex');
     expect(candidates).toContain('/usr/local/bin/codex');
     expect(candidates).toContain('/Users/Writer/.local/bin/codex');
+  });
+
+  it('prefers runtime common paths over login shell resolution for Codex CLI', async () => {
+    const fakeHome = await createTempDir('novelist-codex-home-');
+    const fakeCodexDir = path.join(fakeHome, '.local', 'bin');
+    const fakeCodexPath = path.join(fakeCodexDir, 'codex');
+    await mkdir(fakeCodexDir, { recursive: true });
+    await writeFile(fakeCodexPath, '#!/bin/sh\necho ok\n', 'utf8');
+    await chmod(fakeCodexPath, 0o755);
+
+    const originalHome = process.env['HOME'];
+    process.env['HOME'] = fakeHome;
+
+    try {
+      const resolved = await __testing.resolveRunnableCommandName('codex');
+      expect(resolved).toBe(fakeCodexPath);
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env['HOME'];
+      } else {
+        process.env['HOME'] = originalHome;
+      }
+    }
   });
 
   it('does not require a shell to spawn macOS executables', () => {

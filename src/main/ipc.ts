@@ -2,14 +2,13 @@ import { BrowserWindow, dialog, type IpcMain } from 'electron';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
+import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getAppPreferences, updateAppPreferences } from './app-preferences';
 import {
   buildChapterPrintHtml,
   buildManuscriptPrintHtml,
   exportManuscriptToDocx,
-  exportManuscriptToPdf,
   exportRichTextToDocx,
-  exportRichTextToPdf,
   getDefaultExportName,
 } from './chapters/exporters';
 import {
@@ -37,69 +36,7 @@ import {
   setStoredCodexApiKey,
 } from './security/secure-settings';
 
-export const IPC_CHANNELS = {
-  ping: 'app:ping',
-  appGetPreferences: 'app:get-preferences',
-  appUpdatePreferences: 'app:update-preferences',
-  projectCreate: 'project:create',
-  projectOpen: 'project:open',
-  projectClose: 'project:close',
-  projectInspectPath: 'project:inspect-path',
-  projectSelectDirectory: 'project:select-directory',
-  projectSelectImageFile: 'project:select-image-file',
-  projectReadImageDataUrl: 'project:read-image-data-url',
-  projectGetCurrent: 'project:get-current',
-  projectSaveSnapshot: 'project:save-snapshot',
-  projectListSnapshots: 'project:list-snapshots',
-  projectRecoverLatestSnapshot: 'project:recover-latest-snapshot',
-  storyGetState: 'story:get-state',
-  storyCreatePlot: 'story:create-plot',
-  storyUpdatePlot: 'story:update-plot',
-  storyDeletePlot: 'story:delete-plot',
-  storyCreateNode: 'story:create-node',
-  storyUpdateNode: 'story:update-node',
-  storyDeleteNode: 'story:delete-node',
-  storyCreateEdge: 'story:create-edge',
-  storyDeleteEdge: 'story:delete-edge',
-  chapterGetDocument: 'chapter:get-document',
-  chapterSaveDocument: 'chapter:save-document',
-  chapterExportDocx: 'chapter:export-docx',
-  chapterExportPdf: 'chapter:export-pdf',
-  chapterPrint: 'chapter:print',
-  manuscriptExportDocx: 'manuscript:export-docx',
-  manuscriptExportPdf: 'manuscript:export-pdf',
-  manuscriptPrint: 'manuscript:print',
-  chapterListCharacters: 'chapter:list-characters',
-  chapterListLocations: 'chapter:list-locations',
-  characterListCards: 'character:list-cards',
-  characterCreateCard: 'character:create-card',
-  characterUpdateCard: 'character:update-card',
-  characterDeleteCard: 'character:delete-card',
-  characterListChapterLinks: 'character:list-chapter-links',
-  characterSetChapterLinks: 'character:set-chapter-links',
-  characterGenerateImage: 'character:generate-image',
-  characterListImages: 'character:list-images',
-  characterCreateImage: 'character:create-image',
-  characterDeleteImage: 'character:delete-image',
-  locationListCards: 'location:list-cards',
-  locationCreateCard: 'location:create-card',
-  locationUpdateCard: 'location:update-card',
-  locationDeleteCard: 'location:delete-card',
-  locationListChapterLinks: 'location:list-chapter-links',
-  locationSetChapterLinks: 'location:set-chapter-links',
-  locationGenerateImage: 'location:generate-image',
-  locationListImages: 'location:list-images',
-  locationCreateImage: 'location:create-image',
-  locationDeleteImage: 'location:delete-image',
-  codexStatus: 'codex:status',
-  codexGetSettings: 'codex:get-settings',
-  codexUpdateSettings: 'codex:update-settings',
-  codexAssist: 'codex:assist',
-  codexTransformSelection: 'codex:transform-selection',
-  codexChat: 'codex:chat',
-  codexGetChatHistory: 'codex:get-chat-history',
-  codexCancelActiveRequest: 'codex:cancel-active-request',
-} as const;
+export { IPC_CHANNELS };
 
 const pingRequestSchema = z.object({
   message: z.string().trim().min(1).max(500),
@@ -550,7 +487,7 @@ export type ProjectInspectPathResponse = z.infer<typeof projectInspectPathRespon
 export type SnapshotResponse = z.infer<typeof snapshotResponseSchema>;
 export type PlotResponse = z.infer<typeof plotResponseSchema>;
 export type ChapterNodeResponse = z.infer<typeof chapterNodeResponseSchema>;
-export type ChapterEdgeResponse = z.infer<typeof chapterEdgeResponseSchema>;
+export type StoryEdgeResponse = z.infer<typeof storyEdgeResponseSchema>;
 export type StoryStateResponse = z.infer<typeof storyStateResponseSchema>;
 export type ChapterDocumentResponse = z.infer<typeof chapterDocumentResponseSchema>;
 export type CharacterCardResponse = z.infer<typeof characterCardResponseSchema>;
@@ -780,7 +717,8 @@ function summarizeTextFallback(chapterText: string, maxLength = 220): string {
 
 function richTextToPlainText(document: RichTextDocument, maxLength = 12000): string {
   const text = extractRichTextBlocks(document)
-    .map((block) => block.text.trim())
+    .map((block) => block.spans.map((s) => s.text).join(''))
+    .map((t) => t.trim())
     .filter(Boolean)
     .join('\n');
   return text.slice(0, maxLength).trim();
@@ -824,7 +762,7 @@ function getNodeExportDocument(
 }
 
 type ChapterNodeRecord = ReturnType<Repository['listChapterNodes']>[number];
-type ChapterEdgeRecord = ReturnType<Repository['listChapterEdges']>[number];
+type StoryEdgeRecord = ReturnType<Repository['listStoryEdges']>[number];
 
 function compareChapterNodes(left: ChapterNodeRecord, right: ChapterNodeRecord): number {
   if (left.plotNumber !== right.plotNumber) {
@@ -844,7 +782,7 @@ function compareChapterNodes(left: ChapterNodeRecord, right: ChapterNodeRecord):
 
 function orderChapterNodesByConnections(
   nodes: ChapterNodeRecord[],
-  edges: ChapterEdgeRecord[],
+  edges: StoryEdgeRecord[],
 ): ChapterNodeRecord[] {
   const nodesSorted = [...nodes].sort(compareChapterNodes);
   const nodeById = new Map(nodesSorted.map((node) => [node.id, node]));
@@ -852,11 +790,11 @@ function orderChapterNodesByConnections(
   const outgoing = new Map<string, string[]>(nodesSorted.map((node) => [node.id, []]));
 
   for (const edge of edges) {
-    if (!nodeById.has(edge.sourceNodeId) || !nodeById.has(edge.targetNodeId)) {
+    if (!nodeById.has(edge.sourceId) || !nodeById.has(edge.targetId)) {
       continue;
     }
-    outgoing.get(edge.sourceNodeId)?.push(edge.targetNodeId);
-    indegree.set(edge.targetNodeId, (indegree.get(edge.targetNodeId) ?? 0) + 1);
+    outgoing.get(edge.sourceId)?.push(edge.targetId);
+    indegree.set(edge.targetId, (indegree.get(edge.targetId) ?? 0) + 1);
   }
 
   for (const [nodeId, targetIds] of outgoing) {
@@ -901,17 +839,32 @@ function orderChapterNodesByConnections(
   return [...ordered, ...remaining];
 }
 
-function collectManuscriptChapters(
+export function collectManuscriptChapters(
   repository: Repository,
   projectId: string,
 ): Array<{ title: string; document: RichTextDocument }> {
-  const nodes = repository.listChapterNodes(projectId);
-  const edges = repository.listChapterEdges(projectId);
-  const orderedNodes = orderChapterNodesByConnections(nodes, edges);
+  const allNodes = repository.listChapterNodes(projectId);
+  const allEdges = repository.listStoryEdges(projectId);
+
+  const documentsByNodeId = new Map(
+    allNodes
+      .map((node) => [node.id, repository.getChapterDocumentByNodeId(node.id)] as const)
+      .filter((entry): entry is readonly [string, NonNullable<ReturnType<Repository['getChapterDocumentByNodeId']>>] => {
+        const [, document] = entry;
+        return document !== null && document.wordCount > 0;
+      }),
+  );
+
+  const nodesWithContent = allNodes.filter((node) => documentsByNodeId.has(node.id));
+  const nodeIdsWithContent = new Set(nodesWithContent.map((node) => node.id));
+  const relevantEdges = allEdges.filter(
+    (edge) => nodeIdsWithContent.has(edge.sourceId) && nodeIdsWithContent.has(edge.targetId),
+  );
+  const orderedNodes = orderChapterNodesByConnections(nodesWithContent, relevantEdges);
 
   return orderedNodes.map((node) => ({
     title: node.title,
-    document: getNodeExportDocument(repository, node.id, node.description),
+    document: parseRichTextDocument(documentsByNodeId.get(node.id)!.contentJson),
   }));
 }
 
@@ -927,7 +880,7 @@ async function printHtmlContent(html: string): Promise<boolean> {
   const printWindow = new BrowserWindow({
     show: false,
     webPreferences: {
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -1451,42 +1404,6 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return exportResponseSchema.parse({ filePath: saveResult.filePath });
   });
 
-  ipcMain.handle(IPC_CHANNELS.chapterExportPdf, async (event, payload: unknown) => {
-    const { repository } = getStoryContext(sessionManager);
-    const request = chapterExportRequestSchema.parse(payload);
-    const node = repository.getChapterNodeById(request.chapterNodeId);
-
-    if (!node) {
-      throw new Error('Chapter node not found');
-    }
-
-    const document = getNodeExportDocument(repository, request.chapterNodeId, node.description);
-
-    const project = sessionManager.getOpenedProject();
-    const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-    const saveDialogOptions = {
-      defaultPath: project
-        ? `${project.assetsPath}/${getDefaultExportName(node.title, 'pdf')}`
-        : getDefaultExportName(node.title, 'pdf'),
-      filters: [{ name: 'PDF Document', extensions: ['pdf'] }],
-    };
-    const saveResult = browserWindow
-      ? await dialog.showSaveDialog(browserWindow, saveDialogOptions)
-      : await dialog.showSaveDialog(saveDialogOptions);
-
-    if (saveResult.canceled || !saveResult.filePath) {
-      return null;
-    }
-
-    await exportRichTextToPdf({
-      title: node.title,
-      document,
-      outputPath: saveResult.filePath,
-    });
-
-    return exportResponseSchema.parse({ filePath: saveResult.filePath });
-  });
-
   ipcMain.handle(IPC_CHANNELS.chapterPrint, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = chapterExportRequestSchema.parse(payload);
@@ -1532,37 +1449,6 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     }
 
     await exportManuscriptToDocx({
-      title: manuscriptTitle,
-      chapters,
-      outputPath: saveResult.filePath,
-    });
-    return exportResponseSchema.parse({ filePath: saveResult.filePath });
-  });
-
-  ipcMain.handle(IPC_CHANNELS.manuscriptExportPdf, async (event) => {
-    const { repository, projectId } = getStoryContext(sessionManager);
-    const chapters = collectManuscriptChapters(repository, projectId);
-    if (chapters.length === 0) {
-      throw new Error('Nessun blocco disponibile per esportare il documento completo.');
-    }
-
-    const manuscriptTitle = getManuscriptTitle(sessionManager);
-    const project = sessionManager.getOpenedProject();
-    const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-    const saveDialogOptions = {
-      defaultPath: project
-        ? `${project.assetsPath}/${getDefaultExportName(manuscriptTitle, 'pdf')}`
-        : getDefaultExportName(manuscriptTitle, 'pdf'),
-      filters: [{ name: 'PDF Document', extensions: ['pdf'] }],
-    };
-    const saveResult = browserWindow
-      ? await dialog.showSaveDialog(browserWindow, saveDialogOptions)
-      : await dialog.showSaveDialog(saveDialogOptions);
-    if (saveResult.canceled || !saveResult.filePath) {
-      return null;
-    }
-
-    await exportManuscriptToPdf({
       title: manuscriptTitle,
       chapters,
       outputPath: saveResult.filePath,

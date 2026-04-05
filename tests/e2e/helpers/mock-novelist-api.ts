@@ -76,8 +76,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
       edges: [] as Array<{
         id: string;
         projectId: string;
-        sourceNodeId: string;
-        targetNodeId: string;
+        sourceId: string;
+        targetId: string;
+        sourceHandle: string | null;
+        targetHandle: string | null;
         label: string | null;
         createdAt: string;
       }>,
@@ -468,7 +470,7 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
 
         state.nodes = state.nodes.filter((node) => !deletedNodeIds.has(node.id));
         state.edges = state.edges.filter(
-          (edge) => !deletedNodeIds.has(edge.sourceNodeId) && !deletedNodeIds.has(edge.targetNodeId),
+          (edge) => !deletedNodeIds.has(edge.sourceId) && !deletedNodeIds.has(edge.targetId),
         );
         for (const nodeId of deletedNodeIds) {
           state.chapterDocumentsByNodeId.delete(nodeId);
@@ -553,20 +555,28 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
 
       deleteStoryNode: async (payload: { id: string }) => {
         state.nodes = state.nodes.filter((node) => node.id !== payload.id);
-        state.edges = state.edges.filter((edge) => edge.sourceNodeId !== payload.id && edge.targetNodeId !== payload.id);
+        state.edges = state.edges.filter((edge) => edge.sourceId !== payload.id && edge.targetId !== payload.id);
         state.chapterDocumentsByNodeId.delete(payload.id);
         state.characterChapterLinks = state.characterChapterLinks.filter((link) => link.chapterNodeId !== payload.id);
         state.locationChapterLinks = state.locationChapterLinks.filter((link) => link.chapterNodeId !== payload.id);
         return { ok: true as const };
       },
 
-      createStoryEdge: async (payload: { sourceNodeId: string; targetNodeId: string; label?: string }) => {
+      createStoryEdge: async (payload: {
+        sourceId: string;
+        targetId: string;
+        sourceHandle?: string | null;
+        targetHandle?: string | null;
+        label?: string;
+      }) => {
         const project = ensureProject();
         const edge = {
           id: nextId('edge'),
           projectId: project.id,
-          sourceNodeId: payload.sourceNodeId,
-          targetNodeId: payload.targetNodeId,
+          sourceId: payload.sourceId,
+          targetId: payload.targetId,
+          sourceHandle: payload.sourceHandle ?? null,
+          targetHandle: payload.targetHandle ?? null,
           label: payload.label?.trim() || null,
           createdAt: nowIso(),
         };
@@ -625,18 +635,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         filePath: `/tmp/${payload.chapterNodeId}.docx`,
       }),
 
-      exportChapterPdf: async (payload: { chapterNodeId: string }) => ({
-        filePath: `/tmp/${payload.chapterNodeId}.pdf`,
-      }),
-
       printChapter: async () => ({ ok: true as const }),
 
       exportManuscriptDocx: async () => ({
         filePath: '/tmp/manoscritto-completo.docx',
-      }),
-
-      exportManuscriptPdf: async () => ({
-        filePath: '/tmp/manoscritto-completo.pdf',
       }),
 
       printManuscript: async () => ({ ok: true as const }),
