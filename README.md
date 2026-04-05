@@ -237,6 +237,11 @@ Nota per chi usa il repository sorgente:
 - `npm run test:e2e:electron`: suite e2e Electron reale (IPC + DB).
 - `npm run test:smoke:electron:codex`: smoke Electron reale su build pacchettizzata per verificare preload sandboxato, `Crea/Apri progetto` e rilevamento Codex CLI con `PATH` ridotto.
 
+Nota su `pack` e `dist:mac`:
+- prima del packaging viene forzata una rebuild Electron-native di `better-sqlite3`;
+- dopo il packaging viene ripristinata la rebuild Node-native per non sporcare l'ambiente di sviluppo locale;
+- questo evita mismatch ABI tra app pacchettizzata ed esecuzione locale dei test/script Node.
+
 ## AI: provider e comportamento
 Nelle Impostazioni AI puoi scegliere il provider:
 - `Codex CLI (locale)`
