@@ -285,6 +285,7 @@ Per verifiche locali affidabili prima del rilascio conviene eseguire almeno:
    - `The Novelist-<version>-arm64.dmg`
    - `The Novelist-<version>-arm64-mac.zip`
 3. Installa aprendo il `.dmg` e trascinando `The Novelist.app` in `Applicazioni`.
+4. Se la build non e firmata, al primo avvio su un altro Mac potrebbe essere necessario usare `tasto destro > Apri`.
 
 ### Release GitHub macOS
 Nel repository e presente anche un workflow GitHub Actions di release che costruisce in automatico la sola versione macOS su `macos-latest`.
@@ -298,6 +299,7 @@ Il workflow supporta anche avvio manuale (`workflow_dispatch`) passando il tag d
 
 Nota:
 - la build locale e non firmata/notarizzata; al primo avvio potrebbe essere necessario `tasto destro > Apri`.
+- senza un certificato Apple `Developer ID Application` non e possibile firmare e notarizzare correttamente il pacchetto macOS.
 
 ## Struttura repository
 - `src/main`: processo main Electron + IPC.
