@@ -6,6 +6,10 @@ import {
   getWordCountFromDocument,
 } from '../../src/main/chapters/rich-text';
 
+function extractBlockText(block: { spans: Array<{ text: string }> }): string {
+  return block.spans.map((span) => span.text).join('').trim();
+}
+
 describe('rich-text helpers', () => {
   it('extracts paragraph, heading and blockquote blocks', () => {
     const document = {
@@ -30,9 +34,12 @@ describe('rich-text helpers', () => {
     const blocks = extractRichTextBlocks(document);
 
     expect(blocks).toHaveLength(3);
-    expect(blocks[0]).toMatchObject({ type: 'heading', text: 'Capitolo 1', level: 2 });
-    expect(blocks[1]).toMatchObject({ type: 'paragraph', text: 'Inizio della storia.' });
-    expect(blocks[2]).toMatchObject({ type: 'blockquote', text: 'Una frase importante.' });
+    expect(blocks[0]).toMatchObject({ type: 'heading', level: 2 });
+    expect(extractBlockText(blocks[0])).toBe('Capitolo 1');
+    expect(blocks[1]).toMatchObject({ type: 'paragraph' });
+    expect(extractBlockText(blocks[1])).toBe('Inizio della storia.');
+    expect(blocks[2]).toMatchObject({ type: 'blockquote' });
+    expect(extractBlockText(blocks[2])).toBe('Una frase importante.');
   });
 
   it('computes word count from rich text document', () => {
@@ -84,7 +91,12 @@ describe('rich-text helpers', () => {
       ],
     };
 
-    expect(extractRichTextBlocks(document)).toEqual([
+    expect(
+      extractRichTextBlocks(document).map((block) => ({
+        type: block.type,
+        text: extractBlockText(block),
+      })),
+    ).toEqual([
       { type: 'paragraph', text: 'Mario entra in scena.' },
       { type: 'paragraph', text: 'La piazza e pronta.' },
     ]);
