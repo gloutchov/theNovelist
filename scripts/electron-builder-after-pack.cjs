@@ -1,4 +1,7 @@
+/* global require, module */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { spawn } = require('node:child_process');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const path = require('node:path');
 
 function run(command, args) {
