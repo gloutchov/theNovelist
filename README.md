@@ -24,7 +24,7 @@ Tutto ciò ha portato a The Novelist.
 L'applicazione è stata interamente generata da Codex CLI. L'interfaccia è un po' 'techie', ma non mi dispiace, anche se avrei potuto insistere un po' di più per renderla maggiormente user-friendly.
 
 E' perfetta?
-Diciamo che funziona, e non mi pare che abbia bug evidenti. Da questa fase in poi il progetto viene mantenuto e distribuito solo per macOS, cosi da allineare supporto dichiarato e supporto realmente verificato.
+Diciamo che funziona, e non mi pare che abbia bug evidenti. Al momento il progetto viene mantenuto con build verificate localmente su macOS e Windows, cosi da allineare supporto dichiarato e supporto realmente verificato.
 Un Dev professionista potrebbe trovarci molti difetti, e qualche vulnerabilità che mi è scappata. Lascio a loro l'onere e l'onore di sistemare ciò che i miei occhi imberbi non hanno scovato.
 Rimane comunque, e sempre, una app realizzata in vibe-coding.
 
@@ -50,7 +50,7 @@ Nota aggiornata: il renderer gira con `sandbox: true`, `contextIsolation: true` 
 
 ## Introduzione
 The Novelist è un progetto sperimentale pensato per gli scrittori. L'applicazione ha una dotazione di tool utili per strutturare una narrativa complessa, e gestirne le singole parti.
-Attualmente il progetto viene mantenuto e distribuito ufficialmente solo per macOS.
+Attualmente il progetto viene mantenuto e distribuito con pacchetti verificati localmente su macOS e Windows.
 
 Funzionalità principali:
 - Struttura a Nodi per definire la traccia del romanzo/racconto.
@@ -226,6 +226,7 @@ Nota per chi usa il repository sorgente:
 - `npm run pack`: crea app unpacked locale in `release/`.
 - `npm run dist`: crea gli artefatti macOS ufficiali.
 - `npm run dist:mac`: crea artefatti macOS (`dmg`, `zip`).
+- `npm run dist:win`: crea artefatti Windows (`installer .exe`, `portable .exe`).
 - `npm run rebuild:electron-native`: rebuild moduli nativi (es. `better-sqlite3`) per Electron.
 - `npm run rebuild:node-native`: rebuild moduli nativi per runtime Node locale.
 - `npm run lint`: lint.
@@ -237,7 +238,7 @@ Nota per chi usa il repository sorgente:
 - `npm run test:e2e:electron`: suite e2e Electron reale (IPC + DB).
 - `npm run test:smoke:electron:codex`: smoke Electron reale su build pacchettizzata per verificare preload sandboxato, `Crea/Apri progetto` e rilevamento Codex CLI con `PATH` ridotto.
 
-Nota su `pack` e `dist:mac`:
+Nota su `pack`, `dist:mac` e `dist:win`:
 - prima del packaging viene forzata una rebuild Electron-native di `better-sqlite3`;
 - dopo il packaging viene ripristinata la rebuild Node-native per non sporcare l'ambiente di sviluppo locale;
 - questo evita mismatch ABI tra app pacchettizzata ed esecuzione locale dei test/script Node.
@@ -269,7 +270,7 @@ Note operative:
 - `OLLAMA_HOST`: endpoint Ollama (default: `http://127.0.0.1:11434`).
 
 ## Build release
-Nota pratica: il progetto e distribuito ufficialmente solo per macOS. La scelta serve a mantenere una base di codice e una pipeline che tu possa verificare davvero, senza promettere supporto su piattaforme che non riesci a testare con continuita. La build include anche moduli nativi Electron, come `better-sqlite3`, quindi ha senso generare i pacchetti sul sistema operativo di destinazione.
+Nota pratica: le build release vengono generate e verificate sui sistemi operativi di destinazione. La build include anche moduli nativi Electron, come `better-sqlite3`, quindi ha senso generare i pacchetti sul sistema operativo di destinazione.
 
 Per verifiche locali affidabili prima del rilascio conviene eseguire almeno:
 - `npm run lint`
@@ -286,6 +287,19 @@ Per verifiche locali affidabili prima del rilascio conviene eseguire almeno:
    - `The Novelist-<version>-arm64-mac.zip`
 3. Installa aprendo il `.dmg` e trascinando `The Novelist.app` in `Applicazioni`.
 4. Se la build non e firmata, al primo avvio su un altro Mac potrebbe essere necessario usare `tasto destro > Apri`.
+
+### Build Windows
+1. Assicurati che non ci siano istanze aperte di The Novelist, `electron`, o dev server che stanno usando il progetto, altrimenti la rebuild di `better-sqlite3` puo fallire.
+2. Esegui:
+   - `npm run dist:win`
+3. Troverai gli artefatti in `release/`:
+   - `The Novelist Setup <version>.exe`
+   - `The Novelist <version>.exe`
+   - `win-unpacked/`
+4. Per distribuire:
+   - usa `The Novelist Setup <version>.exe` come installer classico Windows;
+   - usa `The Novelist <version>.exe` come build portable senza installazione.
+5. Se la build non e firmata, su altri PC Windows potrebbe comparire SmartScreen o un warning di autore sconosciuto al primo avvio.
 
 ### Release GitHub macOS
 Nel repository e presente anche un workflow GitHub Actions di release che costruisce in automatico la sola versione macOS su `macos-latest`.

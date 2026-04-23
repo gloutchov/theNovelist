@@ -2,6 +2,7 @@ import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { toProjectStoredFilePath } from '../projects/asset-paths';
+import { appFetch, toExternalRequestError } from '../network/http';
 
 export type GeneratedImageSize = '1024x1024' | '1536x1024' | '1024x1536';
 
@@ -57,7 +58,7 @@ export async function generateImageWithApi(input: GenerateImageWithApiInput): Pr
   const timeout = setTimeout(() => controller.abort(), input.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
   try {
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
+    const response = await appFetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${input.apiKey}`,
@@ -88,7 +89,7 @@ export async function generateImageWithApi(input: GenerateImageWithApiInput): Pr
     }
 
     if (firstImage.url?.trim()) {
-      const imageResponse = await fetch(firstImage.url);
+      const imageResponse = await appFetch(firstImage.url);
       if (!imageResponse.ok) {
         throw new Error(`Download immagine fallito (${imageResponse.status})`);
       }
@@ -105,7 +106,7 @@ export async function generateImageWithApi(input: GenerateImageWithApiInput): Pr
     if (controller.signal.aborted) {
       throw new Error('Timeout generazione immagine');
     }
-    throw caughtError;
+    throw toExternalRequestError('OpenAI Images API', caughtError);
   } finally {
     clearTimeout(timeout);
   }
