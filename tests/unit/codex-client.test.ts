@@ -47,39 +47,126 @@ describe('CodexCliService', () => {
     const env = {
       HOME: '/Users/Writer',
     };
-    const candidates = __testing.getCommonCommandCandidates('codex', env);
+    const candidates = __testing.getCommonCommandCandidates('codex', env, 'darwin');
 
     expect(candidates).toContain('/opt/homebrew/bin/codex');
     expect(candidates).toContain('/usr/local/bin/codex');
     expect(candidates).toContain('/Users/Writer/.local/bin/codex');
   });
 
-  it('prefers runtime common paths over login shell resolution for Codex CLI', async () => {
-    const fakeHome = await createTempDir('novelist-codex-home-');
-    const fakeCodexDir = path.join(fakeHome, '.local', 'bin');
-    const fakeCodexPath = path.join(fakeCodexDir, 'codex');
-    await mkdir(fakeCodexDir, { recursive: true });
-    await writeFile(fakeCodexPath, '#!/bin/sh\necho ok\n', 'utf8');
-    await chmod(fakeCodexPath, 0o755);
+  it('searches common Windows npm command locations for Codex CLI', () => {
+    const env = {
+      APPDATA: 'C:\\Users\\Writer\\AppData\\Roaming',
+      LOCALAPPDATA: 'C:\\Users\\Writer\\AppData\\Local',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+    };
+    const candidates = __testing.getCommonCommandCandidates('codex', env, 'win32');
 
-    const originalHome = process.env['HOME'];
-    process.env['HOME'] = fakeHome;
-
-    try {
-      const resolved = await __testing.resolveRunnableCommandName('codex');
-      expect(resolved).toBe(fakeCodexPath);
-    } finally {
-      if (originalHome === undefined) {
-        delete process.env['HOME'];
-      } else {
-        process.env['HOME'] = originalHome;
-      }
-    }
+    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
+    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe');
+    expect(candidates).toContain(
+      'C:\\Users\\Writer\\AppData\\Local\\Programs\\nodejs\\codex.cmd',
+    );
+    expect(candidates[0]).toBe('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe');
+    expect(candidates[1]).toBe('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
   });
+
+  it.runIf(process.platform !== 'win32')(
+    'prefers runtime common paths over login shell resolution for Codex CLI',
+    async () => {
+      const fakeHome = await createTempDir('novelist-codex-home-');
+      const fakeCodexDir = path.join(fakeHome, '.local', 'bin');
+      const fakeCodexPath = path.join(fakeCodexDir, 'codex');
+      await mkdir(fakeCodexDir, { recursive: true });
+      await writeFile(fakeCodexPath, '#!/bin/sh\necho ok\n', 'utf8');
+      await chmod(fakeCodexPath, 0o755);
+
+      const originalHome = process.env['HOME'];
+      process.env['HOME'] = fakeHome;
+
+      try {
+        const resolved = await __testing.resolveRunnableCommandName('codex');
+        expect(resolved).toBe(fakeCodexPath);
+      } finally {
+        if (originalHome === undefined) {
+          delete process.env['HOME'];
+        } else {
+          process.env['HOME'] = originalHome;
+        }
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'prefers Windows npm command wrappers over PATH lookup for Codex CLI',
+    async () => {
+      const fakeAppData = await createTempDir('novelist-codex-appdata-');
+      const fakeCodexDir = path.join(fakeAppData, 'npm');
+      const fakeCodexPath = path.join(fakeCodexDir, 'codex.cmd');
+      await mkdir(fakeCodexDir, { recursive: true });
+      await writeFile(fakeCodexPath, '@echo off\r\necho ok\r\n', 'utf8');
+
+      const originalAppData = process.env['APPDATA'];
+      process.env['APPDATA'] = fakeAppData;
+
+      try {
+        const resolved = await __testing.resolveRunnableCommandName('codex');
+        expect(resolved).toBe(fakeCodexPath);
+      } finally {
+        if (originalAppData === undefined) {
+          delete process.env['APPDATA'];
+        } else {
+          process.env['APPDATA'] = originalAppData;
+        }
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'normalizes explicit Windows Codex paths without extension to cmd wrappers',
+    async () => {
+      const fakeAppData = await createTempDir('novelist-codex-explicit-');
+      const fakeCodexDir = path.join(fakeAppData, 'npm');
+      const fakeCodexBasePath = path.join(fakeCodexDir, 'codex');
+      const fakeCodexCmdPath = path.join(fakeCodexDir, 'codex.cmd');
+      await mkdir(fakeCodexDir, { recursive: true });
+      await writeFile(fakeCodexBasePath, '#!/bin/sh\necho wrong\n', 'utf8');
+      await writeFile(fakeCodexCmdPath, '@echo off\r\necho ok\r\n', 'utf8');
+
+      process.env['NOVELIST_CODEX_COMMAND'] = fakeCodexBasePath;
+
+      const resolved = await __testing.resolveRunnableCommandName(fakeCodexBasePath);
+      expect(resolved).toBe(fakeCodexCmdPath);
+    },
+  );
 
   it('does not require a shell to spawn macOS executables', () => {
     expect(__testing.shouldUseShellForSpawn('/opt/homebrew/bin/codex', 'darwin')).toBe(false);
     expect(__testing.shouldUseShellForSpawn('/usr/local/bin/codex', 'darwin')).toBe(false);
+  });
+
+  it('prefers Windows command launchers that can be spawned from Electron', () => {
+    const selected = __testing.selectWindowsCommandCandidate(
+      [
+        'C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex',
+        'C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd',
+        'C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.ps1',
+      ].join('\r\n'),
+    );
+
+    expect(selected).toBe('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
+  });
+
+  it('uses a shell to spawn Windows command wrappers', () => {
+    expect(
+      __testing.shouldUseShellForSpawn(
+        'C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd',
+        'win32',
+      ),
+    ).toBe(true);
+    expect(
+      __testing.shouldUseShellForSpawn('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe', 'win32'),
+    ).toBe(false);
   });
 
   it('returns fallback transform when CLI command is unavailable', async () => {
@@ -111,13 +198,18 @@ describe('CodexCliService', () => {
 
   it('cancels the active Codex CLI request', async () => {
     const dir = await createTempDir('novelist-codex-');
-    const commandPath = path.join(dir, 'fake-codex.sh');
-    await writeFile(
-      commandPath,
-      '#!/bin/sh\nif [ "$1" = "exec" ]; then\n  sleep 5\n  echo "output from cli"\nfi\n',
-      'utf8',
+    const commandPath = path.join(
+      dir,
+      process.platform === 'win32' ? 'fake-codex.cmd' : 'fake-codex.sh',
     );
-    await chmod(commandPath, 0o755);
+    const commandBody =
+      process.platform === 'win32'
+        ? '@echo off\r\nif "%1"=="exec" (\r\n  ping -n 6 127.0.0.1 >NUL\r\n  echo output from cli\r\n)\r\n'
+        : '#!/bin/sh\nif [ "$1" = "exec" ]; then\n  sleep 5\n  echo "output from cli"\nfi\n';
+    await writeFile(commandPath, commandBody, 'utf8');
+    if (process.platform !== 'win32') {
+      await chmod(commandPath, 0o755);
+    }
 
     process.env['NOVELIST_CODEX_COMMAND'] = commandPath;
     process.env['NOVELIST_CODEX_TIMEOUT_MS'] = '10000';
@@ -134,5 +226,5 @@ describe('CodexCliService', () => {
     const result = await promise;
     expect(result.cancelled).toBe(true);
     expect(result.output).toBe('');
-  });
+  }, 10000);
 });

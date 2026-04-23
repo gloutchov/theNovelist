@@ -3,13 +3,23 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 
+function getNpmCommand() {
+  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+}
+
+function shouldUseShell(command) {
+  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
+}
+
 function run(command, args, env = process.env) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: 'inherit',
       env,
+      shell: shouldUseShell(command),
     });
 
+    child.on('error', reject);
     child.on('exit', (code) => {
       const exitCode = code ?? 1;
       if (exitCode !== 0) {
@@ -22,28 +32,34 @@ function run(command, args, env = process.env) {
 }
 
 const mode = process.argv[2];
-if (mode !== '--dir' && mode !== '--mac') {
-  console.error('Usage: node scripts/run-electron-package.mjs [--dir|--mac]');
+if (mode !== '--dir' && mode !== '--mac' && mode !== '--win') {
+  console.error('Usage: node scripts/run-electron-package.mjs [--dir|--mac|--win]');
   process.exit(1);
 }
 
 const electronBuilderCli = require.resolve('electron-builder/out/cli/cli.js');
-const builderArgs = mode === '--dir' ? ['--dir', '--publish', 'never'] : ['--mac', '--publish', 'never'];
+const builderArgs =
+  mode === '--dir'
+    ? ['--dir', '--publish', 'never']
+    : mode === '--mac'
+      ? ['--mac', '--publish', 'never']
+      : ['--win', '--publish', 'never'];
 const packagingEnv = {
   ...process.env,
   CSC_IDENTITY_AUTO_DISCOVERY: 'false',
 };
 
 try {
-  await run('npm', ['run', 'rebuild:electron-native']);
-  await run('npm', ['run', 'build']);
+  const npmCommand = getNpmCommand();
+  await run(npmCommand, ['run', 'rebuild:electron-native']);
+  await run(npmCommand, ['run', 'build']);
   await run(process.execPath, [electronBuilderCli, ...builderArgs], packagingEnv);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
   try {
-    await run('npm', ['run', 'rebuild:node-native']);
+    await run(getNpmCommand(), ['run', 'rebuild:node-native']);
   } catch (error) {
     console.warn(
       `Warning: failed to restore node-native dependencies after packaging: ${

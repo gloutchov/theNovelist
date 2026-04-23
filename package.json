@@ -1,6 +1,6 @@
 {
   "name": "the-novelist",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "copyright": "Copyright © 2026 Gloutchov",
   "private": true,
   "license": "Apache-2.0",
@@ -16,6 +16,7 @@
     "pack": "node scripts/run-electron-package.mjs --dir",
     "dist": "npm run dist:mac",
     "dist:mac": "node scripts/run-electron-package.mjs --mac",
+    "dist:win": "node scripts/run-electron-package.mjs --win",
     "rebuild:electron-native": "node scripts/rebuild-electron-native.mjs",
     "rebuild:node-native": "node scripts/rebuild-node-native.mjs",
     "lint": "eslint .",
@@ -52,6 +53,7 @@
     "asarUnpack": [
       "**/*.node"
     ],
+    "afterPack": "scripts/electron-builder-after-pack.cjs",
     "npmRebuild": false,
     "extraMetadata": {
       "main": "out/main/index.js"
@@ -64,6 +66,18 @@
         "zip"
       ],
       "category": "public.app-category.productivity"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     }
   },
   "dependencies": {

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { appFetch, toExternalRequestError } from '../network/http';
 
 export type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
 export type AiProvider = 'codex_cli' | 'openai_api' | 'ollama';
@@ -97,6 +98,51 @@ function getPathValue(env: NodeJS.ProcessEnv = process.env): string {
   return env['PATH']?.trim() || env['Path']?.trim() || '';
 }
 
+function getWindowsAppDataPath(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = env['APPDATA']?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const homePath = getHomePath(env);
+  return homePath ? path.join(homePath, 'AppData', 'Roaming') : '';
+}
+
+function getWindowsLocalAppDataPath(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = env['LOCALAPPDATA']?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const homePath = getHomePath(env);
+  return homePath ? path.join(homePath, 'AppData', 'Local') : '';
+}
+
+function getWindowsExecutableExtensions(env: NodeJS.ProcessEnv = process.env): string[] {
+  const configured = env['PATHEXT']?.trim() || '.COM;.EXE;.BAT;.CMD';
+  const extensions = configured
+    .split(';')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .map((entry) => (entry.startsWith('.') ? entry : `.${entry}`));
+
+  return [...new Set(extensions)].sort((left, right) => {
+    return rankWindowsCommandCandidate(`command${left}`) - rankWindowsCommandCandidate(`command${right}`);
+  });
+}
+
+function getCommandCandidateNames(
+  commandName: string,
+  platform: RuntimePlatform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  if (platform !== 'win32' || path.extname(commandName)) {
+    return [commandName];
+  }
+
+  return [...getWindowsExecutableExtensions(env).map((extension) => `${commandName}${extension}`), commandName];
+}
+
 function getLoginShellCandidates(
   platform: RuntimePlatform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
@@ -113,28 +159,193 @@ function getLoginShellCandidates(
 function getCommonCommandCandidates(
   commandName: string,
   env: NodeJS.ProcessEnv = process.env,
+  platform: RuntimePlatform = process.platform,
 ): string[] {
+  const pathModule = platform === 'win32' ? path.win32 : path.posix;
   const homePath = getHomePath(env);
-  return [
-    homePath ? path.join(homePath, '.local', 'bin') : '',
-    homePath ? path.join(homePath, '.npm-global', 'bin') : '',
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    '/usr/bin',
-    '/bin',
-    '/snap/bin',
-  ]
+  const commandCandidates = getCommandCandidateNames(commandName, platform, env);
+  const directories =
+    platform === 'win32'
+      ? [
+          pathModule.join(getWindowsAppDataPath(env), 'npm'),
+          pathModule.join(getWindowsLocalAppDataPath(env), 'Programs', 'nodejs'),
+          env['ProgramFiles']?.trim()
+            ? pathModule.join(env['ProgramFiles'].trim(), 'nodejs')
+            : '',
+          env['ProgramFiles(x86)']?.trim()
+            ? pathModule.join(env['ProgramFiles(x86)'].trim(), 'nodejs')
+            : '',
+          homePath ? pathModule.join(homePath, '.local', 'bin') : '',
+        ]
+      : [
+          homePath ? pathModule.join(homePath, '.local', 'bin') : '',
+          homePath ? pathModule.join(homePath, '.npm-global', 'bin') : '',
+          '/opt/homebrew/bin',
+          '/usr/local/bin',
+          '/usr/bin',
+          '/bin',
+          '/snap/bin',
+        ];
+
+  return directories
     .filter(Boolean)
-    .map((directory) => path.join(directory, commandName));
+    .flatMap((directory) => commandCandidates.map((candidate) => pathModule.join(directory, candidate)));
 }
 
 function shouldUseShellForSpawn(
   commandName: string,
   platform: RuntimePlatform = process.platform,
 ): boolean {
-  void commandName;
-  void platform;
-  return false;
+  if (platform !== 'win32') {
+    return false;
+  }
+
+  const extension = path.extname(commandName).toLowerCase();
+  if (!extension) {
+    return false;
+  }
+
+  return extension === '.cmd' || extension === '.bat';
+}
+
+function rankWindowsCommandCandidate(filePath: string): number {
+  const extension = path.extname(filePath).toLowerCase();
+  switch (extension) {
+    case '.exe':
+      return 0;
+    case '.cmd':
+      return 1;
+    case '.bat':
+      return 2;
+    case '.com':
+      return 3;
+    default:
+      return 10;
+  }
+}
+
+function selectWindowsCommandCandidate(output: string): string | null {
+  const matches = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .sort((left, right) => rankWindowsCommandCandidate(left) - rankWindowsCommandCandidate(right));
+
+  return matches[0] ?? null;
+}
+
+async function resolveCommandViaWindowsWhere(commandName: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const child = spawn('where.exe', [commandName], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: process.env,
+      shell: false,
+    });
+
+    let stdout = '';
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      stdout += chunk.toString();
+    });
+    child.on('error', () => resolve(null));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(selectWindowsCommandCandidate(stdout));
+        return;
+      }
+
+      resolve(null);
+    });
+  });
+}
+
+async function resolveCommandViaShellLookup(
+  commandName: string,
+  platform: RuntimePlatform = process.platform,
+): Promise<string | null> {
+  if (platform === 'win32') {
+    return resolveCommandViaWindowsWhere(commandName);
+  }
+
+  return resolveCommandViaLoginShell(commandName);
+}
+
+function getFallbackPathEntries(
+  commandPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: RuntimePlatform = process.platform,
+): string[] {
+  const homePath = getHomePath(env);
+  const commandDirectory = isExplicitCommandPath(commandPath) ? path.dirname(commandPath) : '';
+  const windowsEntries =
+    platform === 'win32'
+      ? [
+          path.join(getWindowsAppDataPath(env), 'npm'),
+          path.join(getWindowsLocalAppDataPath(env), 'Programs', 'nodejs'),
+          env['ProgramFiles']?.trim() ? path.join(env['ProgramFiles'].trim(), 'nodejs') : '',
+          env['ProgramFiles(x86)']?.trim()
+            ? path.join(env['ProgramFiles(x86)'].trim(), 'nodejs')
+            : '',
+          homePath ? path.join(homePath, '.local', 'bin') : '',
+        ]
+      : [
+          homePath ? path.join(homePath, '.local', 'bin') : '',
+          homePath ? path.join(homePath, '.npm-global', 'bin') : '',
+          '/opt/homebrew/bin',
+          '/usr/local/bin',
+          '/usr/bin',
+          '/bin',
+          '/usr/sbin',
+          '/sbin',
+          '/snap/bin',
+        ];
+
+  return [commandDirectory, ...windowsEntries].filter(Boolean);
+}
+
+function getEnvironmentPathKey(env: NodeJS.ProcessEnv = process.env): 'PATH' | 'Path' {
+  return env['Path'] && !env['PATH'] ? 'Path' : 'PATH';
+}
+
+function buildPathEnvironment(
+  mergedPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const pathKey = getEnvironmentPathKey(env);
+  return {
+    ...env,
+    PATH: mergedPath,
+    Path: mergedPath,
+    [pathKey]: mergedPath,
+  };
+}
+
+async function normalizeSpawnCommand(
+  commandPath: string,
+  platform: RuntimePlatform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  if (platform !== 'win32') {
+    return commandPath;
+  }
+
+  const extension = path.extname(commandPath).toLowerCase();
+  if (platform === 'win32' && path.extname(commandPath).toLowerCase() === '.ps1') {
+    const cmdPath = commandPath.slice(0, -4) + '.cmd';
+    if (await fileIsExecutable(cmdPath)) {
+      return cmdPath;
+    }
+  }
+
+  if (!extension) {
+    for (const candidateExtension of getWindowsExecutableExtensions(env)) {
+      const candidatePath = `${commandPath}${candidateExtension}`;
+      if (await fileIsExecutable(candidatePath)) {
+        return candidatePath;
+      }
+    }
+  }
+
+  return commandPath;
 }
 
 async function fileIsExecutable(filePath: string): Promise<boolean> {
@@ -191,7 +402,7 @@ function resolveSearchPathEntry(commandName: string): Promise<string | null> {
     return cached;
   }
 
-  const resolution = resolveCommandViaLoginShell(trimmed);
+  const resolution = resolveCommandViaShellLookup(trimmed);
   resolvedPathCache.set(trimmed, resolution);
   return resolution;
 }
@@ -204,7 +415,7 @@ function clearResolvedCommandCaches(): void {
 async function resolveCommandFromCommonPaths(commandName: string): Promise<string | null> {
   for (const candidate of getCommonCommandCandidates(commandName)) {
     if (await fileIsExecutable(candidate)) {
-      return candidate;
+      return normalizeSpawnCommand(candidate);
     }
   }
 
@@ -220,7 +431,7 @@ function resolveRunnableCommandName(commandName: string): Promise<string> {
 
   const resolution = (async () => {
     if (isExplicitCommandPath(trimmed)) {
-      return trimmed;
+      return normalizeSpawnCommand(trimmed);
     }
 
     const commonPathResolved = await resolveCommandFromCommonPaths(trimmed);
@@ -228,9 +439,9 @@ function resolveRunnableCommandName(commandName: string): Promise<string> {
       return commonPathResolved;
     }
 
-    const shellResolved = await resolveCommandViaLoginShell(trimmed);
+    const shellResolved = await resolveCommandViaShellLookup(trimmed);
     if (shellResolved) {
-      return shellResolved;
+      return normalizeSpawnCommand(shellResolved);
     }
 
     return trimmed;
@@ -241,31 +452,14 @@ function resolveRunnableCommandName(commandName: string): Promise<string> {
 }
 
 async function buildCliEnvironment(commandPath: string): Promise<NodeJS.ProcessEnv> {
-  const currentPath = getPathValue();
+  const currentPath = getPathValue(process.env);
   const pathEntries = currentPath ? currentPath.split(path.delimiter).filter(Boolean) : [];
-  const commandDirectory = isExplicitCommandPath(commandPath) ? path.dirname(commandPath) : '';
   const resolvedNodePath = await resolveSearchPathEntry('node');
   const nodeDirectory = resolvedNodePath?.trim() ? path.dirname(resolvedNodePath.trim()) : '';
-  const homePath = getHomePath();
-  const fallbackEntries = [
-    commandDirectory,
-    nodeDirectory,
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    '/usr/bin',
-    '/bin',
-    '/usr/sbin',
-    '/sbin',
-    '/snap/bin',
-    homePath ? path.join(homePath, '.local', 'bin') : '',
-    homePath ? path.join(homePath, '.npm-global', 'bin') : '',
-  ].filter(Boolean);
+  const fallbackEntries = [...getFallbackPathEntries(commandPath), nodeDirectory].filter(Boolean);
 
   const mergedPath = [...new Set([...fallbackEntries, ...pathEntries])].join(path.delimiter);
-  return {
-    ...process.env,
-    PATH: mergedPath,
-  };
+  return buildPathEnvironment(mergedPath, process.env);
 }
 
 function resolveTimeoutMs(): number {
@@ -409,7 +603,7 @@ async function runOpenAiApi(
   signal?.addEventListener('abort', abortHandler, { once: true });
 
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    const response = await appFetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -459,7 +653,7 @@ async function runOpenAiApi(
     return {
       output: '',
       mode: 'fallback',
-      error: error instanceof Error ? error.message : 'Errore OpenAI API',
+      error: toExternalRequestError('OpenAI API', error).message,
     };
   } finally {
     clearTimeout(timeout);
@@ -494,7 +688,7 @@ async function runOllamaApi(
   const baseUrl = resolveOllamaHost();
 
   try {
-    const response = await fetch(`${baseUrl}/api/generate`, {
+    const response = await appFetch(`${baseUrl}/api/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -552,7 +746,7 @@ async function runOllamaApi(
     return {
       output: '',
       mode: 'fallback',
-      error: error instanceof Error ? error.message : 'Errore Ollama API',
+      error: toExternalRequestError('Ollama API', error).message,
     };
   } finally {
     clearTimeout(timeout);
@@ -566,7 +760,7 @@ async function probeOllama(timeoutMs: number): Promise<{ available: boolean; rea
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${baseUrl}/api/tags`, {
+    const response = await appFetch(`${baseUrl}/api/tags`, {
       method: 'GET',
       signal: controller.signal,
     });
@@ -584,7 +778,7 @@ async function probeOllama(timeoutMs: number): Promise<{ available: boolean; rea
     }
     return {
       available: false,
-      reason: error instanceof Error ? error.message : 'Errore connessione Ollama',
+      reason: toExternalRequestError('Ollama API', error).message,
     };
   } finally {
     clearTimeout(timeout);
@@ -776,6 +970,7 @@ export const __testing = {
   getLoginShellCandidates,
   getCommonCommandCandidates,
   resolveRunnableCommandName,
+  selectWindowsCommandCandidate,
   shouldUseShellForSpawn,
 };
 
