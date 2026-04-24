@@ -28,6 +28,12 @@ module.exports = async function afterPack(context) {
     return;
   }
 
+  // When cross-building Windows artifacts from macOS/Linux, rcedit.exe is not runnable directly.
+  // Skip this post-step and rely on electron-builder's native Windows metadata where available.
+  if (process.platform !== 'win32') {
+    return;
+  }
+
   const appInfo = context.packager?.appInfo;
   const productFilename = appInfo?.productFilename || 'The Novelist';
   const executablePath = path.join(context.appOutDir, `${productFilename}.exe`);
