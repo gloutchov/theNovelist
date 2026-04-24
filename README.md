@@ -69,7 +69,7 @@ Funzionalità secondarie:
 
 ## Come iniziare
 ### Avvio di The Novelist
-Su macOS è sufficiente fare doppioclick sull'icona del programma.
+Sia su macOS. sia su Windows, è sufficiente fare doppioclick sull'icona del programma.
 
 ## L'interfaccia
 L'interfaccia principale è divisa in due aree distinte.
