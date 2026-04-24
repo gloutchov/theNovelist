@@ -131,6 +131,15 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
   void aboutWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 }
 
+function showAppInfo(parentWindow?: BrowserWindow): void {
+  if (process.platform === 'darwin') {
+    app.showAboutPanel();
+    return;
+  }
+
+  void openAboutWindow(parentWindow);
+}
+
 function installApplicationMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [];
   const windowSubmenu: Electron.MenuItemConstructorOptions[] = [{ role: 'minimize' }, { role: 'zoom' }];
@@ -144,7 +153,7 @@ function installApplicationMenu(): void {
           label: 'Info',
           click: () => {
             const focusedWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-            void openAboutWindow(focusedWindow);
+            showAppInfo(focusedWindow);
           },
         },
         { type: 'separator' },
@@ -191,7 +200,7 @@ function installApplicationMenu(): void {
           label: 'Info',
           click: () => {
             const focusedWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-            void openAboutWindow(focusedWindow);
+            showAppInfo(focusedWindow);
           },
         },
       ],
