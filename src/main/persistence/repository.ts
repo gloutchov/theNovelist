@@ -105,15 +105,25 @@ function toChapterDocumentRecord(row: Record<string, unknown>): ChapterDocumentR
 
 function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettingsRecord {
   const provider = row.provider;
+  const fallbackProvider = row.fallback_provider;
   const apiModel = row.api_model;
   const normalizedProvider =
     provider === 'openai_api' || provider === 'ollama' ? provider : 'codex_cli';
+  const normalizedFallbackProvider =
+    fallbackProvider === 'codex_cli' ||
+    fallbackProvider === 'openai_api' ||
+    fallbackProvider === 'ollama'
+      ? fallbackProvider
+      : 'none';
 
   return {
     projectId: String(row.project_id),
     enabled: Number(row.enabled) === 1,
     provider: normalizedProvider,
+    fallbackProvider:
+      normalizedFallbackProvider === normalizedProvider ? 'none' : normalizedFallbackProvider,
     allowApiCalls: Number(row.allow_api_calls ?? 0) === 1,
+    allowExternalMemorySharing: Number(row.allow_external_memory_sharing ?? 1) === 1,
     autoSummarizeDescriptions: Number(row.auto_summarize_descriptions ?? 1) === 1,
     apiKey: row.api_key === null || row.api_key === undefined ? null : String(row.api_key),
     apiModel: typeof apiModel === 'string' && apiModel.trim() ? apiModel : 'gpt-5-mini',
@@ -147,6 +157,8 @@ function toCharacterCardRecord(row: Record<string, unknown>): CharacterCardRecor
     sexualOrientation: String(row.sexual_orientation),
     species: String(row.species),
     hairColor: String(row.hair_color),
+    eyeColor: String(row.eye_color ?? ''),
+    skinColor: String(row.skin_color ?? ''),
     bald: Number(row.bald) === 1,
     beard: String(row.beard),
     physique: String(row.physique),
@@ -727,14 +739,16 @@ export class NovelistRepository {
           project_id,
           enabled,
           provider,
+          fallback_provider,
           allow_api_calls,
+          allow_external_memory_sharing,
           auto_summarize_descriptions,
           api_key,
           api_model,
           created_at,
           updated_at
         )
-        VALUES (?, 0, 'codex_cli', 0, 1, NULL, 'gpt-5-mini', ?, ?)
+        VALUES (?, 0, 'codex_cli', 'none', 0, 1, 1, NULL, 'gpt-5-mini', ?, ?)
         `,
       )
       .run(projectId, timestamp, timestamp);
@@ -756,12 +770,18 @@ export class NovelistRepository {
       ...current,
       enabled: input.enabled ?? current.enabled,
       provider: input.provider ?? current.provider,
+      fallbackProvider: input.fallbackProvider ?? current.fallbackProvider,
       allowApiCalls: input.allowApiCalls ?? current.allowApiCalls,
+      allowExternalMemorySharing:
+        input.allowExternalMemorySharing ?? current.allowExternalMemorySharing,
       autoSummarizeDescriptions: input.autoSummarizeDescriptions ?? current.autoSummarizeDescriptions,
       apiKey: input.apiKey === undefined ? current.apiKey : input.apiKey,
       apiModel: input.apiModel?.trim() ? input.apiModel.trim() : current.apiModel,
       updatedAt: nowIso(),
     };
+    if (next.fallbackProvider === next.provider) {
+      next.fallbackProvider = 'none';
+    }
     const timestamp = nowIso();
 
     this.db
@@ -771,7 +791,9 @@ export class NovelistRepository {
           project_id,
           enabled,
           provider,
+          fallback_provider,
           allow_api_calls,
+          allow_external_memory_sharing,
           auto_summarize_descriptions,
           api_key,
           api_model,
@@ -782,7 +804,9 @@ export class NovelistRepository {
           @projectId,
           @enabled,
           @provider,
+          @fallbackProvider,
           @allowApiCalls,
+          @allowExternalMemorySharing,
           @autoSummarizeDescriptions,
           @apiKey,
           @apiModel,
@@ -792,7 +816,9 @@ export class NovelistRepository {
         ON CONFLICT(project_id) DO UPDATE SET
           enabled = excluded.enabled,
           provider = excluded.provider,
+          fallback_provider = excluded.fallback_provider,
           allow_api_calls = excluded.allow_api_calls,
+          allow_external_memory_sharing = excluded.allow_external_memory_sharing,
           auto_summarize_descriptions = excluded.auto_summarize_descriptions,
           api_key = excluded.api_key,
           api_model = excluded.api_model,
@@ -803,7 +829,9 @@ export class NovelistRepository {
         projectId,
         enabled: next.enabled ? 1 : 0,
         provider: next.provider,
+        fallbackProvider: next.fallbackProvider,
         allowApiCalls: next.allowApiCalls ? 1 : 0,
+        allowExternalMemorySharing: next.allowExternalMemorySharing ? 1 : 0,
         autoSummarizeDescriptions: next.autoSummarizeDescriptions ? 1 : 0,
         apiKey: next.apiKey,
         apiModel: next.apiModel,
@@ -814,7 +842,10 @@ export class NovelistRepository {
     return this.getOrCreateCodexSettings(projectId);
   }
 
-  appendCodexChatMessage(projectId: string, input: CreateCodexChatMessageInput): CodexChatMessageRecord {
+  appendCodexChatMessage(
+    projectId: string,
+    input: CreateCodexChatMessageInput,
+  ): CodexChatMessageRecord {
     const id = randomUUID();
     const timestamp = nowIso();
 
@@ -846,7 +877,11 @@ export class NovelistRepository {
     return toCodexChatMessageRecord(created);
   }
 
-  listCodexChatMessages(projectId: string, chapterNodeId: string, limit = 100): CodexChatMessageRecord[] {
+  listCodexChatMessages(
+    projectId: string,
+    chapterNodeId: string,
+    limit = 100,
+  ): CodexChatMessageRecord[] {
     const safeLimit = Math.max(1, Math.min(limit, 500));
     const rows = this.db
       .prepare(
@@ -861,6 +896,21 @@ export class NovelistRepository {
       .all(projectId, chapterNodeId, safeLimit) as Record<string, unknown>[];
 
     return rows.reverse().map(toCodexChatMessageRecord);
+  }
+
+  listProjectCodexChatMessages(projectId: string): CodexChatMessageRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM codex_chat_messages
+        WHERE project_id = ?
+        ORDER BY created_at ASC, rowid ASC
+        `,
+      )
+      .all(projectId) as Record<string, unknown>[];
+
+    return rows.map(toCodexChatMessageRecord);
   }
 
   createCharacterCard(projectId: string, input: CreateCharacterCardInput): CharacterCardRecord {
@@ -880,6 +930,8 @@ export class NovelistRepository {
           sexual_orientation,
           species,
           hair_color,
+          eye_color,
+          skin_color,
           bald,
           beard,
           physique,
@@ -901,6 +953,8 @@ export class NovelistRepository {
           @sexualOrientation,
           @species,
           @hairColor,
+          @eyeColor,
+          @skinColor,
           @bald,
           @beard,
           @physique,
@@ -924,6 +978,8 @@ export class NovelistRepository {
         sexualOrientation: input.sexualOrientation,
         species: input.species,
         hairColor: input.hairColor,
+        eyeColor: input.eyeColor,
+        skinColor: input.skinColor,
         bald: input.bald ? 1 : 0,
         beard: input.beard,
         physique: input.physique,
@@ -958,6 +1014,8 @@ export class NovelistRepository {
           sexual_orientation = @sexualOrientation,
           species = @species,
           hair_color = @hairColor,
+          eye_color = @eyeColor,
+          skin_color = @skinColor,
           bald = @bald,
           beard = @beard,
           physique = @physique,
@@ -979,6 +1037,8 @@ export class NovelistRepository {
         sexualOrientation: input.sexualOrientation,
         species: input.species,
         hairColor: input.hairColor,
+        eyeColor: input.eyeColor,
+        skinColor: input.skinColor,
         bald: input.bald ? 1 : 0,
         beard: input.beard,
         physique: input.physique,

@@ -92,6 +92,7 @@ Nell'intestazione del programma c'è un piccolo menù composto da quattro tasti.
 - Trame: è l'area di lavoro per creare trame (principale e secondarie).
 - Personaggi: è l'area di lavoro per creare personaggi.
 - Location: è l'area di lavoro per creare le location.
+- Memoria: è l'area dedicata alla 'memoria del progetto' a cui la AI può accedere per avere informazioni.
 - Impostazioni: Qui viene scelto che tipo di interazione con la AI sarà usato.
 
 ## Come Funziona
@@ -134,6 +135,25 @@ Per richiamare un personaggio, o una location, è sufficiente digitare '@' e sce
 Se si vuole creare un nuovo personaggio, o una nuova location, senza passare ai Canvas Personaggi/Location (vedi capitoli successivi), è sufficiente scrivere nell'editor la descrizione, selezionare il testo, e cliccarci sopra col tasto destro. Si aprirà un menù ad hoc per generare direttamente ciò che si desidera. Una volta confermato, il programma creerà direttamente la scheda al posto dell'utente, andando a compilare gli attributi grazie alla AI, che cercherà nel testo evidenziato i dati, e li riporterà al posto giusto. Nel caso poi siano attive le API, verrà anche generata una immagine in automatico, sempre basata sulla descrizione.
 Nell'editor di testo, ovviamente, il testo selezionato rimarrà presente, ed apparirà il badge relativo al personaggio, o alla location, appena creata.
 
+Scorciatoie da tastiera nell'editor:
+
+| Azione                           | Windows/Linux                      | macOS                             | 
+| -------------------------------- | ---------------------------------- | --------------------------------- | 
+| Salva capitolo                   | `Ctrl+S`                           | `Cmd+S`                           | 
+| Stampa capitolo                  | `Ctrl+P`                           | `Cmd+P`                           | 
+| Interlinea 1                     | `Ctrl+Enter`                       | `Cmd+Enter`                       | 
+| Trova                            | `Ctrl+F`                           | `Cmd+F`                           | 
+| Sostituisci                      | `Ctrl+H`                           | `Cmd+H`                           | 
+| Risultato successivo             | `Enter` nella barra Trova          | `Enter` nella barra Trova         | 
+| Risultato precedente             | `Shift+Enter` nella barra Trova    | `Shift+Enter` nella barra Trova   | 
+| Sostituisci occorrenza corrente  | `Ctrl+Enter` nel campo Sostituisci | `Cmd+Enter` nel campo Sostituisci | 
+| Chiudi Trova/Sostituisci         | `Esc`                              | `Esc`                             | 
+| Invia messaggio AI               | `Ctrl+Enter` nella chat            | `Cmd+Enter` nella chat            | 
+| Grassetto                        | `Ctrl+B`                           | `Cmd+B`                           | 
+| Corsivo                          | `Ctrl+I`                           | `Cmd+I`                           | 
+| Annulla                          | `Ctrl+Z`                           | `Cmd+Z`                           |
+| Ripristina                       | `Ctrl+Shift+Z`                     | `Cmd+Shift+Z`                     | 
+
 ### Selezione
 Quando si seleziona un oggetto sul canvas, in quest'area vengono attivati dei tasti con le possibili azioni che si possono fare. Per cancellare un oggetto è possibile anche usare la scorciatoia, e una volta selezionato, basta premere 'Canc'.
 
@@ -144,10 +164,14 @@ Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già d
 
 Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
 
+## Memoria
+Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, e dalle Location. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
+
 ## Impostazioni
 Il menù impostazioni serve principalmente per:
 - Impostare l'autosave.
 - Impostare il servizio AI da usare.
+- Impostare il consenso alle AI di usare i dati conservati nella Wiki.
 
 ### Autosave
 Il programma permette di scegliere tra:
@@ -161,6 +185,9 @@ Il programma prevede tre possibilità:
 2. Usare una API KEY e i servizi cloud
 3. Usare una AI locale (o cloud) tramite Ollama.
 
+### Consensi
+Il programma permette di scegliere se permettere o meno alle AI di accedere alla memoria Wiki del progetto.
+
 #### Codex CLI
 Codex CLI è il command line interface di OpenAI. Viene installato localmente, ma utilizza i modelli di OpenAI, di conseguenza è necessario un abbonamento a chatGPT (minimo il Plus), o una API KEY da associare.
 
@@ -172,10 +199,13 @@ Ollama è un tool che, una volta installato sul proprio computer, permette di sc
 
 Attenzione: le soluzioni Codex CLI e Ollama prevedono che sul computer siano installati i programmi. In caso contrario il servizio AI non sarà attivo.
 
-Il menù impostazioni presenta anche tre check box importanti:
+Il menù impostazioni presenta anche quattro check box importanti:
 1. Consenso invio testo a strumenti AI: Senza questo consenso non si potranno usare i servizi AI.
 2. Abilita chiamate API esterne: Senza questo consenso non potrà funzionare il servizio tramite API KEY.
 3. Auto-riassunto della descrizione blocco al salvataggio: Senza questo consenso non si avrà il riassunto automatico dei capitoli in descrizione al blocco.
+4. Consenso invio memoria progetto a provider esterni: se disattivato, la AI non riceverà la memoria Wiki quando il provider o il fallback possono inviare il prompt fuori dal computer.
+
+E' inoltre presente un Fallback nel caso il servizio AI scelto non sia operativo per qualche motivo. Questo fallback può ridirigere le richieste a uno degli altri due modelli disponibili, o essere completamente 'Non AI'.
 
 *Nota:* Le impostazioni AI sono salvate all'interno dei singoli progetti. Le preferenze di autosave invece sono globali utente, quindi restano valide anche quando si apre o si crea un altro progetto.
 
@@ -191,6 +221,7 @@ App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas
 - Canvas Trame dedicato con creazione/modifica/eliminazione trame e generazione AI di una bozza struttura a blocchi.
 - Editor capitolo con formattazione ricca, riferimenti rapidi a personaggi/location e azioni AI su selezione.
 - Chat AI contestuale al capitolo.
+- Memoria progetto locale in Markdown con sorgenti deterministic-first, ricerca locale e contesto citabile per la chat AI.
 - Canvas Personaggi e Location con collegamenti ai capitoli.
 - Autosave configurabile lato utente (`manuale`, `a intervallo`, `automatico`).
 - Gestione immagini per personaggi/location:
@@ -251,6 +282,7 @@ Nelle Impostazioni AI puoi scegliere il provider:
 
 Note operative:
 - Prompt/suggerimenti/chat/creazione struttura trama usano il provider selezionato.
+- La chat AI puo ricevere un blocco "Memoria progetto" costruito dalla wiki locale. Questo avviene solo se il consenso AI e attivo e, quando provider o fallback possono uscire dal computer, se e attivo anche il consenso "Invio memoria progetto a provider esterni".
 - La generazione immagini in-app usa OpenAI Images API, quindi richiede:
   - consenso AI attivo;
   - provider `OpenAI API`;
@@ -260,7 +292,18 @@ Note operative:
 ## Preferenze e impostazioni
 - `Autosave`: preferenza utente globale salvata fuori dal progetto.
 - `Impostazioni AI`: salvate per singolo progetto.
+- `Consensi`: includono il consenso generale AI, le chiamate API esterne, l'auto-riassunto e l'invio della memoria progetto a provider esterni. Il consenso memoria esterna e attivo di default per mantenere il comportamento precedente, ma puo essere disattivato per usare la chat senza allegare la wiki a provider non locali.
 - Quando apri o crei un progetto nuovo, le impostazioni AI vengono caricate dal progetto corrente; l'autosave mantiene invece l'ultima preferenza utente salvata.
+
+## Memoria progetto locale
+- Ogni progetto contiene una directory `wiki/` generata dall'app accanto a `project.db`.
+- `project.db` resta la fonte di verita; la wiki e un artefatto derivato e recuperabile.
+- `wiki/sources/` contiene export Markdown deterministici di capitoli, trame, personaggi, location e chat AI.
+- `wiki/index.md` viene rigenerato dal sync deterministico; `wiki/log.md` registra le operazioni.
+- La ricerca nella tab `Memoria` legge la wiki locale e non richiede provider esterni.
+- La chat usa la wiki a query time: cerca fonti rilevanti, allega un blocco citabile e chiede al modello di distinguere fatti espliciti, schede autore, sintesi e inferenze.
+- I file della wiki sono app-managed: sono leggibili e versionabili, ma non sono pensati come superficie di editing manuale. In caso di modifiche manuali, l'app puo riscriverli al sync successivo.
+- Alla chiusura progetto l'app tenta un sync deterministico con timeout breve, circa 12 secondi. Se non termina in tempo, la chiusura prosegue e la memoria resta recuperabile al prossimo avvio.
 
 ## Variabili ambiente
 - `NOVELIST_CODEX_COMMAND`: comando CLI (default: `codex`).
@@ -328,11 +371,15 @@ Nota:
 - **Validazione IPC**: Ogni payload è validato via `zod` lato Main Process.
 - **Appartenenza Progetto**: Tutte le operazioni su nodi e connessioni verificano che gli ID coinvolti appartengano al progetto aperto. Questo impedisce manipolazioni dei collegamenti tra progetti diversi.
 - **Gestione Chiavi**: Le chiavi API sono gestite via `safeStorage` (dove disponibile) e mai inviate in chiaro al renderer.
+- **Memoria Progetto**: La wiki locale e derivata dal database, scritta con operazioni atomiche, confinata nella directory `wiki/` e inviata a provider esterni solo con consenso dedicato.
+
+Per il riepilogo completo delle misure implementate e dei limiti residui, vedi [sicurezza.md](./sicurezza.md).
 
 ## Struttura progetto narrativo su disco
 - `project.db`: database SQLite del progetto.
 - `assets/`: immagini, export e allegati.
 - `.snapshots/`: snapshot DB per recovery.
+- `wiki/`: memoria Markdown locale derivata dal database e riscrivibile dall'app.
 
 ## IPC (selezione)
 - App: `app:get-preferences`, `app:update-preferences`.
@@ -342,6 +389,7 @@ Nota:
 - Manoscritto: `manuscript:export-docx`, `manuscript:export-pdf`, `manuscript:print`.
 - Personaggi/Location: CRUD schede, link capitoli, immagini (lista/associazione/generazione/eliminazione).
 - AI: `codex:get-settings`, `codex:update-settings`, `codex:assist`, `codex:transform-selection`, `codex:chat`, `codex:cancel-active-request`.
+- Wiki: `wiki:get-status`, `wiki:sync`, `wiki:search`.
 
 ## Licenza
 Questo progetto e distribuito sotto licenza Apache 2.0. Vedi [LICENSE](./LICENSE).

@@ -26,13 +26,17 @@ describe('ProjectSessionManager', () => {
       expect(project.project.name).toBe('Session Test');
       expect(session.getOpenedProject()?.project.id).toBe(project.project.id);
 
+      const wikiStatus = await session.getProjectWikiStatus();
+      expect(wikiStatus.initialized).toBe(true);
+      expect(wikiStatus.sourceCount).toBeGreaterThan(0);
+
       const snapshot = await session.saveSnapshot('manual-check');
       expect(snapshot.reason).toBe('manual-check');
 
       const snapshots = await session.listSnapshots();
       expect(snapshots.length).toBeGreaterThan(0);
     } finally {
-      session.closeProject();
+      await session.closeProjectWithSync();
     }
   });
 });

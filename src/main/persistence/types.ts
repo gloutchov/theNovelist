@@ -57,7 +57,9 @@ export interface CodexSettingsRecord {
   projectId: string;
   enabled: boolean;
   provider: 'codex_cli' | 'openai_api' | 'ollama';
+  fallbackProvider: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
   allowApiCalls: boolean;
+  allowExternalMemorySharing: boolean;
   autoSummarizeDescriptions: boolean;
   apiKey: string | null;
   apiModel: string;
@@ -85,6 +87,8 @@ export interface CharacterCardRecord {
   sexualOrientation: string;
   species: string;
   hairColor: string;
+  eyeColor: string;
+  skinColor: string;
   bald: boolean;
   beard: string;
   physique: string;
@@ -195,7 +199,9 @@ export interface UpsertChapterDocumentInput {
 export interface UpsertCodexSettingsInput {
   enabled?: boolean;
   provider?: 'codex_cli' | 'openai_api' | 'ollama';
+  fallbackProvider?: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
   allowApiCalls?: boolean;
+  allowExternalMemorySharing?: boolean;
   autoSummarizeDescriptions?: boolean;
   apiKey?: string | null;
   apiModel?: string;
@@ -216,6 +222,8 @@ export interface CreateCharacterCardInput {
   sexualOrientation: string;
   species: string;
   hairColor: string;
+  eyeColor: string;
+  skinColor: string;
   bald: boolean;
   beard: string;
   physique: string;

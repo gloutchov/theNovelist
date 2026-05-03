@@ -164,6 +164,8 @@ const createCharacterCardRequestSchema = z.object({
   sexualOrientation: z.string().trim().max(120).default(''),
   species: z.string().trim().max(120).default(''),
   hairColor: z.string().trim().max(120).default(''),
+  eyeColor: z.string().trim().max(120).default(''),
+  skinColor: z.string().trim().max(120).default(''),
   bald: z.boolean().default(false),
   beard: z.string().trim().max(120).default(''),
   physique: z.string().trim().max(120).default(''),
@@ -287,7 +289,9 @@ const codexChatRequestSchema = z.object({
 const codexUpdateSettingsRequestSchema = z.object({
   enabled: z.boolean().optional(),
   provider: z.enum(['codex_cli', 'openai_api', 'ollama']).optional(),
+  fallbackProvider: z.enum(['codex_cli', 'openai_api', 'ollama', 'none']).optional(),
   allowApiCalls: z.boolean().optional(),
+  allowExternalMemorySharing: z.boolean().optional(),
   autoSummarizeDescriptions: z.boolean().optional(),
   apiKey: z.string().max(500).nullable().optional(),
   clearStoredApiKey: z.boolean().optional(),
@@ -297,6 +301,11 @@ const codexUpdateSettingsRequestSchema = z.object({
 const codexChatHistoryRequestSchema = z.object({
   chapterNodeId: z.string().trim().min(1),
   limit: z.number().int().min(1).max(500).optional(),
+});
+
+const wikiSearchRequestSchema = z.object({
+  query: z.string().trim().min(1).max(500),
+  limit: z.number().int().min(1).max(25).optional(),
 });
 
 const projectResponseSchema = z.object({
@@ -378,6 +387,8 @@ const characterCardResponseSchema = z.object({
   sexualOrientation: z.string(),
   species: z.string(),
   hairColor: z.string(),
+  eyeColor: z.string(),
+  skinColor: z.string(),
   bald: z.boolean(),
   beard: z.string(),
   physique: z.string(),
@@ -436,6 +447,7 @@ const codexStatusResponseSchema = z.object({
   activeRequest: z.boolean(),
   queuedRequests: z.number().int().min(0),
   provider: z.enum(['codex_cli', 'openai_api', 'ollama']),
+  fallbackProvider: z.enum(['codex_cli', 'openai_api', 'ollama', 'none']),
   apiCallsEnabled: z.boolean(),
 });
 
@@ -445,13 +457,26 @@ const codexResultResponseSchema = z.object({
   usedCommand: z.string().optional(),
   error: z.string().optional(),
   cancelled: z.boolean().optional(),
+  memorySources: z
+    .array(
+      z.object({
+        path: z.string(),
+        title: z.string(),
+        category: z.enum(['index', 'source', 'wiki']),
+        score: z.number(),
+        snippet: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 const codexSettingsResponseSchema = z.object({
   projectId: z.string(),
   enabled: z.boolean(),
   provider: z.enum(['codex_cli', 'openai_api', 'ollama']),
+  fallbackProvider: z.enum(['codex_cli', 'openai_api', 'ollama', 'none']),
   allowApiCalls: z.boolean(),
+  allowExternalMemorySharing: z.boolean(),
   autoSummarizeDescriptions: z.boolean(),
   apiKey: z.string().nullable(),
   hasStoredApiKey: z.boolean(),
@@ -477,6 +502,30 @@ const codexCancelResponseSchema = z.object({
   cancelled: z.boolean(),
 });
 
+const wikiStatusResponseSchema = z.object({
+  initialized: z.boolean(),
+  derivedPending: z.boolean(),
+  updatedAt: z.string().nullable(),
+  sourceCount: z.number().int().min(0),
+});
+
+const wikiSyncResponseSchema = z.object({
+  changed: z.boolean(),
+  changedSources: z.array(z.string()),
+  sourceCount: z.number().int().min(0),
+  derivedPending: z.boolean(),
+  indexUpdated: z.boolean().optional(),
+  logUpdated: z.boolean().optional(),
+});
+
+const wikiSearchResultResponseSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  category: z.enum(['index', 'source', 'wiki']),
+  score: z.number(),
+  snippet: z.string(),
+});
+
 const successResponseSchema = z.object({ ok: z.literal(true) });
 
 export type PingRequest = z.infer<typeof pingRequestSchema>;
@@ -498,6 +547,9 @@ export type CodexStatusResponse = z.infer<typeof codexStatusResponseSchema>;
 export type CodexResultResponse = z.infer<typeof codexResultResponseSchema>;
 export type CodexSettingsResponse = z.infer<typeof codexSettingsResponseSchema>;
 export type CodexChatMessageResponse = z.infer<typeof codexChatMessageResponseSchema>;
+export type WikiStatusResponse = z.infer<typeof wikiStatusResponseSchema>;
+export type WikiSyncResponse = z.infer<typeof wikiSyncResponseSchema>;
+export type WikiSearchResultResponse = z.infer<typeof wikiSearchResultResponseSchema>;
 
 export function buildPingResponse(request: PingRequest): PingResponse {
   return {
@@ -605,6 +657,28 @@ function toCodexSettingsResponse(resolved: ResolvedCodexRuntime): CodexSettingsR
   });
 }
 
+function providerCanLeaveDevice(provider: CodexSettingsRecord['provider']): boolean {
+  return provider === 'codex_cli' || provider === 'openai_api';
+}
+
+function settingsMaySendPromptExternally(
+  settings: Pick<CodexSettingsRecord, 'provider' | 'fallbackProvider'>,
+): boolean {
+  return (
+    providerCanLeaveDevice(settings.provider) ||
+    (settings.fallbackProvider !== 'none' && providerCanLeaveDevice(settings.fallbackProvider))
+  );
+}
+
+export function shouldAttachProjectMemoryForSettings(
+  settings: Pick<
+    CodexSettingsRecord,
+    'allowExternalMemorySharing' | 'provider' | 'fallbackProvider'
+  >,
+): boolean {
+  return settings.allowExternalMemorySharing || !settingsMaySendPromptExternally(settings);
+}
+
 function parseRichTextDocument(contentJson: string): RichTextDocument {
   try {
     const parsed = JSON.parse(contentJson) as RichTextDocument;
@@ -690,7 +764,9 @@ function imageMimeTypeFromPath(filePath: string): string {
 
 function isPathInsideDirectory(directoryPath: string, targetPath: string): boolean {
   const relativePath = path.relative(path.resolve(directoryPath), path.resolve(targetPath));
-  return relativePath === '' || (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`));
+  return (
+    relativePath === '' || (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`))
+  );
 }
 
 function isAllowedProjectImageFile(filePath: string): boolean {
@@ -703,6 +779,16 @@ function isAllowedProjectImageFile(filePath: string): boolean {
     normalized.endsWith('.gif') ||
     normalized.endsWith('.bmp')
   );
+}
+
+async function syncProjectWikiSourcesBestEffort(
+  sessionManager: ProjectSessionManager,
+): Promise<void> {
+  try {
+    await sessionManager.syncProjectWikiSources();
+  } catch {
+    // The wiki is derived and recoverable. Primary project mutations must not fail because of it.
+  }
 }
 
 function summarizeTextFallback(chapterText: string, maxLength = 220): string {
@@ -849,10 +935,17 @@ export function collectManuscriptChapters(
   const documentsByNodeId = new Map(
     allNodes
       .map((node) => [node.id, repository.getChapterDocumentByNodeId(node.id)] as const)
-      .filter((entry): entry is readonly [string, NonNullable<ReturnType<Repository['getChapterDocumentByNodeId']>>] => {
-        const [, document] = entry;
-        return document !== null && document.wordCount > 0;
-      }),
+      .filter(
+        (
+          entry,
+        ): entry is readonly [
+          string,
+          NonNullable<ReturnType<Repository['getChapterDocumentByNodeId']>>,
+        ] => {
+          const [, document] = entry;
+          return document !== null && document.wordCount > 0;
+        },
+      ),
   );
 
   const nodesWithContent = allNodes.filter((node) => documentsByNodeId.has(node.id));
@@ -995,8 +1088,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return projectResponseSchema.parse(toProjectResponse(project));
   });
 
-  ipcMain.handle(IPC_CHANNELS.projectClose, () => {
-    sessionManager.closeProject();
+  ipcMain.handle(IPC_CHANNELS.projectClose, async () => {
+    await sessionManager.closeProjectWithSync();
     return successResponseSchema.parse({ ok: true });
   });
 
@@ -1120,6 +1213,22 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return snapshotResponseSchema.parse(snapshot);
   });
 
+  ipcMain.handle(IPC_CHANNELS.wikiGetStatus, async () => {
+    const status = await sessionManager.getProjectWikiStatus();
+    return wikiStatusResponseSchema.parse(status);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.wikiSync, async () => {
+    const result = await sessionManager.syncProjectWiki('manual');
+    return wikiSyncResponseSchema.parse(result);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.wikiSearch, async (_event, payload: unknown) => {
+    const request = wikiSearchRequestSchema.parse(payload);
+    const results = await sessionManager.searchProjectWiki(request);
+    return z.array(wikiSearchResultResponseSchema).parse(results);
+  });
+
   ipcMain.handle(IPC_CHANNELS.storyGetState, () => {
     const { repository, projectId } = getStoryContext(sessionManager);
 
@@ -1130,7 +1239,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     });
   });
 
-  ipcMain.handle(IPC_CHANNELS.storyCreatePlot, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.storyCreatePlot, async (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = createPlotRequestSchema.parse(payload);
 
@@ -1143,10 +1252,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       positionY: request.positionY,
     });
 
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return plotResponseSchema.parse(plot);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storyUpdatePlot, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.storyUpdatePlot, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = updatePlotRequestSchema.parse(payload);
     const plot = repository.updatePlot(request.id, {
@@ -1156,17 +1266,19 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       positionX: request.positionX,
       positionY: request.positionY,
     });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return plotResponseSchema.parse(plot);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storyDeletePlot, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.storyDeletePlot, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = deletePlotRequestSchema.parse(payload);
     repository.deletePlot(request.id);
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return successResponseSchema.parse({ ok: true });
   });
 
-  ipcMain.handle(IPC_CHANNELS.storyCreateNode, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.storyCreateNode, async (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = createNodeRequestSchema.parse(payload);
 
@@ -1182,10 +1294,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       positionY: request.positionY,
     });
 
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return chapterNodeResponseSchema.parse(node);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storyUpdateNode, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.storyUpdateNode, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = updateNodeRequestSchema.parse(payload);
 
@@ -1209,14 +1322,16 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error(`Chapter node not found after update: ${request.id}`);
     }
 
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return chapterNodeResponseSchema.parse(updated);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storyDeleteNode, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.storyDeleteNode, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = deleteNodeRequestSchema.parse(payload);
 
     repository.deleteChapterNode(request.id);
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return successResponseSchema.parse({ ok: true });
   });
 
@@ -1337,6 +1452,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
             },
             {
               provider: codexSettings.provider,
+              fallbackProvider: codexSettings.fallbackProvider,
               allowApiCalls: codexSettings.allowApiCalls,
               apiKey: runtime.runtimeApiKey,
               apiModel: codexSettings.apiModel,
@@ -1364,6 +1480,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         });
       }
     }
+
+    await syncProjectWikiSourcesBestEffort(sessionManager);
 
     return chapterDocumentResponseSchema.parse(saved);
   });
@@ -1505,7 +1623,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return z.array(characterCardResponseSchema).parse(cards);
   });
 
-  ipcMain.handle(IPC_CHANNELS.characterCreateCard, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.characterCreateCard, async (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = createCharacterCardRequestSchema.parse(payload);
     const card = repository.createCharacterCard(projectId, {
@@ -1516,6 +1634,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       sexualOrientation: request.sexualOrientation,
       species: request.species,
       hairColor: request.hairColor,
+      eyeColor: request.eyeColor,
+      skinColor: request.skinColor,
       bald: request.bald,
       beard: request.beard,
       physique: request.physique,
@@ -1525,12 +1645,17 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       positionX: request.positionX,
       positionY: request.positionY,
     });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return characterCardResponseSchema.parse(card);
   });
 
-  ipcMain.handle(IPC_CHANNELS.characterUpdateCard, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.characterUpdateCard, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = updateCharacterCardRequestSchema.parse(payload);
+    const payloadRecord =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : {};
     const existing = repository.getCharacterCardById(request.id);
     if (!existing) {
       throw new Error('Character card not found');
@@ -1544,6 +1669,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       sexualOrientation: request.sexualOrientation,
       species: request.species,
       hairColor: request.hairColor,
+      eyeColor: Object.hasOwn(payloadRecord, 'eyeColor') ? request.eyeColor : existing.eyeColor,
+      skinColor: Object.hasOwn(payloadRecord, 'skinColor') ? request.skinColor : existing.skinColor,
       bald: request.bald,
       beard: request.beard,
       physique: request.physique,
@@ -1559,13 +1686,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Character card not found after update');
     }
 
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return characterCardResponseSchema.parse(updated);
   });
 
-  ipcMain.handle(IPC_CHANNELS.characterDeleteCard, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.characterDeleteCard, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = deleteCharacterCardRequestSchema.parse(payload);
     repository.deleteCharacterCard(request.id);
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return successResponseSchema.parse({ ok: true });
   });
 
@@ -1583,7 +1712,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return chapterLinkIdsResponseSchema.parse(chapterNodeIds);
   });
 
-  ipcMain.handle(IPC_CHANNELS.characterSetChapterLinks, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.characterSetChapterLinks, async (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = setCharacterChapterLinksRequestSchema.parse(payload);
     const card = repository.getCharacterCardById(request.characterCardId);
@@ -1597,6 +1726,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       characterCardId: card.id,
       chapterNodeIds,
     });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
 
     const linkedIds = repository
       .listCharacterChapterLinks(card.id)
@@ -1688,7 +1818,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return z.array(locationCardResponseSchema).parse(cards);
   });
 
-  ipcMain.handle(IPC_CHANNELS.locationCreateCard, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.locationCreateCard, async (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = createLocationCardRequestSchema.parse(payload);
     const card = repository.createLocationCard(projectId, {
@@ -1700,10 +1830,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       positionX: request.positionX,
       positionY: request.positionY,
     });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return locationCardResponseSchema.parse(card);
   });
 
-  ipcMain.handle(IPC_CHANNELS.locationUpdateCard, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.locationUpdateCard, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = updateLocationCardRequestSchema.parse(payload);
     const existing = repository.getLocationCardById(request.id);
@@ -1726,13 +1857,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Location card not found after update');
     }
 
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return locationCardResponseSchema.parse(updated);
   });
 
-  ipcMain.handle(IPC_CHANNELS.locationDeleteCard, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.locationDeleteCard, async (_event, payload: unknown) => {
     const { repository } = getStoryContext(sessionManager);
     const request = deleteLocationCardRequestSchema.parse(payload);
     repository.deleteLocationCard(request.id);
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return successResponseSchema.parse({ ok: true });
   });
 
@@ -1750,7 +1883,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return chapterLinkIdsResponseSchema.parse(chapterNodeIds);
   });
 
-  ipcMain.handle(IPC_CHANNELS.locationSetChapterLinks, (_event, payload: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.locationSetChapterLinks, async (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = setLocationChapterLinksRequestSchema.parse(payload);
     const card = repository.getLocationCardById(request.locationCardId);
@@ -1764,6 +1897,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       locationCardId: card.id,
       chapterNodeIds,
     });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
 
     const linkedIds = repository
       .listLocationChapterLinks(card.id)
@@ -1857,6 +1991,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const status = await codexService.getStatus(
       {
         provider: settings.provider,
+        fallbackProvider: settings.fallbackProvider,
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
@@ -1902,7 +2037,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const updated = repository.upsertCodexSettings(projectId, {
       enabled: request.enabled,
       provider: request.provider,
+      fallbackProvider: request.fallbackProvider,
       allowApiCalls: request.allowApiCalls,
+      allowExternalMemorySharing: request.allowExternalMemorySharing,
       autoSummarizeDescriptions: request.autoSummarizeDescriptions,
       apiKey: preserveLegacyApiKey ? runtime.settings.apiKey : null,
       apiModel: request.apiModel,
@@ -1936,6 +2073,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       },
       {
         provider: settings.provider,
+        fallbackProvider: settings.fallbackProvider,
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
@@ -1966,6 +2104,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       },
       {
         provider: settings.provider,
+        fallbackProvider: settings.fallbackProvider,
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
@@ -1990,16 +2129,34 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       throw new Error('Chapter node not found');
     }
 
+    let projectMemoryContext = '';
+    let memorySources: z.infer<typeof wikiSearchResultResponseSchema>[] = [];
+    if (shouldAttachProjectMemoryForSettings(settings)) {
+      try {
+        const memory = await sessionManager.buildProjectMemoryContext({
+          query: request.message,
+          limit: 6,
+        });
+        projectMemoryContext = memory.content;
+        memorySources = z.array(wikiSearchResultResponseSchema).parse(memory.results);
+      } catch {
+        projectMemoryContext = '';
+        memorySources = [];
+      }
+    }
+
     const result = await codexService.chat(
       {
         message: request.message,
         chapterTitle: request.chapterTitle,
         projectName: request.projectName,
         chapterText: request.chapterText,
+        projectMemoryContext,
         workspaceRoot,
       },
       {
         provider: settings.provider,
+        fallbackProvider: settings.fallbackProvider,
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
@@ -2018,9 +2175,13 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         content: result.output,
         mode: result.mode === 'api' ? null : result.mode,
       });
+      await syncProjectWikiSourcesBestEffort(sessionManager);
     }
 
-    return codexResultResponseSchema.parse(result);
+    return codexResultResponseSchema.parse({
+      ...result,
+      memorySources,
+    });
   });
 
   ipcMain.handle(IPC_CHANNELS.codexGetChatHistory, (_event, payload: unknown) => {

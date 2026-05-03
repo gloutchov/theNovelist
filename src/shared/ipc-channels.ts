@@ -60,4 +60,7 @@ export const IPC_CHANNELS = {
   codexChat: 'codex:chat',
   codexGetChatHistory: 'codex:get-chat-history',
   codexCancelActiveRequest: 'codex:cancel-active-request',
+  wikiGetStatus: 'wiki:get-status',
+  wikiSync: 'wiki:sync',
+  wikiSearch: 'wiki:search',
 } as const;

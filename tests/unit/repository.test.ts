@@ -100,21 +100,27 @@ describe('NovelistRepository', () => {
       const codexSettings = repo.getOrCreateCodexSettings(project.id);
       expect(codexSettings.enabled).toBe(false);
       expect(codexSettings.provider).toBe('codex_cli');
+      expect(codexSettings.fallbackProvider).toBe('none');
       expect(codexSettings.allowApiCalls).toBe(false);
+      expect(codexSettings.allowExternalMemorySharing).toBe(true);
       expect(codexSettings.autoSummarizeDescriptions).toBe(true);
       expect(codexSettings.apiModel).toBe('gpt-5-mini');
 
       const updatedCodexSettings = repo.upsertCodexSettings(project.id, {
         enabled: true,
         provider: 'openai_api',
+        fallbackProvider: 'ollama',
         allowApiCalls: true,
+        allowExternalMemorySharing: false,
         autoSummarizeDescriptions: false,
         apiKey: 'test-key',
         apiModel: 'gpt-5-mini',
       });
       expect(updatedCodexSettings.enabled).toBe(true);
       expect(updatedCodexSettings.provider).toBe('openai_api');
+      expect(updatedCodexSettings.fallbackProvider).toBe('ollama');
       expect(updatedCodexSettings.allowApiCalls).toBe(true);
+      expect(updatedCodexSettings.allowExternalMemorySharing).toBe(false);
       expect(updatedCodexSettings.autoSummarizeDescriptions).toBe(false);
       expect(updatedCodexSettings.apiKey).toBe('test-key');
 
@@ -143,6 +149,8 @@ describe('NovelistRepository', () => {
         sexualOrientation: 'etero',
         species: 'umana',
         hairColor: 'castani',
+        eyeColor: 'verdi',
+        skinColor: 'chiara',
         bald: false,
         beard: 'nessuna',
         physique: 'atletica',
@@ -153,6 +161,31 @@ describe('NovelistRepository', () => {
         positionY: 220,
       });
       expect(repo.listCharacterCards(project.id)).toHaveLength(1);
+      expect(character.eyeColor).toBe('verdi');
+      expect(character.skinColor).toBe('chiara');
+
+      repo.updateCharacterCard(character.id, {
+        firstName: 'Anna',
+        lastName: 'Rossi',
+        sex: 'F',
+        age: 31,
+        sexualOrientation: 'etero',
+        species: 'umana',
+        hairColor: 'castani',
+        eyeColor: 'nocciola',
+        skinColor: 'olivastra',
+        bald: false,
+        beard: 'nessuna',
+        physique: 'atletica',
+        job: 'giornalista',
+        notes: 'Protagonista',
+        plotNumber: 1,
+        positionX: 120,
+        positionY: 220,
+      });
+      const updatedCharacter = repo.getCharacterCardById(character.id);
+      expect(updatedCharacter?.eyeColor).toBe('nocciola');
+      expect(updatedCharacter?.skinColor).toBe('olivastra');
 
       repo.createCharacterImage({
         characterCardId: character.id,

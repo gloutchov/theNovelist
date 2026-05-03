@@ -64,9 +64,7 @@ describe('CodexCliService', () => {
 
     expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
     expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe');
-    expect(candidates).toContain(
-      'C:\\Users\\Writer\\AppData\\Local\\Programs\\nodejs\\codex.cmd',
-    );
+    expect(candidates).toContain('C:\\Users\\Writer\\AppData\\Local\\Programs\\nodejs\\codex.cmd');
     expect(candidates[0]).toBe('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe');
     expect(candidates[1]).toBe('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.cmd');
   });
@@ -165,7 +163,10 @@ describe('CodexCliService', () => {
       ),
     ).toBe(true);
     expect(
-      __testing.shouldUseShellForSpawn('C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe', 'win32'),
+      __testing.shouldUseShellForSpawn(
+        'C:\\Users\\Writer\\AppData\\Roaming\\npm\\codex.exe',
+        'win32',
+      ),
     ).toBe(false);
   });
 
@@ -194,6 +195,123 @@ describe('CodexCliService', () => {
 
     expect(result.mode).toBe('fallback');
     expect(result.output).toContain('Modalita fallback locale attiva');
+  });
+
+  it('does not use Codex CLI when OpenAI API is selected with non-AI fallback', async () => {
+    const dir = await createTempDir('novelist-codex-strict-');
+    const commandPath = path.join(
+      dir,
+      process.platform === 'win32' ? 'fake-codex.cmd' : 'fake-codex.sh',
+    );
+    const commandBody =
+      process.platform === 'win32'
+        ? '@echo off\r\nif "%1"=="exec" echo cli should not run\r\n'
+        : '#!/bin/sh\nif [ "$1" = "exec" ]; then\n  echo "cli should not run"\nfi\n';
+    await writeFile(commandPath, commandBody, 'utf8');
+    if (process.platform !== 'win32') {
+      await chmod(commandPath, 0o755);
+    }
+
+    process.env['NOVELIST_CODEX_COMMAND'] = commandPath;
+    const service = new CodexCliService();
+
+    const result = await service.chat(
+      {
+        message: 'Dammi idee per un colpo di scena.',
+        chapterTitle: 'Capitolo 3',
+      },
+      {
+        provider: 'openai_api',
+        fallbackProvider: 'none',
+        allowApiCalls: true,
+        apiKey: null,
+      },
+    );
+
+    expect(result.mode).toBe('fallback');
+    expect(result.output).toContain('Modalita fallback locale attiva');
+    expect(result.output).not.toContain('cli should not run');
+    expect(result.error).toContain('API key mancante');
+  });
+
+  it('uses the selected Codex CLI fallback after OpenAI API is unavailable', async () => {
+    const dir = await createTempDir('novelist-codex-selected-fallback-');
+    const commandPath = path.join(
+      dir,
+      process.platform === 'win32' ? 'fake-codex.cmd' : 'fake-codex.sh',
+    );
+    const commandBody =
+      process.platform === 'win32'
+        ? '@echo off\r\nif "%1"=="exec" echo output from selected cli fallback\r\n'
+        : '#!/bin/sh\nif [ "$1" = "exec" ]; then\n  echo "output from selected cli fallback"\nfi\n';
+    await writeFile(commandPath, commandBody, 'utf8');
+    if (process.platform !== 'win32') {
+      await chmod(commandPath, 0o755);
+    }
+
+    process.env['NOVELIST_CODEX_COMMAND'] = commandPath;
+    const service = new CodexCliService();
+
+    const result = await service.chat(
+      {
+        message: 'Dammi idee per un colpo di scena.',
+        chapterTitle: 'Capitolo 3',
+      },
+      {
+        provider: 'openai_api',
+        fallbackProvider: 'codex_cli',
+        allowApiCalls: true,
+        apiKey: null,
+      },
+    );
+
+    expect(result.mode).toBe('cli');
+    expect(result.output).toContain('output from selected cli fallback');
+  });
+
+  it('reports availability through the selected fallback provider', async () => {
+    const dir = await createTempDir('novelist-codex-status-fallback-');
+    const commandPath = path.join(
+      dir,
+      process.platform === 'win32' ? 'fake-codex.cmd' : 'fake-codex.sh',
+    );
+    const commandBody =
+      process.platform === 'win32'
+        ? '@echo off\r\nif "%1"=="exec" echo ok\r\n'
+        : '#!/bin/sh\nif [ "$1" = "exec" ]; then\n  echo "ok"\nfi\n';
+    await writeFile(commandPath, commandBody, 'utf8');
+    if (process.platform !== 'win32') {
+      await chmod(commandPath, 0o755);
+    }
+
+    process.env['NOVELIST_CODEX_COMMAND'] = commandPath;
+    const service = new CodexCliService();
+
+    const status = await service.getStatus({
+      provider: 'openai_api',
+      fallbackProvider: 'codex_cli',
+      allowApiCalls: true,
+      apiKey: null,
+    });
+
+    expect(status.available).toBe(true);
+    expect(status.mode).toBe('cli');
+    expect(status.command).toBe(commandPath);
+    expect(status.reason).toContain('Provider primario non disponibile');
+  });
+
+  it('adds project memory and citation rules to chat prompts', () => {
+    const prompt = __testing.buildChatPrompt({
+      message: 'Dove avviene il patto?',
+      chapterTitle: 'Capitolo 1',
+      projectMemoryContext:
+        '[1] Il magazzino (source) - sources/chapters/chapter-1.md\nTizio firma il patto nel magazzino.',
+    });
+
+    expect(prompt).toContain('Memoria progetto');
+    expect(prompt).toContain('sources/chapters/chapter-1.md');
+    expect(prompt).toContain('cita i riferimenti disponibili');
+    expect(prompt).toContain('non hai trovato conferma');
   });
 
   it('cancels the active Codex CLI request', async () => {

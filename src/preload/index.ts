@@ -1,7 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import {
-  IPC_CHANNELS,
-} from '../shared/ipc-channels';
+import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type {
   AppPreferencesResponse,
   StoryEdgeResponse,
@@ -22,16 +20,21 @@ import type {
   ProjectResponse,
   SnapshotResponse,
   StoryStateResponse,
+  WikiStatusResponse,
+  WikiSyncResponse,
+  WikiSearchResultResponse,
 } from '../main/ipc';
 
 const novelistApi = {
-  ping: (payload: PingRequest): Promise<PingResponse> => ipcRenderer.invoke(IPC_CHANNELS.ping, payload),
+  ping: (payload: PingRequest): Promise<PingResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ping, payload),
   getAppPreferences: (): Promise<AppPreferencesResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.appGetPreferences),
   updateAppPreferences: (payload: {
     autosaveMode?: 'manual' | 'interval' | 'auto';
     autosaveIntervalMinutes?: number;
-  }): Promise<AppPreferencesResponse> => ipcRenderer.invoke(IPC_CHANNELS.appUpdatePreferences, payload),
+  }): Promise<AppPreferencesResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.appUpdatePreferences, payload),
   createProject: (payload: { rootPath: string; name: string }): Promise<ProjectResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectCreate, payload),
   openProject: (payload: { rootPath: string }): Promise<ProjectResponse> =>
@@ -39,17 +42,24 @@ const novelistApi = {
   closeProject: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC_CHANNELS.projectClose),
   inspectProjectPath: (payload: { rootPath: string }): Promise<ProjectInspectPathResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectInspectPath, payload),
-  selectProjectDirectory: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.projectSelectDirectory),
-  selectImageFile: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.projectSelectImageFile),
+  selectProjectDirectory: (): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectSelectDirectory),
+  selectImageFile: (): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectSelectImageFile),
   readImageDataUrl: (payload: { filePath: string }): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectReadImageDataUrl, payload),
   getCurrentProject: (): Promise<ProjectResponse | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectGetCurrent),
   saveSnapshot: (payload?: { reason?: string }): Promise<SnapshotResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectSaveSnapshot, payload ?? {}),
-  listSnapshots: (): Promise<SnapshotResponse[]> => ipcRenderer.invoke(IPC_CHANNELS.projectListSnapshots),
+  listSnapshots: (): Promise<SnapshotResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectListSnapshots),
   recoverLatestSnapshot: (): Promise<SnapshotResponse | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRecoverLatestSnapshot),
+  wikiGetStatus: (): Promise<WikiStatusResponse> => ipcRenderer.invoke(IPC_CHANNELS.wikiGetStatus),
+  wikiSync: (): Promise<WikiSyncResponse> => ipcRenderer.invoke(IPC_CHANNELS.wikiSync),
+  wikiSearch: (payload: { query: string; limit?: number }): Promise<WikiSearchResultResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.wikiSearch, payload),
   getStoryState: (): Promise<StoryStateResponse> => ipcRenderer.invoke(IPC_CHANNELS.storyGetState),
   createPlot: (payload: {
     number: number;
@@ -104,19 +114,22 @@ const novelistApi = {
     chapterNodeId: string;
     contentJson: string;
     wordCount?: number;
-  }): Promise<ChapterDocumentResponse> => ipcRenderer.invoke(IPC_CHANNELS.chapterSaveDocument, payload),
+  }): Promise<ChapterDocumentResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.chapterSaveDocument, payload),
   exportChapterDocx: (payload: { chapterNodeId: string }): Promise<{ filePath: string } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterExportDocx, payload),
   printChapter: (payload: { chapterNodeId: string }): Promise<{ ok: true } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterPrint, payload),
   exportManuscriptDocx: (): Promise<{ filePath: string } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.manuscriptExportDocx),
-  printManuscript: (): Promise<{ ok: true } | null> => ipcRenderer.invoke(IPC_CHANNELS.manuscriptPrint),
+  printManuscript: (): Promise<{ ok: true } | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.manuscriptPrint),
   listChapterCharacters: (payload: { chapterNodeId: string }): Promise<CharacterCardResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterListCharacters, payload),
   listChapterLocations: (payload: { chapterNodeId: string }): Promise<LocationCardResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterListLocations, payload),
-  listCharacterCards: (): Promise<CharacterCardResponse[]> => ipcRenderer.invoke(IPC_CHANNELS.characterListCards),
+  listCharacterCards: (): Promise<CharacterCardResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.characterListCards),
   createCharacterCard: (payload: {
     firstName: string;
     lastName: string;
@@ -125,6 +138,8 @@ const novelistApi = {
     sexualOrientation: string;
     species: string;
     hairColor: string;
+    eyeColor: string;
+    skinColor: string;
     bald: boolean;
     beard: string;
     physique: string;
@@ -133,7 +148,8 @@ const novelistApi = {
     plotNumber: number;
     positionX: number;
     positionY: number;
-  }): Promise<CharacterCardResponse> => ipcRenderer.invoke(IPC_CHANNELS.characterCreateCard, payload),
+  }): Promise<CharacterCardResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.characterCreateCard, payload),
   updateCharacterCard: (payload: {
     id: string;
     firstName: string;
@@ -143,6 +159,8 @@ const novelistApi = {
     sexualOrientation: string;
     species: string;
     hairColor: string;
+    eyeColor: string;
+    skinColor: string;
     bald: boolean;
     beard: string;
     physique: string;
@@ -151,13 +169,16 @@ const novelistApi = {
     plotNumber: number;
     positionX: number;
     positionY: number;
-  }): Promise<CharacterCardResponse> => ipcRenderer.invoke(IPC_CHANNELS.characterUpdateCard, payload),
+  }): Promise<CharacterCardResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.characterUpdateCard, payload),
   deleteCharacterCard: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.characterDeleteCard, payload),
   listCharacterChapterLinks: (payload: { characterCardId: string }): Promise<string[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.characterListChapterLinks, payload),
-  setCharacterChapterLinks: (payload: { characterCardId: string; chapterNodeIds: string[] }): Promise<string[]> =>
-    ipcRenderer.invoke(IPC_CHANNELS.characterSetChapterLinks, payload),
+  setCharacterChapterLinks: (payload: {
+    characterCardId: string;
+    chapterNodeIds: string[];
+  }): Promise<string[]> => ipcRenderer.invoke(IPC_CHANNELS.characterSetChapterLinks, payload),
   listCharacterImages: (payload: { characterCardId: string }): Promise<CharacterImageResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.characterListImages, payload),
   createCharacterImage: (payload: {
@@ -165,16 +186,19 @@ const novelistApi = {
     imageType: string;
     filePath: string;
     prompt: string;
-  }): Promise<CharacterImageResponse> => ipcRenderer.invoke(IPC_CHANNELS.characterCreateImage, payload),
+  }): Promise<CharacterImageResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.characterCreateImage, payload),
   generateCharacterImage: (payload: {
     characterCardId: string;
     imageType: string;
     prompt: string;
     size?: '1024x1024' | '1536x1024' | '1024x1536';
-  }): Promise<CharacterImageResponse> => ipcRenderer.invoke(IPC_CHANNELS.characterGenerateImage, payload),
+  }): Promise<CharacterImageResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.characterGenerateImage, payload),
   deleteCharacterImage: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.characterDeleteImage, payload),
-  listLocationCards: (): Promise<LocationCardResponse[]> => ipcRenderer.invoke(IPC_CHANNELS.locationListCards),
+  listLocationCards: (): Promise<LocationCardResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.locationListCards),
   createLocationCard: (payload: {
     name: string;
     locationType: string;
@@ -198,8 +222,10 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.locationDeleteCard, payload),
   listLocationChapterLinks: (payload: { locationCardId: string }): Promise<string[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.locationListChapterLinks, payload),
-  setLocationChapterLinks: (payload: { locationCardId: string; chapterNodeIds: string[] }): Promise<string[]> =>
-    ipcRenderer.invoke(IPC_CHANNELS.locationSetChapterLinks, payload),
+  setLocationChapterLinks: (payload: {
+    locationCardId: string;
+    chapterNodeIds: string[];
+  }): Promise<string[]> => ipcRenderer.invoke(IPC_CHANNELS.locationSetChapterLinks, payload),
   listLocationImages: (payload: { locationCardId: string }): Promise<LocationImageResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.locationListImages, payload),
   createLocationImage: (payload: {
@@ -207,21 +233,26 @@ const novelistApi = {
     imageType: string;
     filePath: string;
     prompt: string;
-  }): Promise<LocationImageResponse> => ipcRenderer.invoke(IPC_CHANNELS.locationCreateImage, payload),
+  }): Promise<LocationImageResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.locationCreateImage, payload),
   generateLocationImage: (payload: {
     locationCardId: string;
     imageType: string;
     prompt: string;
     size?: '1024x1024' | '1536x1024' | '1024x1536';
-  }): Promise<LocationImageResponse> => ipcRenderer.invoke(IPC_CHANNELS.locationGenerateImage, payload),
+  }): Promise<LocationImageResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.locationGenerateImage, payload),
   deleteLocationImage: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.locationDeleteImage, payload),
   codexStatus: (): Promise<CodexStatusResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexStatus),
-  codexGetSettings: (): Promise<CodexSettingsResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexGetSettings),
+  codexGetSettings: (): Promise<CodexSettingsResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.codexGetSettings),
   codexUpdateSettings: (payload: {
     enabled?: boolean;
     provider?: 'codex_cli' | 'openai_api' | 'ollama';
+    fallbackProvider?: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
     allowApiCalls?: boolean;
+    allowExternalMemorySharing?: boolean;
     autoSummarizeDescriptions?: boolean;
     apiKey?: string | null;
     clearStoredApiKey?: boolean;
@@ -239,7 +270,8 @@ const novelistApi = {
     chapterTitle?: string;
     projectName?: string;
     chapterText?: string;
-  }): Promise<CodexResultResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexTransformSelection, payload),
+  }): Promise<CodexResultResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.codexTransformSelection, payload),
   codexChat: (payload: {
     message: string;
     chapterNodeId: string;
@@ -247,7 +279,10 @@ const novelistApi = {
     projectName?: string;
     chapterText?: string;
   }): Promise<CodexResultResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexChat, payload),
-  codexGetChatHistory: (payload: { chapterNodeId: string; limit?: number }): Promise<CodexChatMessageResponse[]> =>
+  codexGetChatHistory: (payload: {
+    chapterNodeId: string;
+    limit?: number;
+  }): Promise<CodexChatMessageResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexGetChatHistory, payload),
   codexCancelActiveRequest: (): Promise<{ ok: true; cancelled: boolean }> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexCancelActiveRequest),

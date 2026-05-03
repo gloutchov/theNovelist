@@ -3,6 +3,11 @@ import { closeDatabase, openDatabase } from '../persistence/database';
 import { NovelistRepository } from '../persistence/repository';
 import type { ProjectRecord } from '../persistence/types';
 import { createProjectOnDisk, openProjectFromDisk, type ProjectPaths } from './project-files';
+import { exportProjectSources, type WikiSourceExportResult } from '../wiki/source-export';
+import { getProjectWikiStatus, type ProjectWikiStatus } from '../wiki/status';
+import { searchProjectWiki, type ProjectWikiSearchResult } from '../wiki/search';
+import { buildProjectMemoryContext, type ProjectMemoryContext } from '../wiki/chat-context';
+import { syncProjectWikiDeterministic, type ProjectWikiSyncResult } from '../wiki/sync';
 import {
   AutoSaveScheduler,
   createProjectSnapshot,
@@ -14,6 +19,8 @@ import {
 export interface OpenedProject extends ProjectPaths {
   project: ProjectRecord;
 }
+
+const PROJECT_CLOSE_WIKI_SYNC_TIMEOUT_MS = 12_000;
 
 export class ProjectSessionManager {
   private db: Database.Database | null = null;
@@ -29,11 +36,12 @@ export class ProjectSessionManager {
   async openProject(params: { rootPath: string }): Promise<OpenedProject> {
     const context = await openProjectFromDisk(params.rootPath);
 
-    this.closeProject();
+    await this.closeProjectWithSync();
 
     this.db = openDatabase(context.dbPath);
     this.repository = new NovelistRepository(this.db);
     this.currentProject = context;
+    await this.syncProjectWikiSources();
 
     this.autosave = new AutoSaveScheduler(30_000, async () => {
       if (!this.currentProject) {
@@ -64,6 +72,92 @@ export class ProjectSessionManager {
     }
 
     return this.currentProject.project.id;
+  }
+
+  async syncProjectWikiSources(): Promise<WikiSourceExportResult> {
+    if (!this.currentProject || !this.repository) {
+      throw new Error('No open project session');
+    }
+
+    return exportProjectSources({
+      wikiPath: this.currentProject.wikiPath,
+      repository: this.repository,
+      project: this.currentProject.project,
+    });
+  }
+
+  async syncProjectWiki(reason = 'manual'): Promise<ProjectWikiSyncResult> {
+    if (!this.currentProject || !this.repository) {
+      throw new Error('No open project session');
+    }
+
+    return syncProjectWikiDeterministic({
+      wikiPath: this.currentProject.wikiPath,
+      repository: this.repository,
+      project: this.currentProject.project,
+      reason,
+    });
+  }
+
+  async getProjectWikiStatus(): Promise<ProjectWikiStatus> {
+    if (!this.currentProject) {
+      throw new Error('No open project session');
+    }
+
+    return getProjectWikiStatus(this.currentProject.wikiPath);
+  }
+
+  async searchProjectWiki(params: {
+    query: string;
+    limit?: number;
+  }): Promise<ProjectWikiSearchResult[]> {
+    if (!this.currentProject) {
+      throw new Error('No open project session');
+    }
+
+    return searchProjectWiki(this.currentProject.wikiPath, params.query, {
+      limit: params.limit,
+    });
+  }
+
+  async buildProjectMemoryContext(params: {
+    query: string;
+    limit?: number;
+  }): Promise<ProjectMemoryContext> {
+    if (!this.currentProject) {
+      throw new Error('No open project session');
+    }
+
+    return buildProjectMemoryContext({
+      wikiPath: this.currentProject.wikiPath,
+      query: params.query,
+      limit: params.limit,
+    });
+  }
+
+  async closeProjectWithSync(): Promise<void> {
+    if (!this.currentProject) {
+      this.closeProject();
+      return;
+    }
+
+    const syncPromise = this.syncProjectWiki('project close');
+    try {
+      const completed = await Promise.race([
+        syncPromise.then(() => true),
+        new Promise<boolean>((resolve) => {
+          setTimeout(() => resolve(false), PROJECT_CLOSE_WIKI_SYNC_TIMEOUT_MS);
+        }),
+      ]);
+
+      if (!completed) {
+        syncPromise.catch(() => {
+          // Best-effort close sync timed out. The wiki is derived and can recover on next open.
+        });
+      }
+    } finally {
+      this.closeProject();
+    }
   }
 
   async saveSnapshot(reason = 'manual'): Promise<SnapshotRecord> {

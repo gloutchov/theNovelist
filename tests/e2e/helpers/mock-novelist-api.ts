@@ -10,15 +10,23 @@ export interface NovelistApiMockBootstrap {
 
 export interface NovelistApiMockOptions {
   bootstrap?: NovelistApiMockBootstrap;
+  wikiSyncDelayMs?: number;
 }
 
-export async function installNovelistApiMock(page: Page, options: NovelistApiMockOptions = {}): Promise<void> {
+export async function installNovelistApiMock(
+  page: Page,
+  options: NovelistApiMockOptions = {},
+): Promise<void> {
   await page.addInitScript((inputOptions: NovelistApiMockOptions) => {
     const windowWithApi = window as Window & { novelistApi?: Record<string, unknown> };
     const bootstrap = inputOptions?.bootstrap ?? null;
 
     const nowIso = (): string => new Date().toISOString();
-    const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+    const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+    const delay = (durationMs: number): Promise<void> =>
+      new Promise((resolve) => {
+        window.setTimeout(resolve, durationMs);
+      });
 
     let idCounter = 1;
     const nextId = (prefix: string): string => `${prefix}-${idCounter++}`;
@@ -98,7 +106,9 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         projectId: '',
         enabled: true,
         provider: 'codex_cli' as 'codex_cli' | 'openai_api' | 'ollama',
+        fallbackProvider: 'none' as 'codex_cli' | 'openai_api' | 'ollama' | 'none',
         allowApiCalls: false,
+        allowExternalMemorySharing: true,
         autoSummarizeDescriptions: true,
         apiKey: null as string | null,
         hasStoredApiKey: false,
@@ -132,6 +142,8 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         sexualOrientation: string;
         species: string;
         hairColor: string;
+        eyeColor: string;
+        skinColor: string;
         bald: boolean;
         beard: string;
         physique: string;
@@ -206,7 +218,9 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
     };
 
     const buildWordSequence = (wordCount: number): string =>
-      Array.from({ length: wordCount }, (_unused, index) => `parola${(index % 1000) + 1}`).join(' ');
+      Array.from({ length: wordCount }, (_unused, index) => `parola${(index % 1000) + 1}`).join(
+        ' ',
+      );
 
     const richTextFromPlainText = (text: string): string =>
       JSON.stringify({
@@ -358,7 +372,7 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         const exists = state.currentProject?.rootPath === payload.rootPath;
         return {
           exists,
-          projectName: exists ? state.currentProject?.name ?? null : null,
+          projectName: exists ? (state.currentProject?.name ?? null) : null,
         };
       },
 
@@ -369,7 +383,8 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
       },
 
-      selectProjectDirectory: async () => state.currentProject?.rootPath ?? '/tmp/the-novelist-mock',
+      selectProjectDirectory: async () =>
+        state.currentProject?.rootPath ?? '/tmp/the-novelist-mock',
 
       getCurrentProject: async () => clone(state.currentProject),
 
@@ -383,6 +398,51 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
       listSnapshots: async () => [],
 
       recoverLatestSnapshot: async () => null,
+
+      wikiGetStatus: async () => ({
+        initialized: true,
+        derivedPending: false,
+        updatedAt: nowIso(),
+        sourceCount: state.nodes.length + 4,
+      }),
+
+      wikiSync: async () => {
+        const delayMs = inputOptions?.wikiSyncDelayMs ?? 0;
+        if (delayMs > 0) {
+          await delay(delayMs);
+        }
+
+        return {
+          changed: false,
+          changedSources: [],
+          sourceCount: state.nodes.length + 4,
+          derivedPending: false,
+        };
+      },
+
+      wikiSearch: async (payload: { query: string; limit?: number }) => {
+        const query = payload.query.toLowerCase();
+        const limit = payload.limit ?? 8;
+        const chapterResults = state.nodes
+          .filter((node) => {
+            const document = state.chapterDocumentsByNodeId.get(node.id);
+            return (
+              node.title.toLowerCase().includes(query) ||
+              node.description.toLowerCase().includes(query) ||
+              document?.contentJson.toLowerCase().includes(query)
+            );
+          })
+          .slice(0, limit)
+          .map((node) => ({
+            path: `sources/chapters/chapter-${node.id}.md`,
+            title: node.title,
+            category: 'source' as const,
+            score: 1,
+            snippet: node.description || node.title,
+          }));
+
+        return chapterResults;
+      },
 
       getStoryState: async () => ({
         plots: clone(state.plots),
@@ -480,17 +540,22 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         );
         state.characterChapterLinks = state.characterChapterLinks.filter(
           (link) =>
-            !deletedNodeIds.has(link.chapterNodeId) && !deletedCharacterIds.has(link.characterCardId),
+            !deletedNodeIds.has(link.chapterNodeId) &&
+            !deletedCharacterIds.has(link.characterCardId),
         );
         state.locationChapterLinks = state.locationChapterLinks.filter(
           (link) =>
             !deletedNodeIds.has(link.chapterNodeId) && !deletedLocationIds.has(link.locationCardId),
         );
-        state.characterCards = state.characterCards.filter((card) => !deletedCharacterIds.has(card.id));
+        state.characterCards = state.characterCards.filter(
+          (card) => !deletedCharacterIds.has(card.id),
+        );
         state.characterImages = state.characterImages.filter(
           (image) => !deletedCharacterIds.has(image.characterCardId),
         );
-        state.locationCards = state.locationCards.filter((card) => !deletedLocationIds.has(card.id));
+        state.locationCards = state.locationCards.filter(
+          (card) => !deletedLocationIds.has(card.id),
+        );
         state.locationImages = state.locationImages.filter(
           (image) => !deletedLocationIds.has(image.locationCardId),
         );
@@ -555,10 +620,16 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
 
       deleteStoryNode: async (payload: { id: string }) => {
         state.nodes = state.nodes.filter((node) => node.id !== payload.id);
-        state.edges = state.edges.filter((edge) => edge.sourceId !== payload.id && edge.targetId !== payload.id);
+        state.edges = state.edges.filter(
+          (edge) => edge.sourceId !== payload.id && edge.targetId !== payload.id,
+        );
         state.chapterDocumentsByNodeId.delete(payload.id);
-        state.characterChapterLinks = state.characterChapterLinks.filter((link) => link.chapterNodeId !== payload.id);
-        state.locationChapterLinks = state.locationChapterLinks.filter((link) => link.chapterNodeId !== payload.id);
+        state.characterChapterLinks = state.characterChapterLinks.filter(
+          (link) => link.chapterNodeId !== payload.id,
+        );
+        state.locationChapterLinks = state.locationChapterLinks.filter(
+          (link) => link.chapterNodeId !== payload.id,
+        );
         return { ok: true as const };
       },
 
@@ -671,6 +742,8 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         sexualOrientation: string;
         species: string;
         hairColor: string;
+        eyeColor: string;
+        skinColor: string;
         bald: boolean;
         beard: string;
         physique: string;
@@ -692,6 +765,8 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           sexualOrientation: payload.sexualOrientation,
           species: payload.species,
           hairColor: payload.hairColor,
+          eyeColor: payload.eyeColor,
+          skinColor: payload.skinColor,
           bald: payload.bald,
           beard: payload.beard,
           physique: payload.physique,
@@ -716,6 +791,8 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         sexualOrientation: string;
         species: string;
         hairColor: string;
+        eyeColor: string;
+        skinColor: string;
         bald: boolean;
         beard: string;
         physique: string;
@@ -735,8 +812,12 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
 
       deleteCharacterCard: async (payload: { id: string }) => {
         state.characterCards = state.characterCards.filter((card) => card.id !== payload.id);
-        state.characterImages = state.characterImages.filter((image) => image.characterCardId !== payload.id);
-        state.characterChapterLinks = state.characterChapterLinks.filter((link) => link.characterCardId !== payload.id);
+        state.characterImages = state.characterImages.filter(
+          (image) => image.characterCardId !== payload.id,
+        );
+        state.characterChapterLinks = state.characterChapterLinks.filter(
+          (link) => link.characterCardId !== payload.id,
+        );
         return { ok: true as const };
       },
 
@@ -745,7 +826,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           .filter((link) => link.characterCardId === payload.characterCardId)
           .map((link) => link.chapterNodeId),
 
-      setCharacterChapterLinks: async (payload: { characterCardId: string; chapterNodeIds: string[] }) => {
+      setCharacterChapterLinks: async (payload: {
+        characterCardId: string;
+        chapterNodeIds: string[];
+      }) => {
         state.characterChapterLinks = state.characterChapterLinks.filter(
           (link) => link.characterCardId !== payload.characterCardId,
         );
@@ -762,7 +846,11 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
       },
 
       listCharacterImages: async (payload: { characterCardId: string }) =>
-        clone(state.characterImages.filter((image) => image.characterCardId === payload.characterCardId)),
+        clone(
+          state.characterImages.filter(
+            (image) => image.characterCardId === payload.characterCardId,
+          ),
+        ),
 
       createCharacterImage: async (payload: {
         characterCardId: string;
@@ -850,8 +938,12 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
 
       deleteLocationCard: async (payload: { id: string }) => {
         state.locationCards = state.locationCards.filter((card) => card.id !== payload.id);
-        state.locationImages = state.locationImages.filter((image) => image.locationCardId !== payload.id);
-        state.locationChapterLinks = state.locationChapterLinks.filter((link) => link.locationCardId !== payload.id);
+        state.locationImages = state.locationImages.filter(
+          (image) => image.locationCardId !== payload.id,
+        );
+        state.locationChapterLinks = state.locationChapterLinks.filter(
+          (link) => link.locationCardId !== payload.id,
+        );
         return { ok: true as const };
       },
 
@@ -860,7 +952,10 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           .filter((link) => link.locationCardId === payload.locationCardId)
           .map((link) => link.chapterNodeId),
 
-      setLocationChapterLinks: async (payload: { locationCardId: string; chapterNodeIds: string[] }) => {
+      setLocationChapterLinks: async (payload: {
+        locationCardId: string;
+        chapterNodeIds: string[];
+      }) => {
         state.locationChapterLinks = state.locationChapterLinks.filter(
           (link) => link.locationCardId !== payload.locationCardId,
         );
@@ -877,7 +972,9 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
       },
 
       listLocationImages: async (payload: { locationCardId: string }) =>
-        clone(state.locationImages.filter((image) => image.locationCardId === payload.locationCardId)),
+        clone(
+          state.locationImages.filter((image) => image.locationCardId === payload.locationCardId),
+        ),
 
       createLocationImage: async (payload: {
         locationCardId: string;
@@ -922,6 +1019,7 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         activeRequest: false,
         queuedRequests: 0,
         provider: state.codexSettings.provider,
+        fallbackProvider: state.codexSettings.fallbackProvider,
         apiCallsEnabled: state.codexSettings.allowApiCalls,
       }),
 
@@ -930,7 +1028,9 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
       codexUpdateSettings: async (payload: {
         enabled?: boolean;
         provider?: 'codex_cli' | 'openai_api' | 'ollama';
+        fallbackProvider?: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
         allowApiCalls?: boolean;
+        allowExternalMemorySharing?: boolean;
         autoSummarizeDescriptions?: boolean;
         apiKey?: string | null;
         clearStoredApiKey?: boolean;
@@ -941,9 +1041,21 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         }
         if (payload.provider !== undefined) {
           state.codexSettings.provider = payload.provider;
+          if (state.codexSettings.fallbackProvider === payload.provider) {
+            state.codexSettings.fallbackProvider = 'none';
+          }
+        }
+        if (payload.fallbackProvider !== undefined) {
+          state.codexSettings.fallbackProvider =
+            payload.fallbackProvider === state.codexSettings.provider
+              ? 'none'
+              : payload.fallbackProvider;
         }
         if (payload.allowApiCalls !== undefined) {
           state.codexSettings.allowApiCalls = payload.allowApiCalls;
+        }
+        if (payload.allowExternalMemorySharing !== undefined) {
+          state.codexSettings.allowExternalMemorySharing = payload.allowExternalMemorySharing;
         }
         if (payload.autoSummarizeDescriptions !== undefined) {
           state.codexSettings.autoSummarizeDescriptions = payload.autoSummarizeDescriptions;
@@ -964,11 +1076,7 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
         return clone(state.codexSettings);
       },
 
-      codexAssist: async (payload: {
-        message: string;
-        context?: string;
-        projectName?: string;
-      }) => {
+      codexAssist: async (payload: { message: string; context?: string; projectName?: string }) => {
         if (payload.message.includes('descrizione di personaggio')) {
           return {
             output: JSON.stringify({
@@ -976,6 +1084,8 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
                 sesso: 'femmina',
                 età: 32,
                 colore_capelli: 'rossi',
+                colore_occhi: 'verdi',
+                colore_pelle: 'chiara',
                 corporatura: 'slanciata',
                 professione: 'investigatrice',
               },
@@ -1061,12 +1171,15 @@ export async function installNovelistApiMock(page: Page, options: NovelistApiMoc
           output: assistantMessage.content,
           mode: 'fallback' as const,
           usedCommand: 'mock-codex',
+          memorySources: await api.wikiSearch({ query: payload.message, limit: 6 }),
         };
       },
 
       codexGetChatHistory: async (payload: { chapterNodeId: string; limit?: number }) => {
         const max = payload.limit ?? 100;
-        const filtered = state.codexMessages.filter((msg) => msg.chapterNodeId === payload.chapterNodeId);
+        const filtered = state.codexMessages.filter(
+          (msg) => msg.chapterNodeId === payload.chapterNodeId,
+        );
         return clone(filtered.slice(Math.max(filtered.length - max, 0)));
       },
 

@@ -1,4 +1,11 @@
-import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import {
   Extension,
@@ -27,9 +34,14 @@ type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPref
 type CodexChatHistoryRecord = Awaited<
   ReturnType<(typeof window.novelistApi)['codexGetChatHistory']>
 >[number];
+type CodexMemorySource = NonNullable<
+  Awaited<ReturnType<(typeof window.novelistApi)['codexChat']>>['memorySources']
+>[number];
 type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
-type StoryChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>['nodes'][number];
+type StoryChapterNode = Awaited<
+  ReturnType<(typeof window.novelistApi)['getStoryState']>
+>['nodes'][number];
 
 type BlockStyle = 'paragraph' | 'heading' | 'blockquote';
 type ReferenceType = 'character' | 'location';
@@ -70,6 +82,11 @@ interface DiffChunks {
   added: string;
   suffix: string;
   identical: boolean;
+}
+
+interface FindMatch {
+  from: number;
+  to: number;
 }
 
 interface MentionIds {
@@ -257,13 +274,14 @@ const ReferenceMention = TiptapNode.create({
 interface ChapterEditorProps {
   chapterNodeId: string;
   chapterTitle: string;
-  onClose: () => void;
+  onClose: () => void | Promise<void>;
   onStatus: (message: string) => void;
   onChapterSaved?: () => void | Promise<void>;
   projectName?: string;
   autosaveSettings?: AppPreferences | null;
   onDirtyChange?: (dirty: boolean) => void;
   onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
+  onMemorySources?: (sources: CodexMemorySource[]) => void;
 }
 
 function getAiAssistantLabel(settings: CodexSettings | null): string {
@@ -311,6 +329,8 @@ function buildCharacterAutoImagePrompt(input: {
     input.suggestion.age !== null && `eta: ${input.suggestion.age}`,
     input.suggestion.species && `specie: ${input.suggestion.species}`,
     input.suggestion.hairColor && `capelli: ${input.suggestion.hairColor}`,
+    input.suggestion.eyeColor && `occhi: ${input.suggestion.eyeColor}`,
+    input.suggestion.skinColor && `pelle: ${input.suggestion.skinColor}`,
     input.suggestion.bald ? 'calvo' : '',
     input.suggestion.beard && `barba: ${input.suggestion.beard}`,
     input.suggestion.physique && `corporatura: ${input.suggestion.physique}`,
@@ -585,6 +605,41 @@ function buildDiffChunks(originalText: string, transformedText: string): DiffChu
   };
 }
 
+function findTextMatchesInEditor(
+  activeEditor: NonNullable<ReturnType<typeof useEditor>> | null,
+  query: string,
+): FindMatch[] {
+  const needle = query.trim();
+  if (!activeEditor || !needle) {
+    return [];
+  }
+
+  const normalizedNeedle = needle.toLocaleLowerCase('it');
+  const matches: FindMatch[] = [];
+
+  activeEditor.state.doc.descendants((node, position) => {
+    if (!node.isText || !node.text) {
+      return true;
+    }
+
+    const haystack = node.text;
+    const normalizedHaystack = haystack.toLocaleLowerCase('it');
+    let index = normalizedHaystack.indexOf(normalizedNeedle);
+
+    while (index >= 0) {
+      matches.push({
+        from: position + index,
+        to: position + index + needle.length,
+      });
+      index = normalizedHaystack.indexOf(normalizedNeedle, index + Math.max(needle.length, 1));
+    }
+
+    return true;
+  });
+
+  return matches;
+}
+
 export default function ChapterEditor({
   chapterNodeId,
   chapterTitle,
@@ -595,6 +650,7 @@ export default function ChapterEditor({
   autosaveSettings,
   onDirtyChange,
   onRegisterFlush,
+  onMemorySources,
 }: ChapterEditorProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -615,6 +671,12 @@ export default function ChapterEditor({
     null,
   );
   const [applyingSelectionDiff, setApplyingSelectionDiff] = useState<boolean>(false);
+  const [findPanelOpen, setFindPanelOpen] = useState<boolean>(false);
+  const [findReplaceMode, setFindReplaceMode] = useState<'find' | 'replace'>('find');
+  const [findQuery, setFindQuery] = useState<string>('');
+  const [replaceQuery, setReplaceQuery] = useState<string>('');
+  const [activeFindIndex, setActiveFindIndex] = useState<number>(-1);
+  const [documentVersion, setDocumentVersion] = useState<number>(0);
 
   const [chatInput, setChatInput] = useState<string>('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -628,14 +690,13 @@ export default function ChapterEditor({
     locationIds: [],
   });
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState | null>(null);
-  const [selectionContextMenu, setSelectionContextMenu] = useState<SelectionContextMenuState | null>(
-    null,
-  );
-  const [createReferenceModal, setCreateReferenceModal] = useState<CreateReferenceModalState | null>(
-    null,
-  );
+  const [selectionContextMenu, setSelectionContextMenu] =
+    useState<SelectionContextMenuState | null>(null);
+  const [createReferenceModal, setCreateReferenceModal] =
+    useState<CreateReferenceModalState | null>(null);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const findInputRef = useRef<HTMLInputElement | null>(null);
   const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -713,7 +774,6 @@ export default function ChapterEditor({
     }
     return [...ordered.values()];
   }, [linkedLocations, locationMap, mentionedIds.locationIds]);
-
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -821,6 +881,10 @@ export default function ChapterEditor({
       },
     },
   });
+  const findMatches = useMemo(() => {
+    void documentVersion;
+    return findTextMatchesInEditor(editor, findQuery);
+  }, [documentVersion, editor, findQuery]);
 
   useEffect(() => {
     editorRef.current = editor ?? null;
@@ -895,6 +959,7 @@ export default function ChapterEditor({
       editor: NonNullable<ReturnType<typeof useEditor>>;
     }) => {
       syncDocumentStateFromEditor(activeEditor);
+      setDocumentVersion((previous) => previous + 1);
       if (!loading) {
         setIsDirty(true);
       }
@@ -991,7 +1056,7 @@ export default function ChapterEditor({
       }
 
       const selection = activeEditor.state.selection;
-      
+
       // Update mention menu immediately as it's for typing @...
       setMentionMenu((previous) => {
         const previousSelectedId =
@@ -1062,6 +1127,65 @@ export default function ChapterEditor({
   }, [chatMessages]);
 
   useEffect(() => {
+    if (!findPanelOpen) {
+      return;
+    }
+
+    window.setTimeout(() => findInputRef.current?.focus(), 0);
+  }, [findPanelOpen]);
+
+  useEffect(() => {
+    if (findMatches.length === 0) {
+      setActiveFindIndex(-1);
+      return;
+    }
+
+    setActiveFindIndex((previous) => Math.min(Math.max(previous, -1), findMatches.length - 1));
+  }, [findMatches.length]);
+
+  useEffect(() => {
+    function handleEditorShortcuts(event: KeyboardEvent): void {
+      const hasModifier = event.metaKey || event.ctrlKey;
+      if (!hasModifier) {
+        if (event.key === 'Escape' && findPanelOpen) {
+          event.preventDefault();
+          setFindPanelOpen(false);
+        }
+        return;
+      }
+
+      const key = event.key.toLocaleLowerCase();
+      if (key === 'f') {
+        event.preventDefault();
+        setFindReplaceMode('find');
+        setFindPanelOpen(true);
+        return;
+      }
+
+      if (key === 'h') {
+        event.preventDefault();
+        setFindReplaceMode('replace');
+        setFindPanelOpen(true);
+        return;
+      }
+
+      if (key === 's') {
+        event.preventDefault();
+        void handleSave();
+        return;
+      }
+
+      if (key === 'p') {
+        event.preventDefault();
+        void handlePrint();
+      }
+    }
+
+    document.addEventListener('keydown', handleEditorShortcuts);
+    return () => document.removeEventListener('keydown', handleEditorShortcuts);
+  });
+
+  useEffect(() => {
     if (!selectionContextMenu) {
       return;
     }
@@ -1095,6 +1219,64 @@ export default function ChapterEditor({
   async function refreshCodexHistory(): Promise<void> {
     const history = await window.novelistApi.codexGetChatHistory({ chapterNodeId });
     setChatMessages(history.map(mapHistoryMessageToChatMessage));
+  }
+
+  function selectFindMatch(index: number): void {
+    if (!editor || findMatches.length === 0) {
+      onStatus('Nessun risultato trovato');
+      return;
+    }
+
+    const normalizedIndex = (index + findMatches.length) % findMatches.length;
+    const match = findMatches[normalizedIndex];
+    if (!match) {
+      return;
+    }
+
+    setActiveFindIndex(normalizedIndex);
+    editor.chain().focus().setTextSelection({ from: match.from, to: match.to }).scrollIntoView().run();
+    onStatus(`Risultato ${normalizedIndex + 1} di ${findMatches.length}`);
+  }
+
+  function handleFindSubmit(direction: 'next' | 'previous' = 'next'): void {
+    if (findMatches.length === 0) {
+      onStatus(findQuery.trim() ? 'Nessun risultato trovato' : 'Inserisci un testo da cercare');
+      return;
+    }
+
+    selectFindMatch(activeFindIndex + (direction === 'next' ? 1 : -1));
+  }
+
+  function handleReplaceCurrent(): void {
+    if (!editor || findMatches.length === 0) {
+      onStatus(findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare');
+      return;
+    }
+
+    const match = findMatches[activeFindIndex] ?? findMatches[0];
+    if (!match) {
+      return;
+    }
+
+    editor.chain().focus().insertContentAt({ from: match.from, to: match.to }, replaceQuery).run();
+    setIsDirty(true);
+    onStatus('Occorrenza sostituita');
+  }
+
+  function handleReplaceAll(): void {
+    if (!editor || findMatches.length === 0) {
+      onStatus(findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare');
+      return;
+    }
+
+    const matches = [...findMatches].reverse();
+    let chain = editor.chain().focus();
+    for (const match of matches) {
+      chain = chain.insertContentAt({ from: match.from, to: match.to }, replaceQuery);
+    }
+    chain.run();
+    setIsDirty(true);
+    onStatus(`Sostituite ${matches.length} occorrenze`);
   }
 
   async function refreshCodexSettings(): Promise<CodexSettings> {
@@ -1173,11 +1355,11 @@ export default function ChapterEditor({
     try {
       const updated = await window.novelistApi.codexUpdateSettings({ enabled });
       setCodexSettings(updated);
-      onStatus(enabled ? 'Consenso Codex abilitato' : 'Consenso Codex disabilitato');
+      onStatus(enabled ? 'Consenso AI abilitato' : 'Consenso AI disabilitato');
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore aggiornamento consenso Codex');
+      onStatus('Errore aggiornamento consenso AI');
     } finally {
       setCodexSettingsBusy(false);
     }
@@ -1187,21 +1369,21 @@ export default function ChapterEditor({
     try {
       const response = await window.novelistApi.codexCancelActiveRequest();
       if (response.cancelled) {
-        onStatus('Richiesta Codex annullata');
+        onStatus('Richiesta AI annullata');
       } else {
-        onStatus('Nessuna richiesta Codex attiva');
+        onStatus('Nessuna richiesta AI attiva');
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore annullamento richiesta Codex');
+      onStatus('Errore annullamento richiesta AI');
     }
   }
 
   const handleSave = useCallback(
-    async (options?: { successStatus?: string; silent?: boolean }): Promise<void> => {
+    async (options?: { successStatus?: string; silent?: boolean }): Promise<boolean> => {
       if (!editor) {
-        return;
+        return false;
       }
 
       if (wordCountTimeoutRef.current) {
@@ -1243,15 +1425,24 @@ export default function ChapterEditor({
         if (!referenceSyncFailed && !options?.silent) {
           onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
         }
+        return true;
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
         setError(message);
         onStatus('Errore salvataggio capitolo');
+        return false;
       } finally {
         setSaving(false);
       }
     },
-    [chapterNodeId, editor, onChapterSaved, onStatus, refreshChapterReferences, syncChapterReferences],
+    [
+      chapterNodeId,
+      editor,
+      onChapterSaved,
+      onStatus,
+      refreshChapterReferences,
+      syncChapterReferences,
+    ],
   );
 
   const flushDirtyDocument = useCallback(
@@ -1260,8 +1451,7 @@ export default function ChapterEditor({
         return false;
       }
 
-      await handleSave(options);
-      return true;
+      return handleSave(options);
     },
     [editor, handleSave, isDirty, loading, saving],
   );
@@ -1362,7 +1552,7 @@ export default function ChapterEditor({
     }
 
     if (!codexSettings?.enabled) {
-      onStatus('Abilita prima il consenso Codex per usare le azioni su selezione.');
+      onStatus('Abilita prima il consenso AI per usare le azioni su selezione.');
       return;
     }
 
@@ -1388,7 +1578,7 @@ export default function ChapterEditor({
       });
 
       if (result.cancelled || !result.output.trim()) {
-        onStatus('Richiesta Codex annullata');
+        onStatus('Richiesta AI annullata');
         return;
       }
 
@@ -1404,7 +1594,7 @@ export default function ChapterEditor({
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore richiesta Codex su selezione');
+      onStatus('Errore richiesta AI su selezione');
     } finally {
       setCodexBusy(false);
     }
@@ -1423,7 +1613,7 @@ export default function ChapterEditor({
       selectionRange.from >= selectionRange.to
     ) {
       setPendingSelectionDiff(null);
-      onStatus('Anteprima non applicabile: selezione non piu valida, ripeti l’azione Codex.');
+      onStatus('Anteprima non applicabile: selezione non piu valida, ripeti l’azione AI.');
       return;
     }
 
@@ -1446,7 +1636,7 @@ export default function ChapterEditor({
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore applicazione anteprima Codex');
+      onStatus('Errore applicazione anteprima AI');
     } finally {
       setApplyingSelectionDiff(false);
     }
@@ -1458,7 +1648,7 @@ export default function ChapterEditor({
     }
 
     setPendingSelectionDiff(null);
-    onStatus('Anteprima Codex scartata');
+    onStatus('Anteprima AI scartata');
   }
 
   async function handlePrint(): Promise<void> {
@@ -1503,7 +1693,7 @@ export default function ChapterEditor({
     }
 
     if (!codexSettings?.enabled) {
-      onStatus('Abilita prima il consenso Codex per usare la chat.');
+      onStatus('Abilita prima il consenso AI per usare la chat.');
       return;
     }
 
@@ -1531,6 +1721,7 @@ export default function ChapterEditor({
       });
 
       if (result.cancelled) {
+        onMemorySources?.([]);
         setChatMessages((prev) => [
           ...prev,
           {
@@ -1540,16 +1731,17 @@ export default function ChapterEditor({
             mode: 'fallback',
           },
         ]);
-        onStatus('Richiesta Codex annullata');
+        onStatus('Richiesta AI annullata');
         return;
       }
 
+      onMemorySources?.(result.memorySources ?? []);
       await refreshCodexHistory();
-      onStatus(`Risposta Codex ricevuta (${result.mode})`);
+      onStatus(`Risposta AI ricevuta (${result.mode})`);
     } catch (caughtError) {
       const messageText = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(messageText);
-      onStatus('Errore chat Codex');
+      onStatus('Errore chat AI');
     } finally {
       setCodexBusy(false);
     }
@@ -1564,15 +1756,14 @@ export default function ChapterEditor({
       return;
     }
 
-    const insertionRange =
-      range ?? {
-        from: editor.state.selection.from,
-        to: editor.state.selection.to,
-      };
+    const insertionRange = range ?? {
+      from: editor.state.selection.from,
+      to: editor.state.selection.to,
+    };
     const preservedContent =
       options?.preserveSelectedContent && insertionRange.from < insertionRange.to
-        ? (((editor.state.doc.slice(insertionRange.from, insertionRange.to).toJSON().content ??
-            []) as RichTextNodeJson[]))
+        ? ((editor.state.doc.slice(insertionRange.from, insertionRange.to).toJSON().content ??
+            []) as RichTextNodeJson[])
         : [];
 
     editor
@@ -1665,7 +1856,7 @@ export default function ChapterEditor({
       const response = await window.novelistApi.codexAssist({
         projectName,
         message:
-          'Analizza questa descrizione di personaggio e restituisci solo JSON valido con le chiavi sex, age, sexualOrientation, species, hairColor, bald, beard, physique, job. Usa stringhe concise in italiano, null per age se ignota e true per bald solo se esplicito.',
+          'Analizza questa descrizione di personaggio e restituisci solo JSON valido con le chiavi sex, age, sexualOrientation, species, hairColor, eyeColor, skinColor, bald, beard, physique, job. Usa stringhe concise in italiano, null per age se ignota e true per bald solo se esplicito.',
         context: JSON.stringify({
           chapterTitle,
           characterName: name,
@@ -1733,7 +1924,8 @@ export default function ChapterEditor({
 
     try {
       const currentCodexSettings = await refreshCodexSettings();
-      const missingImageGenerationRequirements = getImageGenerationMissingRequirements(currentCodexSettings);
+      const missingImageGenerationRequirements =
+        getImageGenerationMissingRequirements(currentCodexSettings);
       const imageGenerationReady = missingImageGenerationRequirements.length === 0;
       let autoImageGenerated = false;
       let autoImageError: string | null = null;
@@ -1761,6 +1953,8 @@ export default function ChapterEditor({
           sexualOrientation: suggestion.sexualOrientation,
           species: suggestion.species,
           hairColor: suggestion.hairColor,
+          eyeColor: suggestion.eyeColor,
+          skinColor: suggestion.skinColor,
           bald: suggestion.bald,
           beard: suggestion.beard,
           physique: suggestion.physique,
@@ -1898,7 +2092,7 @@ export default function ChapterEditor({
             <h3>Editor Capitolo</h3>
             <p>{chapterTitle}</p>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={() => void onClose()}>
             Chiudi
           </button>
         </header>
@@ -1986,7 +2180,107 @@ export default function ChapterEditor({
           >
             Giustifica
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFindReplaceMode('find');
+              setFindPanelOpen(true);
+            }}
+            disabled={!editor}
+          >
+            Trova
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFindReplaceMode('replace');
+              setFindPanelOpen(true);
+            }}
+            disabled={!editor}
+          >
+            Sostituisci
+          </button>
         </section>
+
+        {findPanelOpen ? (
+          <section className="find-replace-panel">
+            <form
+              className="find-replace-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleFindSubmit('next');
+              }}
+            >
+              <label>
+                Trova
+                <input
+                  ref={findInputRef}
+                  value={findQuery}
+                  onChange={(event) => {
+                    setFindQuery(event.target.value);
+                    setActiveFindIndex(-1);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') {
+                      return;
+                    }
+                    event.preventDefault();
+                    handleFindSubmit(event.shiftKey ? 'previous' : 'next');
+                  }}
+                  placeholder="Testo da cercare"
+                />
+              </label>
+              {findReplaceMode === 'replace' ? (
+                <label>
+                  Sostituisci con
+                  <input
+                    value={replaceQuery}
+                    onChange={(event) => setReplaceQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                        event.preventDefault();
+                        handleReplaceCurrent();
+                      }
+                    }}
+                    placeholder="Nuovo testo"
+                  />
+                </label>
+              ) : null}
+              <div className="find-replace-actions">
+                <span className="find-replace-count">
+                  {findQuery.trim()
+                    ? `${activeFindIndex >= 0 ? activeFindIndex + 1 : 0}/${findMatches.length}`
+                    : '0/0'}
+                </span>
+                <button type="button" onClick={() => handleFindSubmit('previous')}>
+                  Precedente
+                </button>
+                <button type="submit">Successivo</button>
+                {findReplaceMode === 'replace' ? (
+                  <>
+                    <button type="button" onClick={handleReplaceCurrent}>
+                      Sostituisci
+                    </button>
+                    <button type="button" onClick={handleReplaceAll}>
+                      Sostituisci tutto
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => setFindReplaceMode('replace')}>
+                    Mostra sostituzione
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setFindPanelOpen(false)}
+                >
+                  Chiudi
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : null}
 
         <section className="editor-main">
           <div className="editor-body">
@@ -2181,6 +2475,12 @@ export default function ChapterEditor({
                 rows={4}
                 value={chatInput}
                 onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                    event.preventDefault();
+                    void handleSendChat();
+                  }
+                }}
                 placeholder={`Chiedi a ${aiAssistantLabel}: brainstorming, revisioni, idee di trama...`}
               />
               <button
@@ -2266,7 +2566,7 @@ export default function ChapterEditor({
         {pendingSelectionDiff && pendingDiffChunks ? (
           <div className="modal-overlay codex-diff-overlay">
             <div className="modal-card codex-diff-card">
-              <h3>Anteprima modifica Codex</h3>
+              <h3>Anteprima modifica AI</h3>
               <p className="muted">
                 Azione: <strong>{pendingSelectionDiff.action}</strong> | Modalita:{' '}
                 <strong>{pendingSelectionDiff.mode}</strong>

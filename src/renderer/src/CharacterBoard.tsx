@@ -42,6 +42,8 @@ interface CharacterDraft {
   sexualOrientation: string;
   species: string;
   hairColor: string;
+  eyeColor: string;
+  skinColor: string;
   bald: boolean;
   beard: string;
   physique: string;
@@ -55,9 +57,11 @@ interface CharacterBoardProps {
   aiSettings: CodexSettings | null;
   autosaveSettings: AppPreferences | null;
   statusMessage: string;
+  workspaceNotice?: string | null;
   onStatus: (message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
+  onWikiSync?: () => Promise<void>;
 }
 
 function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
@@ -112,6 +116,8 @@ function emptyCharacterDraft(plotNumber = 1): CharacterDraft {
     sexualOrientation: '',
     species: '',
     hairColor: '',
+    eyeColor: '',
+    skinColor: '',
     bald: false,
     beard: '',
     physique: '',
@@ -130,6 +136,8 @@ function characterToDraft(card: CharacterCard): CharacterDraft {
     sexualOrientation: card.sexualOrientation,
     species: card.species,
     hairColor: card.hairColor,
+    eyeColor: card.eyeColor ?? '',
+    skinColor: card.skinColor ?? '',
     bald: card.bald,
     beard: card.beard,
     physique: card.physique,
@@ -148,6 +156,8 @@ function areCharacterDraftsEqual(left: CharacterDraft, right: CharacterDraft): b
     left.sexualOrientation === right.sexualOrientation &&
     left.species === right.species &&
     left.hairColor === right.hairColor &&
+    left.eyeColor === right.eyeColor &&
+    left.skinColor === right.skinColor &&
     left.bald === right.bald &&
     left.beard === right.beard &&
     left.physique === right.physique &&
@@ -204,9 +214,11 @@ export default function CharacterBoard({
   aiSettings,
   autosaveSettings,
   statusMessage,
+  workspaceNotice,
   onStatus,
   onDirtyChange,
   onRegisterFlush,
+  onWikiSync,
 }: CharacterBoardProps) {
   const [cards, setCards] = useState<CharacterCard[]>([]);
   const [nodes, setNodes] = useState<CharacterCanvasNode[]>([]);
@@ -535,6 +547,8 @@ export default function CharacterBoard({
           sexualOrientation: card.sexualOrientation,
           species: card.species,
           hairColor: card.hairColor,
+          eyeColor: card.eyeColor ?? '',
+          skinColor: card.skinColor ?? '',
           bald: card.bald,
           beard: card.beard,
           physique: card.physique,
@@ -587,6 +601,8 @@ export default function CharacterBoard({
         sexualOrientation: createDraft.sexualOrientation.trim(),
         species: createDraft.species.trim(),
         hairColor: createDraft.hairColor.trim(),
+        eyeColor: createDraft.eyeColor.trim(),
+        skinColor: createDraft.skinColor.trim(),
         bald: createDraft.bald,
         beard: createDraft.beard.trim(),
         physique: createDraft.physique.trim(),
@@ -665,6 +681,8 @@ export default function CharacterBoard({
           sexualOrientation: editDraft.sexualOrientation.trim(),
           species: editDraft.species.trim(),
           hairColor: editDraft.hairColor.trim(),
+          eyeColor: editDraft.eyeColor.trim(),
+          skinColor: editDraft.skinColor.trim(),
           bald: editDraft.bald,
           beard: editDraft.beard.trim(),
           physique: editDraft.physique.trim(),
@@ -703,8 +721,33 @@ export default function CharacterBoard({
     [cards, editCardId, editDirty, editDraft, onStatus],
   );
 
+  async function handleCloseEdit(): Promise<void> {
+    if (!editCardId) {
+      return;
+    }
+
+    const wasDirty = editDirty;
+    if (wasDirty) {
+      const saved = await persistEdit({ closeAfterSave: true, silent: true });
+      if (!saved) {
+        return;
+      }
+    } else {
+      setEditCardId(null);
+    }
+
+    setLinkedChapterIds([]);
+    setViewerImage(null);
+    void onWikiSync?.();
+  }
+
   async function handleSaveEdit(): Promise<void> {
-    await persistEdit({ closeAfterSave: true });
+    const wasDirty = editDirty;
+    const saved = await persistEdit({ closeAfterSave: true });
+    if (!saved && wasDirty) {
+      return;
+    }
+    void onWikiSync?.();
   }
 
   useEffect(() => {
@@ -1032,7 +1075,12 @@ export default function CharacterBoard({
         </div>
 
         <div className="panel status-panel">
-          <p className={`status status-${statusTone}`}>{statusMessage}</p>
+          <p className={`status status-${statusTone}`}>
+            <span>{statusMessage}</span>
+            {workspaceNotice ? (
+              <span className="status-inline-notice">{workspaceNotice}</span>
+            ) : null}
+          </p>
           {error ? <p className="error">{error}</p> : null}
         </div>
       </aside>
@@ -1129,6 +1177,24 @@ export default function CharacterBoard({
                   value={editDraft.hairColor}
                   onChange={(event) =>
                     setEditDraft((prev) => ({ ...prev, hairColor: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Colore occhi
+                <input
+                  value={editDraft.eyeColor}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, eyeColor: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Colore pelle
+                <input
+                  value={editDraft.skinColor}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, skinColor: event.target.value }))
                   }
                 />
               </label>
@@ -1355,11 +1421,8 @@ export default function CharacterBoard({
             <div className="row-buttons">
               <button
                 type="button"
-                onClick={() => {
-                  setEditCardId(null);
-                  setLinkedChapterIds([]);
-                  setViewerImage(null);
-                }}
+                onClick={() => void handleCloseEdit()}
+                disabled={busy}
               >
                 Chiudi
               </button>
