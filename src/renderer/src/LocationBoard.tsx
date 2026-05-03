@@ -45,9 +45,11 @@ interface LocationBoardProps {
   aiSettings: CodexSettings | null;
   autosaveSettings: AppPreferences | null;
   statusMessage: string;
+  workspaceNotice?: string | null;
   onStatus: (message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
+  onWikiSync?: () => Promise<void>;
 }
 
 function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
@@ -169,9 +171,11 @@ export default function LocationBoard({
   aiSettings,
   autosaveSettings,
   statusMessage,
+  workspaceNotice,
   onStatus,
   onDirtyChange,
   onRegisterFlush,
+  onWikiSync,
 }: LocationBoardProps) {
   const [cards, setCards] = useState<LocationCard[]>([]);
   const [nodes, setNodes] = useState<LocationCanvasNode[]>([]);
@@ -635,8 +639,33 @@ export default function LocationBoard({
     [cards, editCardId, editDirty, editDraft, onStatus],
   );
 
+  async function handleCloseEdit(): Promise<void> {
+    if (!editCardId) {
+      return;
+    }
+
+    const wasDirty = editDirty;
+    if (wasDirty) {
+      const saved = await persistEdit({ closeAfterSave: true, silent: true });
+      if (!saved) {
+        return;
+      }
+    } else {
+      setEditCardId(null);
+    }
+
+    setLinkedChapterIds([]);
+    setViewerImage(null);
+    void onWikiSync?.();
+  }
+
   async function handleSaveEdit(): Promise<void> {
-    await persistEdit({ closeAfterSave: true });
+    const wasDirty = editDirty;
+    const saved = await persistEdit({ closeAfterSave: true });
+    if (!saved && wasDirty) {
+      return;
+    }
+    void onWikiSync?.();
   }
 
   useEffect(() => {
@@ -961,7 +990,12 @@ export default function LocationBoard({
         </div>
 
         <div className="panel status-panel">
-          <p className={`status status-${statusTone}`}>{statusMessage}</p>
+          <p className={`status status-${statusTone}`}>
+            <span>{statusMessage}</span>
+            {workspaceNotice ? (
+              <span className="status-inline-notice">{workspaceNotice}</span>
+            ) : null}
+          </p>
           {error ? <p className="error">{error}</p> : null}
         </div>
       </aside>
@@ -1209,11 +1243,8 @@ export default function LocationBoard({
             <div className="row-buttons">
               <button
                 type="button"
-                onClick={() => {
-                  setEditCardId(null);
-                  setLinkedChapterIds([]);
-                  setViewerImage(null);
-                }}
+                onClick={() => void handleCloseEdit()}
+                disabled={busy}
               >
                 Chiudi
               </button>

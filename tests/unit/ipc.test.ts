@@ -2,7 +2,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildPingResponse, collectManuscriptChapters } from '../../src/main/ipc';
+import {
+  buildPingResponse,
+  collectManuscriptChapters,
+  shouldAttachProjectMemoryForSettings,
+} from '../../src/main/ipc';
 import { openDatabase } from '../../src/main/persistence/database';
 import { NovelistRepository } from '../../src/main/persistence/repository';
 
@@ -24,6 +28,42 @@ describe('buildPingResponse', () => {
 
     expect(response.message).toBe('Pong: ciao');
     expect(new Date(response.timestamp).toString()).not.toBe('Invalid Date');
+  });
+});
+
+describe('shouldAttachProjectMemoryForSettings', () => {
+  it('blocks project memory for external providers when consent is disabled', () => {
+    expect(
+      shouldAttachProjectMemoryForSettings({
+        allowExternalMemorySharing: false,
+        provider: 'openai_api',
+        fallbackProvider: 'none',
+      }),
+    ).toBe(false);
+    expect(
+      shouldAttachProjectMemoryForSettings({
+        allowExternalMemorySharing: false,
+        provider: 'ollama',
+        fallbackProvider: 'codex_cli',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows project memory for local-only routing or explicit consent', () => {
+    expect(
+      shouldAttachProjectMemoryForSettings({
+        allowExternalMemorySharing: false,
+        provider: 'ollama',
+        fallbackProvider: 'none',
+      }),
+    ).toBe(true);
+    expect(
+      shouldAttachProjectMemoryForSettings({
+        allowExternalMemorySharing: true,
+        provider: 'openai_api',
+        fallbackProvider: 'none',
+      }),
+    ).toBe(true);
   });
 });
 

@@ -50,6 +50,21 @@ describe('database migrations', () => {
           'location_chapter_links',
         ]),
       );
+
+      const codexSettingsColumns = db
+        .prepare("PRAGMA table_info('codex_settings')")
+        .all() as Array<{ name: string }>;
+      expect(codexSettingsColumns.map((row) => row.name)).toContain('fallback_provider');
+      expect(codexSettingsColumns.map((row) => row.name)).toContain(
+        'allow_external_memory_sharing',
+      );
+
+      const characterCardColumns = db
+        .prepare("PRAGMA table_info('character_cards')")
+        .all() as Array<{ name: string }>;
+      expect(characterCardColumns.map((row) => row.name)).toEqual(
+        expect.arrayContaining(['hair_color', 'eye_color', 'skin_color']),
+      );
     } finally {
       db.close();
     }

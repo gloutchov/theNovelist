@@ -332,6 +332,31 @@ const MIGRATIONS: Migration[] = [
       `UPDATE story_edges SET source_handle = 'handle-right', target_handle = 'handle-left';`,
     ],
   },
+  {
+    version: 11,
+    statements: [
+      `
+      ALTER TABLE codex_settings
+      ADD COLUMN fallback_provider TEXT NOT NULL DEFAULT 'none';
+      `,
+    ],
+  },
+  {
+    version: 12,
+    statements: [
+      `ALTER TABLE character_cards ADD COLUMN eye_color TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE character_cards ADD COLUMN skin_color TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
+  {
+    version: 13,
+    statements: [
+      `
+      ALTER TABLE codex_settings
+      ADD COLUMN allow_external_memory_sharing INTEGER NOT NULL DEFAULT 1;
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

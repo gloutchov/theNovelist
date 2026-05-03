@@ -39,10 +39,15 @@ type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentP
 type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
 type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 type CreatedChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['createStoryNode']>>;
+type WikiStatus = Awaited<ReturnType<(typeof window.novelistApi)['wikiGetStatus']>>;
+type WikiSearchResult = Awaited<ReturnType<(typeof window.novelistApi)['wikiSearch']>>[number];
+type CodexMemorySource = NonNullable<
+  Awaited<ReturnType<(typeof window.novelistApi)['codexChat']>>['memorySources']
+>[number];
 type ChapterCanvasNode = Node<ChapterFlowNodeData, 'chapter'>;
 type PlotCanvasNode = Node<PlotFlowNodeData, 'plot'>;
 
-type WorkspaceTab = 'story' | 'plots' | 'characters' | 'locations';
+type WorkspaceTab = 'story' | 'plots' | 'characters' | 'locations' | 'memory';
 
 interface PlotStructureBlock {
   title: string;
@@ -59,6 +64,40 @@ function getApiKeyStorageLabel(storage: CodexSettings['apiKeyStorage']): string 
     return 'archivio legacy (DB)';
   }
   return 'nessuno';
+}
+
+function getAiProviderLabel(provider: CodexSettings['provider']): string {
+  if (provider === 'openai_api') {
+    return 'OpenAI API';
+  }
+
+  if (provider === 'ollama') {
+    return 'Ollama';
+  }
+
+  return 'Codex CLI';
+}
+
+function getAiFallbackLabel(fallbackProvider: CodexSettings['fallbackProvider']): string {
+  if (fallbackProvider === 'none') {
+    return 'Non AI';
+  }
+
+  return getAiProviderLabel(fallbackProvider);
+}
+
+function getAiFallbackOptions(
+  provider: CodexSettings['provider'],
+): Array<{ value: CodexSettings['fallbackProvider']; label: string }> {
+  return [
+    { value: 'none', label: 'Non AI' },
+    ...(['codex_cli', 'openai_api', 'ollama'] as const)
+      .filter((candidate) => candidate !== provider)
+      .map((candidate) => ({
+        value: candidate,
+        label: getAiProviderLabel(candidate),
+      })),
+  ];
 }
 
 function colorFromPlotNumber(plotNumber: number): string {
@@ -82,6 +121,14 @@ function getPlotColor(plotNumber: number, plots: PlotRecord[]): string {
   return plots.find((plot) => plot.number === plotNumber)?.color ?? colorFromPlotNumber(plotNumber);
 }
 
+function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
+  const maybeSettings = settings as CodexSettings & { allowExternalMemorySharing?: boolean };
+  return {
+    ...settings,
+    allowExternalMemorySharing: maybeSettings.allowExternalMemorySharing ?? true,
+  };
+}
+
 function hasPendingAiSettingsChanges(
   localSettings: CodexSettings | null,
   persistedSettings: CodexSettings,
@@ -95,7 +142,10 @@ function hasPendingAiSettingsChanges(
   return (
     localSettings.enabled !== persistedSettings.enabled ||
     localSettings.provider !== persistedSettings.provider ||
+    localSettings.fallbackProvider !== persistedSettings.fallbackProvider ||
     localSettings.allowApiCalls !== persistedSettings.allowApiCalls ||
+    localSettings.allowExternalMemorySharing !==
+      normalizeCodexSettings(persistedSettings).allowExternalMemorySharing ||
     localSettings.autoSummarizeDescriptions !== persistedSettings.autoSummarizeDescriptions ||
     localSettings.apiModel !== persistedSettings.apiModel ||
     Boolean(apiKeyInput.trim()) ||
@@ -155,7 +205,38 @@ function getSafePlotPosition(plot: Pick<PlotRecord, 'number' | 'positionX' | 'po
   return getDefaultPlotPosition(plot.number);
 }
 
-function mapPlotRecordToFlowNode(record: PlotRecord, options?: { selected?: boolean }): PlotCanvasNode {
+function formatWikiCategoryLabel(category: WikiSearchResult['category']): string {
+  if (category === 'source') {
+    return 'fonte';
+  }
+
+  if (category === 'index') {
+    return 'indice';
+  }
+
+  return 'wiki';
+}
+
+function formatWikiResultTitle(result: WikiSearchResult): string {
+  if (result.path === 'sources/cards/plot.md') {
+    return 'Trame';
+  }
+
+  if (result.path === 'sources/cards/characters.md') {
+    return 'Personaggi';
+  }
+
+  if (result.path === 'sources/cards/locations.md') {
+    return 'Location';
+  }
+
+  return result.title.replace(/\s+Sources$/i, '');
+}
+
+function mapPlotRecordToFlowNode(
+  record: PlotRecord,
+  options?: { selected?: boolean },
+): PlotCanvasNode {
   const position = getSafePlotPosition(record);
 
   return {
@@ -267,7 +348,9 @@ function parsePlotStructureBlocks(raw: string): PlotStructureBlock[] {
   const parsed = JSON.parse(extractJsonPayload(raw)) as unknown;
   const source = Array.isArray(parsed)
     ? parsed
-    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { blocks?: unknown[] }).blocks)
+    : parsed &&
+        typeof parsed === 'object' &&
+        Array.isArray((parsed as { blocks?: unknown[] }).blocks)
       ? (parsed as { blocks: unknown[] }).blocks
       : [];
 
@@ -320,6 +403,13 @@ export default function App() {
   const [aiApiKeyInput, setAiApiKeyInput] = useState<string>('');
   const [clearStoredApiKey, setClearStoredApiKey] = useState<boolean>(false);
   const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState<boolean>(false);
+  const [wikiStatus, setWikiStatus] = useState<WikiStatus | null>(null);
+  const [wikiBusy, setWikiBusy] = useState<boolean>(false);
+  const [wikiError, setWikiError] = useState<string | null>(null);
+  const [wikiSearchQuery, setWikiSearchQuery] = useState<string>('');
+  const [wikiSearchResults, setWikiSearchResults] = useState<WikiSearchResult[]>([]);
+  const [lastAiMemorySources, setLastAiMemorySources] = useState<CodexMemorySource[]>([]);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
 
   const [plots, setPlots] = useState<PlotRecord[]>([]);
   const [plotNodes, setPlotNodes] = useState<PlotCanvasNode[]>([]);
@@ -360,6 +450,8 @@ export default function App() {
   const chapterEditorFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const characterBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const locationBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const wikiAutoSyncInFlightRef = useRef<Promise<void> | null>(null);
+  const workspaceNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyFlowRef = useRef<ReactFlowInstance<ChapterCanvasNode, Edge> | null>(null);
   const plotFlowRef = useRef<ReactFlowInstance<PlotCanvasNode> | null>(null);
   const previousStoryTabRef = useRef<WorkspaceTab>('story');
@@ -409,7 +501,10 @@ export default function App() {
     );
   }, [currentEditNode, editBlockNumber, editDescription, editPlotNumber, editTitle]);
   const canCreateProject =
-    !currentProject && !busy && Boolean(createProjectRoot.trim()) && Boolean(createProjectName.trim());
+    !currentProject &&
+    !busy &&
+    Boolean(createProjectRoot.trim()) &&
+    Boolean(createProjectName.trim());
   const canOpenProject = !currentProject && !busy;
   const canSaveProject = Boolean(currentProject) && !busy;
   const canCloseProject = Boolean(currentProject) && !busy;
@@ -432,15 +527,88 @@ export default function App() {
   const handleWorkspaceStatus = useCallback((message: string) => {
     setStatus(message);
   }, []);
-  const handleCloseChapterEditor = useCallback(() => {
+
+  const showWorkspaceNotice = useCallback((message: string | null, durationMs = 0): void => {
+    if (workspaceNoticeTimeoutRef.current) {
+      clearTimeout(workspaceNoticeTimeoutRef.current);
+      workspaceNoticeTimeoutRef.current = null;
+    }
+
+    setWorkspaceNotice(message);
+
+    if (message && durationMs > 0) {
+      workspaceNoticeTimeoutRef.current = setTimeout(() => {
+        setWorkspaceNotice(null);
+        workspaceNoticeTimeoutRef.current = null;
+      }, durationMs);
+    }
+  }, []);
+
+  const syncProjectWikiAfterWorkspaceChange = useCallback(async (): Promise<void> => {
+    if (!currentProject) {
+      return;
+    }
+
+    if (wikiAutoSyncInFlightRef.current) {
+      showWorkspaceNotice('aggiornamento memoria in corso...');
+      await wikiAutoSyncInFlightRef.current;
+      return;
+    }
+
+    showWorkspaceNotice('aggiornamento memoria in corso...');
+    const syncPromise = (async () => {
+      try {
+        await window.novelistApi.wikiSync();
+        const status = await window.novelistApi.wikiGetStatus();
+        setWikiStatus(status);
+        setWikiError(null);
+        showWorkspaceNotice('memoria aggiornata', 1800);
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setWikiError(message);
+        setError(message);
+        showWorkspaceNotice('errore aggiornamento memoria', 4500);
+        setStatus('Errore aggiornamento automatico memoria progetto');
+      }
+    })();
+
+    wikiAutoSyncInFlightRef.current = syncPromise;
+    try {
+      await syncPromise;
+    } finally {
+      if (wikiAutoSyncInFlightRef.current === syncPromise) {
+        wikiAutoSyncInFlightRef.current = null;
+      }
+    }
+  }, [currentProject, showWorkspaceNotice]);
+
+  const handleCloseChapterEditor = useCallback(async () => {
+    const wasDirty = chapterEditorDirty;
+    if (chapterEditorFlushRef.current) {
+      const ok = await chapterEditorFlushRef.current();
+      if (!ok && wasDirty) {
+        return;
+      }
+    }
+
     setEditorNodeId(null);
     setEditorNodeTitle('');
     setEditNodeId(null);
-  }, []);
+    void syncProjectWikiAfterWorkspaceChange();
+  }, [chapterEditorDirty, syncProjectWikiAfterWorkspaceChange]);
 
   useEffect(() => {
     setPlotNodes((prev) => syncPlotFlowNodes(plots, prev, selectedPlotId));
   }, [plots, selectedPlotId]);
+
+  useEffect(() => {
+    return () => {
+      if (workspaceNoticeTimeoutRef.current) {
+        clearTimeout(workspaceNoticeTimeoutRef.current);
+        workspaceNoticeTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const resetStoryWorkspace = useCallback(() => {
     setPlots([]);
@@ -519,13 +687,15 @@ export default function App() {
       const saved = await window.novelistApi.codexUpdateSettings({
         enabled: aiSettings.enabled,
         provider: aiSettings.provider,
+        fallbackProvider: aiSettings.fallbackProvider,
         allowApiCalls: aiSettings.allowApiCalls,
+        allowExternalMemorySharing: aiSettings.allowExternalMemorySharing !== false,
         autoSummarizeDescriptions: aiSettings.autoSummarizeDescriptions,
         apiKey: apiKeyInput || undefined,
         clearStoredApiKey: shouldClearStoredApiKey || undefined,
         apiModel: aiSettings.apiModel,
       });
-      setAiSettings(saved);
+      setAiSettings(normalizeCodexSettings(saved));
       setAiApiKeyInput('');
       setClearStoredApiKey(false);
       setStatus('Impostazioni AI salvate');
@@ -549,10 +719,97 @@ export default function App() {
     setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
   }
 
+  async function refreshWikiStatus(): Promise<void> {
+    if (!currentProject) {
+      setWikiStatus(null);
+      setWikiError(null);
+      return;
+    }
+
+    setWikiError(null);
+    try {
+      const status = await window.novelistApi.wikiGetStatus();
+      setWikiStatus(status);
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setWikiError(message);
+      setError(message);
+      setStatus('Errore lettura stato memoria progetto');
+    }
+  }
+
+  async function handleWikiSync(): Promise<void> {
+    if (!currentProject || wikiBusy) {
+      return;
+    }
+
+    setWikiBusy(true);
+    setError(null);
+    setWikiError(null);
+    try {
+      const result = await window.novelistApi.wikiSync();
+      const status = await window.novelistApi.wikiGetStatus();
+      setWikiStatus(status);
+      setStatus(
+        result.changed
+          ? `Memoria progetto aggiornata: ${result.changedSources.length} fonti modificate`
+          : 'Memoria progetto gia aggiornata',
+      );
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setWikiError(message);
+      setError(message);
+      setStatus('Errore aggiornamento memoria progetto');
+    } finally {
+      setWikiBusy(false);
+    }
+  }
+
+  async function handleWikiSearch(): Promise<void> {
+    if (!currentProject || wikiBusy) {
+      return;
+    }
+
+    const query = wikiSearchQuery.trim();
+    if (!query) {
+      setWikiSearchResults([]);
+      setStatus('Inserisci una ricerca per la memoria progetto');
+      return;
+    }
+
+    setWikiBusy(true);
+    setError(null);
+    setWikiError(null);
+    try {
+      const results = await window.novelistApi.wikiSearch({ query, limit: 10 });
+      setWikiSearchResults(results);
+      setStatus(
+        results.length > 0
+          ? `Memoria progetto: ${results.length} risultati`
+          : 'Memoria progetto: nessun risultato',
+      );
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setWikiError(message);
+      setError(message);
+      setStatus('Errore ricerca memoria progetto');
+    } finally {
+      setWikiBusy(false);
+    }
+  }
+
+  function openMemoryTab(): void {
+    setWikiSearchQuery('');
+    setWikiSearchResults([]);
+    setActiveTab('memory');
+    void refreshWikiStatus();
+  }
+
   const syncOpenedProject = useCallback(
     async (project: NonNullable<ProjectRecord>, statusMessage: string): Promise<void> => {
       const state = await window.novelistApi.getStoryState();
-      const settings = await window.novelistApi.codexGetSettings();
+      const settings = normalizeCodexSettings(await window.novelistApi.codexGetSettings());
+      const memoryStatus = await window.novelistApi.wikiGetStatus();
 
       resetStoryWorkspace();
       setCurrentProject(project);
@@ -563,6 +820,11 @@ export default function App() {
       setAiSettings(settings);
       setAiApiKeyInput('');
       setClearStoredApiKey(false);
+      setWikiStatus(memoryStatus);
+      setWikiError(null);
+      setWikiSearchQuery('');
+      setWikiSearchResults([]);
+      setLastAiMemorySources([]);
       setStatus(statusMessage);
     },
     [resetStoryWorkspace],
@@ -657,6 +919,11 @@ export default function App() {
       setAiApiKeyInput('');
       setClearStoredApiKey(false);
       setIsAiSettingsModalOpen(false);
+      setWikiStatus(null);
+      setWikiError(null);
+      setWikiSearchQuery('');
+      setWikiSearchResults([]);
+      setLastAiMemorySources([]);
       setActiveTab('story');
       resetStoryWorkspace();
       setStatus('Progetto chiuso');
@@ -823,7 +1090,7 @@ export default function App() {
         positionY: createdPlot.positionY,
       });
 
-      const persistedAiSettings = await window.novelistApi.codexGetSettings();
+      const persistedAiSettings = normalizeCodexSettings(await window.novelistApi.codexGetSettings());
       const runtimeAiSettings = hasPendingAiSettingsChanges(
         aiSettings,
         persistedAiSettings,
@@ -833,7 +1100,9 @@ export default function App() {
         ? await window.novelistApi.codexUpdateSettings({
             enabled: aiSettings?.enabled,
             provider: aiSettings?.provider,
+            fallbackProvider: aiSettings?.fallbackProvider,
             allowApiCalls: aiSettings?.allowApiCalls,
+            allowExternalMemorySharing: aiSettings?.allowExternalMemorySharing !== false,
             autoSummarizeDescriptions: aiSettings?.autoSummarizeDescriptions,
             apiKey: aiApiKeyInput.trim() || undefined,
             clearStoredApiKey: clearStoredApiKey || undefined,
@@ -841,13 +1110,13 @@ export default function App() {
           })
         : persistedAiSettings;
 
-      setAiSettings(runtimeAiSettings);
+      setAiSettings(normalizeCodexSettings(runtimeAiSettings));
       setAiApiKeyInput('');
       setClearStoredApiKey(false);
       if (!runtimeAiSettings.enabled) {
         await refreshStoryState();
         setStatus(
-          'Trama salvata. Abilita prima il consenso Codex nelle Impostazioni AI per creare la struttura.',
+          'Trama salvata. Abilita prima il consenso AI nelle Impostazioni AI per creare la struttura.',
         );
         setNewNodePlotNumber(createdPlot.number);
         setNewPlotNumber(createdPlot.number + 1);
@@ -868,7 +1137,7 @@ export default function App() {
         return;
       }
 
-      setStatus('Codex sta creando la struttura della trama...');
+      setStatus('AI sta creando la struttura della trama...');
       const structureRequestMessage =
         'Analizza questa trama e restituisci solo JSON valido nel formato {"blocks":[{"title":"...","description":"..."}]}. Genera da 4 a 12 blocchi narrativi, in ordine cronologico, con titoli brevi e descrizioni concise in italiano.';
       const structureRequestContext = `Numero trama: ${savedPlot.number}\nTitolo trama: ${savedPlot.label}\nBozza trama:\n${savedPlot.summary}`;
@@ -880,7 +1149,7 @@ export default function App() {
 
       if (response.cancelled || !response.output.trim()) {
         await refreshStoryState();
-        setStatus('Richiesta Codex annullata');
+        setStatus('Richiesta AI annullata');
         return;
       }
 
@@ -896,7 +1165,7 @@ export default function App() {
 
       let blocks = tryParsePlotStructureBlocks(response.output);
       if (blocks.length < 4) {
-        setStatus('Codex sta raffinando la struttura della trama...');
+        setStatus('AI sta raffinando la struttura della trama...');
         const repairResponse = await window.novelistApi.codexAssist({
           projectName: currentProject.name,
           message:
@@ -906,7 +1175,7 @@ export default function App() {
 
         if (repairResponse.cancelled || !repairResponse.output.trim()) {
           await refreshStoryState();
-          setStatus('Richiesta Codex annullata');
+          setStatus('Richiesta AI annullata');
           return;
         }
 
@@ -1004,6 +1273,7 @@ export default function App() {
       setEditPlotLabelInput('');
       setEditPlotSummaryInput('');
       setStatus(`Trama salvata: ${saved.label}`);
+      void syncProjectWikiAfterWorkspaceChange();
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
@@ -1246,7 +1516,16 @@ export default function App() {
         setBusy(false);
       }
     },
-    [editBlockNumber, editDescription, editNodeId, editPlotNumber, editTitle, isStoryEditDirty, nodes, plots],
+    [
+      editBlockNumber,
+      editDescription,
+      editNodeId,
+      editPlotNumber,
+      editTitle,
+      isStoryEditDirty,
+      nodes,
+      plots,
+    ],
   );
 
   async function handleSaveNodeEdit(): Promise<void> {
@@ -1368,9 +1647,12 @@ export default function App() {
     [],
   );
 
-  const onPlotSelectionChange = useCallback((selection: OnSelectionChangeParams<PlotCanvasNode>) => {
-    setSelectedPlotId(selection.nodes[0]?.id ?? null);
-  }, []);
+  const onPlotSelectionChange = useCallback(
+    (selection: OnSelectionChangeParams<PlotCanvasNode>) => {
+      setSelectedPlotId(selection.nodes[0]?.id ?? null);
+    },
+    [],
+  );
 
   const onPlotNodeClick: NodeMouseHandler<PlotCanvasNode> = useCallback(
     (event, node) => {
@@ -1411,7 +1693,9 @@ export default function App() {
           positionY: node.position.y,
         });
 
-        setPlots((prev) => sortPlots(prev.map((item) => (item.id === updated.id ? updated : item))));
+        setPlots((prev) =>
+          sortPlots(prev.map((item) => (item.id === updated.id ? updated : item))),
+        );
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
         setError(message);
@@ -1628,6 +1912,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            className={activeTab === 'memory' ? 'tab-active' : ''}
+            onClick={openMemoryTab}
+            disabled={!currentProject}
+          >
+            Memoria
+          </button>
+          <button
+            type="button"
             className={isAiSettingsModalOpen ? 'tab-active' : ''}
             onClick={() => setIsAiSettingsModalOpen(true)}
           >
@@ -1756,7 +2048,12 @@ export default function App() {
             </div>
 
             <div className="panel status-panel">
-              <p className={`status status-${statusTone}`}>{status}</p>
+              <p className={`status status-${statusTone}`}>
+                <span>{status}</span>
+                {workspaceNotice ? (
+                  <span className="status-inline-notice">{workspaceNotice}</span>
+                ) : null}
+              </p>
               {error ? <p className="error">{error}</p> : null}
             </div>
           </aside>
@@ -1821,7 +2118,9 @@ export default function App() {
                   Bozza trama / struttura
                   <textarea
                     rows={7}
-                    value={existingPlotForNewNumber ? existingPlotForNewNumber.summary : newPlotSummary}
+                    value={
+                      existingPlotForNewNumber ? existingPlotForNewNumber.summary : newPlotSummary
+                    }
                     onChange={(event) => setNewPlotSummary(event.target.value)}
                     placeholder="Riassunto, struttura grezza, scene chiave, conflitti..."
                     disabled={Boolean(existingPlotForNewNumber)}
@@ -1834,7 +2133,11 @@ export default function App() {
                   </p>
                 ) : null}
                 <div className="plot-structure-actions">
-                  <button type="button" onClick={() => void handleCreatePlot()} disabled={!canCreatePlot}>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreatePlot()}
+                    disabled={!canCreatePlot}
+                  >
                     Crea Trama
                   </button>
                   <button
@@ -1853,7 +2156,9 @@ export default function App() {
                 <p>
                   Trama:{' '}
                   <strong>
-                    {selectedPlot ? normalizePlotLabel(selectedPlot.number, selectedPlot.label) : '-'}
+                    {selectedPlot
+                      ? normalizePlotLabel(selectedPlot.number, selectedPlot.label)
+                      : '-'}
                   </strong>
                 </p>
                 <p>
@@ -1872,7 +2177,12 @@ export default function App() {
               </div>
 
               <div className="panel status-panel">
-                <p className={`status status-${statusTone}`}>{status}</p>
+                <p className={`status status-${statusTone}`}>
+                  <span>{status}</span>
+                  {workspaceNotice ? (
+                    <span className="status-inline-notice">{workspaceNotice}</span>
+                  ) : null}
+                </p>
                 {error ? <p className="error">{error}</p> : null}
               </div>
             </aside>
@@ -1916,11 +2226,13 @@ export default function App() {
             aiSettings={aiSettings}
             autosaveSettings={appPreferences}
             statusMessage={status}
+            workspaceNotice={workspaceNotice}
             onStatus={handleWorkspaceStatus}
             onDirtyChange={setCharacterBoardDirty}
             onRegisterFlush={(handler) => {
               characterBoardFlushRef.current = handler;
             }}
+            onWikiSync={syncProjectWikiAfterWorkspaceChange}
           />
         ) : (
           <section className="panel">
@@ -1936,11 +2248,13 @@ export default function App() {
             aiSettings={aiSettings}
             autosaveSettings={appPreferences}
             statusMessage={status}
+            workspaceNotice={workspaceNotice}
             onStatus={handleWorkspaceStatus}
             onDirtyChange={setLocationBoardDirty}
             onRegisterFlush={(handler) => {
               locationBoardFlushRef.current = handler;
             }}
+            onWikiSync={syncProjectWikiAfterWorkspaceChange}
           />
         ) : (
           <section className="panel">
@@ -1949,12 +2263,166 @@ export default function App() {
         )
       ) : null}
 
+      {activeTab === 'memory' ? (
+        currentProject ? (
+          <section className="memory-workspace">
+            <div className="panel memory-hero">
+              <div>
+                <p className="eyebrow">Memoria progetto</p>
+                <h2>Wiki locale del romanzo</h2>
+                <p className="muted">
+                  Le fonti vengono esportate dal database in modo deterministico. La AI usa questa
+                  memoria come contesto citabile quando risponde alle domande sul romanzo.
+                </p>
+              </div>
+              <div className="memory-status-card">
+                <span
+                  className={
+                    wikiStatus?.derivedPending ? 'memory-status-dot pending' : 'memory-status-dot'
+                  }
+                />
+                <div>
+                  <strong>{wikiStatus?.derivedPending ? 'Da aggiornare' : 'Aggiornata'}</strong>
+                  <p>
+                    {wikiStatus
+                      ? `${wikiStatus.sourceCount} fonti indicizzate`
+                      : 'Stato memoria non disponibile'}
+                  </p>
+                  <small>
+                    {wikiStatus?.updatedAt
+                      ? `Ultimo sync: ${new Date(wikiStatus.updatedAt).toLocaleString()}`
+                      : 'Nessun sync registrato'}
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            {wikiError ? (
+              <section className="panel memory-error-panel">
+                <h2>Errore memoria</h2>
+                <p>{wikiError}</p>
+              </section>
+            ) : null}
+
+            <div className="memory-grid">
+              <section className="panel">
+                <h2>Azioni</h2>
+                <p className="muted">
+                  Aggiorna l'export deterministic-first e verifica lo stato della memoria locale.
+                </p>
+                <div className="memory-actions">
+                  <button type="button" onClick={() => void handleWikiSync()} disabled={wikiBusy}>
+                    Aggiorna memoria progetto
+                  </button>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => void refreshWikiStatus()}
+                    disabled={wikiBusy}
+                  >
+                    Rileggi stato
+                  </button>
+                </div>
+              </section>
+
+              <section className="panel">
+                <h2>Ricerca</h2>
+                <form
+                  className="memory-search-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleWikiSearch();
+                  }}
+                >
+                  <label>
+                    Cerca nella wiki locale
+                    <input
+                      type="search"
+                      value={wikiSearchQuery}
+                      onChange={(event) => setWikiSearchQuery(event.target.value)}
+                      placeholder="es. magazzino, patto, Tizio..."
+                      disabled={wikiBusy}
+                    />
+                  </label>
+                  <button type="submit" disabled={wikiBusy || !wikiSearchQuery.trim()}>
+                    Cerca
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            <details className="panel memory-results-panel memory-collapsible-panel" open>
+              <summary>Risultati</summary>
+              {wikiSearchResults.length > 0 ? (
+                <div className="memory-results">
+                  {wikiSearchResults.map((result) => (
+                    <article className="memory-result-card memory-answer-card" key={result.path}>
+                      <strong>{formatWikiResultTitle(result)}</strong>
+                      <p>{result.snippet}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">
+                  Nessun risultato da mostrare. Esegui una ricerca per verificare cosa vede la AI.
+                </p>
+              )}
+            </details>
+
+            <details className="panel memory-results-panel memory-collapsible-panel" open>
+              <summary>Fonti ricerca</summary>
+              {wikiSearchResults.length > 0 ? (
+                <div className="memory-results">
+                  {wikiSearchResults.map((result) => (
+                    <article className="memory-result-card" key={`search-source-${result.path}`}>
+                      <div className="memory-result-header">
+                        <strong>{formatWikiResultTitle(result)}</strong>
+                        <span>{formatWikiCategoryLabel(result.category)}</span>
+                      </div>
+                      <code>{result.path}</code>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Le fonti della ricerca appariranno dopo una ricerca.</p>
+              )}
+            </details>
+
+            <details className="panel memory-results-panel memory-collapsible-panel" open>
+              <summary>Fonti ultima risposta AI</summary>
+              {lastAiMemorySources.length > 0 ? (
+                <div className="memory-results">
+                  {lastAiMemorySources.map((source) => (
+                    <article className="memory-result-card" key={`last-ai-${source.path}`}>
+                      <div className="memory-result-header">
+                        <strong>{source.title}</strong>
+                        <span>{formatWikiCategoryLabel(source.category)}</span>
+                      </div>
+                      <code>{source.path}</code>
+                      <p>{source.snippet}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">
+                  Nessuna fonte registrata per l'ultima risposta AI in questa sessione.
+                </p>
+              )}
+            </details>
+          </section>
+        ) : (
+          <section className="panel">
+            <p>Apri o crea un progetto nella scheda "Struttura Storia" per usare la memoria.</p>
+          </section>
+        )
+      ) : null}
+
       {isAiSettingsModalOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card">
+          <div className="modal-card settings-modal-card">
             <h3>Impostazioni</h3>
-            <div className="panel panel-subsection">
-              <h4>Salvataggio Automatico</h4>
+            <details className="panel panel-subsection settings-section" open>
+              <summary>Salvataggio Automatico</summary>
               <label>
                 Modalità autosave
                 <select
@@ -2011,10 +2479,10 @@ export default function App() {
                   Salva Preferenze Utente
                 </button>
               </div>
-            </div>
+            </details>
 
-            <div className="panel panel-subsection">
-              <h4>Impostazioni AI</h4>
+            <details className="panel panel-subsection settings-section" open>
+              <summary>Impostazioni AI</summary>
               <label className="checkbox-inline">
                 <input
                   type="checkbox"
@@ -2043,6 +2511,10 @@ export default function App() {
                         ? {
                             ...prev,
                             provider: event.target.value as 'codex_cli' | 'openai_api' | 'ollama',
+                            fallbackProvider:
+                              prev.fallbackProvider === event.target.value
+                                ? 'none'
+                                : prev.fallbackProvider,
                           }
                         : prev,
                     )
@@ -2054,6 +2526,34 @@ export default function App() {
                   <option value="ollama">Ollama (locale)</option>
                 </select>
               </label>
+              <label>
+                Fallback se il provider non risponde
+                <select
+                  value={aiSettings?.fallbackProvider ?? 'none'}
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            fallbackProvider: event.target
+                              .value as CodexSettings['fallbackProvider'],
+                          }
+                        : prev,
+                    )
+                  }
+                  disabled={!aiSettings}
+                >
+                  {getAiFallbackOptions(aiSettings?.provider ?? 'codex_cli').map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted">
+                Provider primario: {getAiProviderLabel(aiSettings?.provider ?? 'codex_cli')}.
+                Fallback: {getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none')}.
+              </p>
               <label className="checkbox-inline">
                 <input
                   type="checkbox"
@@ -2160,7 +2660,42 @@ export default function App() {
                   Salva Impostazioni AI
                 </button>
               </div>
-            </div>
+            </details>
+
+            <details className="panel panel-subsection settings-section" open>
+              <summary>Consensi</summary>
+              <label className="checkbox-inline">
+                <input
+                  type="checkbox"
+                  checked={aiSettings ? aiSettings.allowExternalMemorySharing !== false : false}
+                  disabled={!aiSettings}
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            allowExternalMemorySharing: event.target.checked,
+                          }
+                        : prev,
+                    )
+                  }
+                />
+                <span>Consenso invio memoria progetto a provider esterni</span>
+              </label>
+              <p className="muted">
+                Se disattivato, la chat AI non allega la wiki del progetto quando il provider o il
+                fallback possono inviare il prompt fuori dal computer.
+              </p>
+              <div className="row-buttons">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveAiSettings()}
+                  disabled={!aiSettings || aiSettingsBusy || !currentProject}
+                >
+                  Salva Consensi
+                </button>
+              </div>
+            </details>
             <div className="row-buttons">
               <button
                 type="button"
@@ -2262,7 +2797,11 @@ export default function App() {
               >
                 Annulla
               </button>
-              <button type="button" onClick={() => void handleCreateProject()} disabled={!canCreateProject}>
+              <button
+                type="button"
+                onClick={() => void handleCreateProject()}
+                disabled={!canCreateProject}
+              >
                 Crea e Apri
               </button>
             </div>
@@ -2304,8 +2843,9 @@ export default function App() {
             </label>
             {existingPlotForNewNumber ? (
               <p className="muted">
-                Trama esistente: <strong>{existingPlotForNewNumber.label || '(senza etichetta)'}</strong>.
-                Modificala dal tab Trame con doppio click sul blocco.
+                Trama esistente:{' '}
+                <strong>{existingPlotForNewNumber.label || '(senza etichetta)'}</strong>. Modificala
+                dal tab Trame con doppio click sul blocco.
               </p>
             ) : null}
             <div className="row-buttons modal-actions">
@@ -2317,7 +2857,11 @@ export default function App() {
               >
                 Annulla
               </button>
-              <button type="button" onClick={() => void handleCreatePlot()} disabled={!canCreatePlot}>
+              <button
+                type="button"
+                onClick={() => void handleCreatePlot()}
+                disabled={!canCreatePlot}
+              >
                 Crea Trama
               </button>
               <button
@@ -2513,6 +3057,7 @@ export default function App() {
           onRegisterFlush={(handler) => {
             chapterEditorFlushRef.current = handler;
           }}
+          onMemorySources={setLastAiMemorySources}
         />
       ) : null}
     </main>

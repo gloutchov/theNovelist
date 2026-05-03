@@ -1,169 +1,253 @@
 # Sicurezza - The Novelist
 
-Stato documentato al **5 aprile 2026**.
+Stato documentato al **3 maggio 2026**.
 
-Questo documento descrive le misure di sicurezza **attualmente implementate** nell'applicazione, con limiti noti.
+Questo documento riepiloga le misure di sicurezza implementate in The Novelist e i limiti residui noti. L'applicazione e una app desktop locale: non ha un backend proprietario remoto, ma puo comunicare con provider AI esterni se l'utente li abilita.
 
-## 1) Modello operativo
-- App desktop locale (Electron), senza backend remoto proprietario.
-- Dati del progetto salvati in filesystem locale (`project.db`, `assets/`, `.snapshots/`).
-- Funzioni AI opzionali via:
-  - `Codex CLI` locale
-  - `OpenAI API` (cloud)
-  - `Ollama` (tipicamente locale, host configurabile)
+## 1. Modello operativo
 
-## 2) Misure implementate
+- Applicazione desktop Electron con processi separati `main`, `preload` e `renderer`.
+- Ogni progetto narrativo vive in una cartella locale con:
+  - `project.db`: database SQLite principale;
+  - `assets/`: immagini, export e allegati;
+  - `.snapshots/`: snapshot DB per recovery;
+  - `wiki/`: memoria Markdown locale derivata dal database.
+- Provider AI supportati:
+  - `Codex CLI`;
+  - `OpenAI API`;
+  - `Ollama`.
+- `project.db` resta la fonte di verita. La wiki e un artefatto derivato, app-managed e rigenerabile.
 
-### 2.1 Isolamento renderer/main
-- `contextIsolation: true` nel `BrowserWindow` principale.
-- `nodeIntegration: false` nel renderer.
-- `sandbox: true` nel `BrowserWindow` principale e nella finestra di stampa.
-- API esposte al renderer solo tramite `preload` + `contextBridge` (`window.novelistApi`).
-- Il `preload` usa canali IPC condivisi definiti in un modulo separato, senza dipendenze dal codice `main` che richieda moduli nativi o privilegi del main process. Questo evita rotture del bridge in ambiente sandboxato.
-- Navigazioni inattese e popup (`window.open`) bloccati nel `BrowserWindow` principale.
-- Riferimenti:
-  - `src/main/index.ts`
-  - `src/preload/index.ts`
-  - `src/shared/ipc-channels.ts`
+## 2. Isolamento Electron
 
-### 2.1-bis Content Security Policy
-- CSP esplicita nel renderer principale via `meta http-equiv="Content-Security-Policy"`.
-- Policy restrittiva per:
-  - bloccare `object-src`
-  - limitare `script-src` a `self`
-  - confinare `connect-src` a `self` e agli endpoint locali necessari per il dev server Vite
-- Nota: essendo una CSP via `meta`, alcune direttive come `frame-ancestors` non sono applicabili e andrebbero eventualmente imposte via header se in futuro si introducesse una catena di delivery HTTP.
-- Le viste HTML usate per la stampa includono una CSP dedicata minimale, senza script e con soli stili inline/immagini locali o data URL.
-- Riferimenti:
-  - `src/renderer/index.html`
-  - `src/main/chapters/exporters.ts`
+- Il renderer gira con `sandbox: true`.
+- `contextIsolation: true`.
+- `nodeIntegration: false`.
+- Il renderer non riceve accesso diretto a Node.js, filesystem o IPC grezzo.
+- Le API privilegiate sono esposte solo tramite `window.novelistApi` nel preload.
+- Navigazioni inattese e popup sono bloccati nel main process.
+- La finestra di stampa usa HTML separato e CSP dedicata.
 
-### 2.2 IPC con validazione input/output
-- Ogni canale IPC usa schemi `zod` per parsing/validazione payload.
-- Riduce errori e input fuori specifica (lunghezze, enum, min/max, tipi).
-- Riferimento:
-  - `src/main/ipc.ts`
+Riferimenti:
 
-### 2.3 Controlli di appartenenza al progetto
-- Per operazioni su capitoli/schede/link viene verificato che gli ID appartengano al progetto aperto.
-- Esempi: `assertChapterNodeIdsBelongToProject`, check su `projectId` di card/location.
-- Riferimento:
-  - `src/main/ipc.ts`
+- `src/main/index.ts`
+- `src/preload/index.ts`
+- `src/shared/ipc-channels.ts`
+- `src/main/chapters/exporters.ts`
 
-### 2.4 Query DB parametrizzate + vincoli relazionali
-- Repository SQLite con statement preparati (no concatenazione SQL utente).
-- `foreign_keys = ON`, vincoli `UNIQUE`, `CHECK`, `ON DELETE CASCADE`.
-- Riferimenti:
-  - `src/main/persistence/repository.ts`
-  - `src/main/persistence/database.ts`
-  - `src/main/persistence/migrations.ts`
+## 3. Content Security Policy
 
-### 2.5 Gestione API key
-- La chiave API non viene restituita in chiaro al renderer (`apiKey` in risposta è `null`).
-- Salvataggio in storage cifrato di sistema (`safeStorage`) quando disponibile.
-- Cancellazione chiave supportata.
-- Migrazione legacy: vecchie chiavi DB possono essere spostate in storage sicuro.
-- Riferimenti:
-  - `src/main/security/secure-settings.ts`
-  - `src/main/ipc.ts` (`resolveCodexRuntime`, `toCodexSettingsResponse`, `codexUpdateSettings`)
+- Il renderer principale usa una CSP esplicita in `src/renderer/index.html`.
+- La policy limita gli script a `self`.
+- `object-src` e bloccato.
+- `connect-src` e limitato a `self` e agli endpoint necessari in sviluppo.
+- Le viste di stampa non eseguono script e limitano le risorse a contenuto locale o data URL dove necessario.
 
-### 2.6 Consenso esplicito per uso AI
-- Le funzioni AI testuali (`assist`, `chat`, `transform`) richiedono `enabled = true`.
-- Le chiamate API esterne richiedono `allowApiCalls = true`.
-- Generazione immagini in-app richiede anche provider `openai_api` e chiave disponibile.
-- Riferimento:
-  - `src/main/ipc.ts`
+Limite noto: la CSP del renderer e impostata via `meta`; direttive come `frame-ancestors` richiederebbero header HTTP se in futuro si introducesse una delivery HTTP.
 
-### 2.7 Import immagini in area progetto
-- Le immagini associate vengono copiate dentro `assets/img/...` del progetto.
-- Le immagini generate in-app vengono salvate in `assets/generated-images/...`.
-- Evita dipendenza da path esterni volatili.
-- La lettura immagini verso il renderer (`read-image-data-url`) e ora limitata a file raster interni a `assets/` del progetto aperto.
-- Riferimento:
-  - `src/main/images/generation.ts`
-  - `src/main/ipc.ts`
+## 4. IPC validato
 
-### 2.8 Timeout e cancellazione richieste AI
-- Timeout configurabile per Codex CLI.
-- Supporto abort/cancel di richieste in corso.
-- Riferimento:
-  - `src/main/codex/client.ts`
+- Ogni canale IPC passa da handler espliciti.
+- I payload in ingresso e in uscita sono validati con `zod`.
+- I canali sono centralizzati in `src/shared/ipc-channels.ts`.
+- Il preload espone funzioni specifiche, non `ipcRenderer` generico.
 
-### 2.9 Snapshot e recovery
-- Snapshot periodici/manuali del DB e recovery dell'ultimo snapshot.
-- Migliora resilienza/integrità operativa.
-- Riferimento:
-  - `src/main/projects/snapshots.ts`
-  - `src/main/projects/session.ts`
+Riferimenti:
 
-### 2.10 Menzioni capitolo con validazione canonica
-- Personaggi e location possono essere citati nel capitolo con menzioni `@`.
-- Il collegamento capitolo-personaggio/location viene derivato dal contenuto del capitolo e non più da checkbox manuali nelle schede.
-- Le menzioni salvano come identificatore affidabile solo `refId`; la label visibile viene ricalcolata da record canonici.
-- In lettura e in salvataggio, il main process normalizza le menzioni:
-  - corregge label incoerenti rispetto all'entità reale
-  - scarta menzioni malformate
-  - scarta menzioni verso entità non più esistenti
-- Questo riduce il rischio di documenti alterati che mostrino un nome ma colleghino in realtà un'altra entità.
-- Riferimenti:
-  - `src/renderer/src/ChapterEditor.tsx`
-  - `src/main/chapters/rich-text.ts`
-  - `src/main/ipc.ts`
-  - `tests/unit/rich-text.test.ts`
+- `src/main/ipc.ts`
+- `src/preload/index.ts`
+- `src/shared/ipc-channels.ts`
 
-### 2.11 Export e stampa privi di metadati di menzione
-- Le menzioni restano interne all'editor ma vengono escluse da:
-  - conteggio parole
-  - export DOCX/PDF
-  - stampa HTML
-- Evita leakage di metadati editoriali nel manoscritto esportato.
-- Riferimenti:
-  - `src/main/chapters/rich-text.ts`
-  - `src/main/chapters/exporters.ts`
+## 5. Appartenenza al progetto
 
-## 3) Superfici esterne
+- Le operazioni su nodi, connessioni, personaggi, location, link e immagini verificano che gli ID appartengano al progetto aperto.
+- Questo evita collegamenti o manipolazioni tra progetti diversi.
+- Le immagini lette dal renderer devono appartenere agli asset del progetto aperto.
 
-### 3.1 Endpoint di rete usati
+Riferimento:
+
+- `src/main/ipc.ts`
+
+## 6. Persistenza e database
+
+- SQLite e accessibile solo dal main process.
+- Il repository usa statement preparati, evitando concatenazione SQL con input utente.
+- `foreign_keys = ON`.
+- Migrations versionate in `src/main/persistence/migrations.ts`.
+- Vincoli `UNIQUE`, `CHECK` e `ON DELETE CASCADE` mantengono coerenza relazionale.
+
+Riferimenti:
+
+- `src/main/persistence/database.ts`
+- `src/main/persistence/repository.ts`
+- `src/main/persistence/migrations.ts`
+
+## 7. Gestione API key
+
+- La API key non viene mai restituita in chiaro al renderer: le risposte IPC espongono `apiKey: null`.
+- Quando disponibile, Electron `safeStorage` cifra la chiave in un file sotto `app.getPath('userData')`.
+- Se `safeStorage` non e disponibile, il salvataggio di nuove chiavi viene rifiutato con errore esplicito.
+- E supportato l'uso di `OPENAI_API_KEY` come variabile ambiente runtime.
+- E supportata la cancellazione della chiave salvata.
+- Le vecchie chiavi legacy nel database possono essere migrate verso storage sicuro quando disponibile.
+
+Riferimenti:
+
+- `src/main/security/secure-settings.ts`
+- `src/main/ipc.ts`
+
+## 8. Consensi AI
+
+- Le funzioni AI testuali richiedono consenso generale `enabled`.
+- Le chiamate API esterne richiedono `allowApiCalls`.
+- La generazione immagini in-app richiede:
+  - consenso AI attivo;
+  - provider `openai_api`;
+  - chiamate API esterne abilitate;
+  - API key disponibile.
+- La memoria progetto viene allegata alla chat solo se:
+  - il consenso AI generale e attivo;
+  - e, se provider o fallback possono uscire dal computer, `allowExternalMemorySharing` e attivo.
+- Se `allowExternalMemorySharing` e disattivato, la chat puo continuare a funzionare, ma senza allegare la wiki a provider esterni.
+- Il consenso memoria esterna e salvato per progetto ed e default-on per mantenere il comportamento precedente.
+
+Riferimenti:
+
+- `src/main/persistence/migrations.ts`
+- `src/main/persistence/repository.ts`
+- `src/main/ipc.ts`
+- `src/preload/index.ts`
+- `src/renderer/src/App.tsx`
+
+## 9. Memoria progetto e wiki locale
+
+- Ogni progetto puo avere una directory `wiki/` locale.
+- La wiki e derivata da `project.db`: non sostituisce il database e non diventa fonte autoritativa.
+- Le fonti deterministic-first vengono esportate in `wiki/sources/`.
+- La ricerca locale nella tab `Memoria` legge Markdown locali e non richiede provider esterni.
+- Le pagine app-managed (`AGENTS.md`, `index.md`, `log.md` e `sources/`) possono essere riscritte o aggiornate dal sync.
+- Le modifiche manuali alla wiki non sono considerate fonte di verita e possono essere sovrascritte.
+- Le scritture generated sono atomiche: file temporaneo nella stessa directory e `rename` finale.
+- I file temporanei lasciati da sync interrotti vengono ripuliti al bootstrap della wiki.
+- I path wiki controllati devono restare dentro la directory `wiki/`; traversal, path assoluti e segmenti `..` sono rifiutati.
+- Il sync alla chiusura progetto ha timeout breve, circa 12 secondi. Se non termina, la chiusura prosegue e la wiki resta recuperabile alla riapertura.
+- La AI non scrive file della wiki. La wiki viene mantenuta dall'app con export e sync deterministici.
+
+Riferimenti:
+
+- `src/main/wiki/`
+- `src/main/projects/session.ts`
+- `tests/unit/project-wiki.test.ts`
+- `tests/unit/wiki-path-safety.test.ts`
+- `tests/unit/wiki-search.test.ts`
+- `tests/unit/wiki-chat-context.test.ts`
+
+## 10. AI runtime, timeout e cancellazione
+
+- Le richieste AI passano dal main process.
+- Codex CLI usa timeout configurabile tramite `NOVELIST_CODEX_TIMEOUT_MS`.
+- E disponibile cancellazione della richiesta AI attiva.
+- Provider fallback configurabile, incluso `none`.
+- In caso di errore AI, i flussi principali di scrittura non devono dipendere dalla riuscita della wiki o del provider.
+
+Riferimento:
+
+- `src/main/codex/client.ts`
+- `src/main/ipc.ts`
+
+## 11. Immagini e file progetto
+
+- Le immagini associate vengono copiate in `assets/img/...`.
+- Le immagini generate vengono salvate in `assets/generated-images/...`.
+- La lettura immagini verso renderer e limitata a raster interni ad `assets/` del progetto aperto.
+- Estensioni e MIME type sono controllati lato main process.
+
+Riferimenti:
+
+- `src/main/images/generation.ts`
+- `src/main/ipc.ts`
+- `src/main/projects/asset-paths.ts`
+
+## 12. Menzioni, export e privacy editoriale
+
+- Le menzioni `@personaggio` e `@location` usano identificatori strutturati.
+- In lettura/salvataggio il main process normalizza riferimenti e label verso entita canoniche.
+- Menzioni malformate o riferite a entita non piu esistenti vengono scartate.
+- Le menzioni non vengono incluse in:
+  - conteggio parole;
+  - export DOCX;
+  - export PDF;
+  - stampa HTML.
+- Questo evita leakage di metadati interni nel manoscritto esportato.
+
+Riferimenti:
+
+- `src/main/chapters/rich-text.ts`
+- `src/main/chapters/exporters.ts`
+- `src/main/ipc.ts`
+- `src/renderer/src/ChapterEditor.tsx`
+
+## 13. Snapshot e recovery
+
+- Snapshot manuali e autosave del database.
+- Recovery dell'ultimo snapshot disponibile.
+- Packaging e test ricostruiscono `better-sqlite3` per il runtime corretto, riducendo mismatch ABI tra Node locale ed Electron.
+
+Riferimenti:
+
+- `src/main/projects/snapshots.ts`
+- `src/main/projects/session.ts`
+- `scripts/rebuild-node-native.mjs`
+- `scripts/rebuild-electron-native.mjs`
+- `scripts/run-electron-package.mjs`
+
+## 14. Superfici esterne
+
+Endpoint possibili:
+
 - OpenAI Responses API: `https://api.openai.com/v1/responses`
 - OpenAI Images API: `https://api.openai.com/v1/images/generations`
-- Ollama: `${OLLAMA_HOST}/api/*` (default `http://127.0.0.1:11434`)
+- Ollama: `${OLLAMA_HOST}/api/*`, default `http://127.0.0.1:11434`
 
-### 3.2 Variabili ambiente rilevanti
+Variabili ambiente rilevanti:
+
 - `OPENAI_API_KEY`
 - `NOVELIST_CODEX_COMMAND`
 - `NOVELIST_CODEX_TIMEOUT_MS`
 - `NOVELIST_IMAGE_MODEL`
 - `OLLAMA_HOST`
 
-## 4) Limiti noti (stato attuale)
+## 15. Limiti residui noti
 
-1. Build distribuita localmente non firmata/notarizzata (`identity: null` in `electron-builder`).
-2. Database progetto (`project.db`) non cifrato nativamente a riposo.
-3. L'app è single-user locale: non ha autenticazione/ruoli.
-4. Se `safeStorage` non è disponibile, la chiave nuova non viene salvata in secure storage; resta possibile uso via variabile ambiente.
-5. Le menzioni sono validate lato main process, ma la sincronizzazione dei link capitolo è ancora avviata dal renderer; il modello è robusto per un'app locale, ma un futuro spostamento completo della sincronizzazione nel main process ridurrebbe ulteriormente la superficie di fiducia del renderer.
+1. Le build locali non sono firmate o notarizzate.
+2. `project.db` non e cifrato a riposo.
+3. La wiki e leggibile su disco per scelta progettuale; privacy e demandata alla sicurezza del filesystem/profilo utente.
+4. L'app e single-user locale e non implementa autenticazione o ruoli.
+5. Provider esterni possono ricevere testo del progetto solo con consenso, ma la garanzia finale dipende anche dalla configurazione utente e dal provider scelto.
+6. Ollama puo puntare a host non locali tramite `OLLAMA_HOST`; in quel caso il traffico non e necessariamente locale.
+7. Le release non firmate possono generare warning di sistema operativo e non offrono garanzia forte di provenienza.
 
-## 5) Raccomandazioni pratiche (priorità)
+## 16. Verifiche consigliate prima di release
 
-1. Firmare e notarizzare le build macOS/Windows di distribuzione.
-2. Valutare cifratura del DB progetto o almeno delle sezioni sensibili.
-3. Aggiungere hardening release (dipendenze, SCA, audit periodico, CI security checks).
-4. Valutare lo spostamento della sincronizzazione link capitolo-personaggi/location interamente nel main process.
+- `npm run lint`
+- `npm run typecheck`
+- `npm test`
+- `npm run test:e2e`
+- `npm run test:e2e:electron`
+- `npm run test:smoke:electron:codex`
+- `npm run pack`
 
-## 6) File principali da verificare
+Per modifiche UI o Electron reali, verificare anche visivamente l'app pacchettizzata o l'ambiente Electron reale.
+
+## 17. File principali da controllare
+
 - `src/main/index.ts`
 - `src/preload/index.ts`
 - `src/shared/ipc-channels.ts`
 - `src/main/ipc.ts`
 - `src/main/security/secure-settings.ts`
 - `src/main/codex/client.ts`
+- `src/main/wiki/`
 - `src/main/images/generation.ts`
-- `src/main/persistence/*`
-
-## 7) Verifiche consigliate
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- `npm run test:smoke:electron:codex`
-- Nota pratica per macOS: alcuni rebuild nativi e test che passano da `npm test` richiedono anche toolchain Xcode configurata e licenza accettata.
-- Questo requisito riguarda sviluppo, CI locale e debug del repository sorgente; non riguarda l'utente finale che installa una build gia pacchettizzata.
+- `src/main/persistence/`
+- `src/main/projects/session.ts`

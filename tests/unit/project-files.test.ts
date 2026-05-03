@@ -7,6 +7,7 @@ import {
   PROJECT_ASSETS_DIRNAME,
   PROJECT_DB_FILENAME,
   PROJECT_SNAPSHOTS_DIRNAME,
+  PROJECT_WIKI_DIRNAME,
   createProjectOnDisk,
   openProjectFromDisk,
   projectExists,
@@ -36,6 +37,9 @@ describe('project-files', () => {
     await access(path.join(rootPath, PROJECT_DB_FILENAME));
     await access(path.join(rootPath, PROJECT_ASSETS_DIRNAME));
     await access(path.join(rootPath, PROJECT_SNAPSHOTS_DIRNAME));
+    await access(path.join(rootPath, PROJECT_WIKI_DIRNAME));
+    await access(path.join(rootPath, PROJECT_WIKI_DIRNAME, 'AGENTS.md'));
+    await access(path.join(rootPath, PROJECT_WIKI_DIRNAME, 'maintenance', 'last-sync.json'));
 
     expect(created.project.name).toBe('Il mio romanzo');
     expect(await projectExists(rootPath)).toBe(true);
@@ -43,6 +47,7 @@ describe('project-files', () => {
     const opened = await openProjectFromDisk(rootPath);
     expect(opened.project.id).toBe(created.project.id);
     expect(opened.dbPath).toContain(PROJECT_DB_FILENAME);
+    expect(opened.wikiPath).toBe(path.join(rootPath, PROJECT_WIKI_DIRNAME));
   });
 
   it('fails when trying to open a missing project database', async () => {
@@ -116,6 +121,7 @@ describe('project-files', () => {
       PROJECT_DB_FILENAME,
       PROJECT_ASSETS_DIRNAME,
       PROJECT_SNAPSHOTS_DIRNAME,
+      PROJECT_WIKI_DIRNAME,
     ] as const;
     for (const entry of sourceEntries) {
       const from = path.join(originalRootPath, entry);

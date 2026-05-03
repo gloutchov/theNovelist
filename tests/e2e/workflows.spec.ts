@@ -78,9 +78,9 @@ test('story workflow with Codex preview discard', async ({ page }) => {
   await expect(page.locator('.selection-bubble')).toBeVisible();
   await page.locator('.selection-bubble').getByRole('button', { name: 'Riscrivi' }).dispatchEvent('click');
 
-  await expect(page.getByRole('heading', { name: 'Anteprima modifica Codex' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Anteprima modifica AI' })).toBeVisible();
   await page.getByRole('button', { name: 'Scarta' }).click();
-  await expect(page.getByRole('heading', { name: 'Anteprima modifica Codex' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Anteprima modifica AI' })).toBeHidden();
 });
 
 test('story workflow with Codex preview apply', async ({ page }) => {
@@ -92,7 +92,21 @@ test('story workflow with Codex preview apply', async ({ page }) => {
   await page.locator('.selection-bubble').getByRole('button', { name: 'Riscrivi' }).dispatchEvent('click');
   await page.getByRole('button', { name: 'Applica' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Anteprima modifica Codex' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Anteprima modifica AI' })).toBeHidden();
+});
+
+test('chapter editor find and replace updates text', async ({ page }) => {
+  await openChapterEditorWithText(page, 'E2E Find Replace', 'La porta rossa resta rossa.');
+  const editorContent = page.locator('.novelist-editor-content');
+
+  await page.getByRole('button', { name: 'Sostituisci' }).click();
+  const findPanel = page.locator('.find-replace-panel');
+  await expect(findPanel).toBeVisible();
+  await findPanel.getByLabel('Trova').fill('rossa');
+  await findPanel.getByLabel('Sostituisci con').fill('blu');
+  await findPanel.getByRole('button', { name: 'Sostituisci tutto' }).click();
+
+  await expect(editorContent).toContainText('La porta blu resta blu.');
 });
 
 test('character board create and edit card', async ({ page }) => {
@@ -111,7 +125,8 @@ test('character board create and edit card', async ({ page }) => {
 
   const canvas = page.locator('.canvas-wrap');
   await expect(canvas.getByText('Anna Rossi')).toBeVisible();
-  await canvas.getByText('Anna Rossi').dblclick();
+  const characterNode = canvas.locator('.react-flow__node').filter({ hasText: 'Anna Rossi' }).first();
+  await characterNode.dispatchEvent('dblclick');
 
   const modal = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Modifica Personaggio' }),
@@ -121,8 +136,15 @@ test('character board create and edit card', async ({ page }) => {
 
   const prompt = modal.getByLabel('Prompt');
   await expect(prompt).toHaveValue(/Suggerimento mock:/);
+  await modal.getByLabel('Colore occhi').fill('nocciola');
+  await modal.getByLabel('Colore pelle').fill('olivastra');
   await modal.getByRole('button', { name: 'Salva Scheda' }).click();
   await expect(modal).toBeHidden();
+
+  await characterNode.dispatchEvent('dblclick');
+  await expect(modal).toBeVisible();
+  await expect(modal.getByLabel('Colore occhi')).toHaveValue('nocciola');
+  await expect(modal.getByLabel('Colore pelle')).toHaveValue('olivastra');
 });
 
 test('location board create and edit card', async ({ page }) => {
@@ -156,7 +178,7 @@ test('location board create and edit card', async ({ page }) => {
 
 test('create character card from editor selection', async ({ page }) => {
   const sourceText =
-    'Anna Rossi e una investigatrice dai capelli rossi, trentaduenne, slanciata.';
+    'Anna Rossi e una investigatrice dai capelli rossi, occhi verdi, pelle chiara, trentaduenne, slanciata.';
   await openChapterEditorWithText(page, 'E2E Create Character From Editor', sourceText);
 
   const editorContent = page.locator('.novelist-editor-content');
@@ -198,6 +220,8 @@ test('create character card from editor selection', async ({ page }) => {
   await expect(editModal).toBeVisible();
   await expect(editModal.getByLabel('Lavoro')).toHaveValue('investigatrice');
   await expect(editModal.getByLabel('Colore capelli')).toHaveValue('rossi');
+  await expect(editModal.getByLabel('Colore occhi')).toHaveValue('verdi');
+  await expect(editModal.getByLabel('Colore pelle')).toHaveValue('chiara');
   await expect(editModal.getByLabel('Età')).toHaveValue('32');
   await expect(editModal.getByLabel('Note')).toHaveValue(sourceText);
 });
@@ -260,4 +284,148 @@ test('plot board shows created plot cards on canvas', async ({ page }) => {
 
   const canvas = page.locator('.canvas-wrap');
   await expect(canvas.getByText('Trama di prova')).toBeVisible();
+});
+
+test('memory tab syncs and searches project wiki', async ({ page }) => {
+  await createProject(page, 'E2E Memory');
+  await createChapter(page, 'Capitolo Memoria', 'La scena contiene il patto nel magazzino.');
+
+  await page.getByRole('button', { name: 'Memoria', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Wiki locale del romanzo' })).toBeVisible();
+  await expect(page.getByText('Aggiornata')).toBeVisible();
+  await expect(page.getByText(/fonti indicizzate/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Aggiorna memoria progetto' }).click();
+  await expect(page.getByRole('button', { name: 'Aggiorna memoria progetto' })).toBeEnabled();
+
+  await page.getByLabel('Cerca nella wiki locale').fill('magazzino');
+  await page.getByRole('button', { name: 'Cerca' }).click();
+
+  await expect(page.getByText('Capitolo Memoria').first()).toBeVisible();
+  await expect(page.getByText('La scena contiene il patto nel magazzino.').first()).toBeVisible();
+});
+
+test('memory tab shows sources from last AI response', async ({ page }) => {
+  await createProject(page, 'E2E Memory Sources');
+  await createChapter(page, 'Capitolo Fonti AI', 'La scena contiene il patto nel magazzino.');
+
+  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
+  const editNodeModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Modifica Blocco' }),
+  });
+  await expect(editNodeModal).toBeVisible();
+  await editNodeModal.getByRole('button', { name: 'Apri editor capitolo' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
+  await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
+
+  await page.getByPlaceholder(/Chiedi a .*brainstorming/).fill('magazzino');
+  await page.getByRole('button', { name: 'Invia' }).click();
+  await expect(page.getByText('Risposta mock: magazzino')).toBeVisible();
+
+  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
+
+  await page.getByRole('button', { name: 'Memoria', exact: true }).click();
+
+  const lastSourcesPanel = page.locator('.memory-results-panel').filter({
+    has: page.getByText('Fonti ultima risposta AI'),
+  });
+  await expect(lastSourcesPanel.getByText('Capitolo Fonti AI')).toBeVisible();
+  await expect(lastSourcesPanel.getByText('sources/chapters/chapter-')).toBeVisible();
+  await expect(lastSourcesPanel.getByText('La scena contiene il patto nel magazzino.')).toBeVisible();
+});
+
+test('closing chapter editor does not wait for automatic memory sync', async ({ page }) => {
+  await installNovelistApiMock(page, { wikiSyncDelayMs: 800 });
+  await page.goto('/');
+
+  await openChapterEditorWithText(
+    page,
+    'E2E Memory Non Blocking',
+    'testo da salvare prima della chiusura',
+  );
+
+  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
+  await expect(page.getByText('aggiornamento memoria in corso...')).toBeVisible();
+  await expect(page.getByText('memoria aggiornata')).toBeVisible();
+});
+
+test('saving plot does not wait for automatic memory sync', async ({ page }) => {
+  await installNovelistApiMock(page, { wikiSyncDelayMs: 800 });
+  await page.goto('/');
+
+  await createProject(page, 'E2E Plot Memory Sync');
+  await page.getByRole('button', { name: 'Trame', exact: true }).click();
+
+  const plotPanel = page.locator('.panel').filter({
+    has: page.getByRole('heading', { name: 'Nuova Trama' }),
+  });
+  await plotPanel.getByLabel('Titolo trama').fill('Trama memoria');
+  await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza iniziale');
+  await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
+
+  await page.locator('.plot-flow-node').filter({ hasText: 'Trama memoria' }).dblclick();
+  const editPlotModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Modifica Trama' }),
+  });
+  await expect(editPlotModal).toBeVisible();
+  await editPlotModal.getByLabel('Bozza trama / struttura').fill('Bozza aggiornata');
+  await editPlotModal.getByRole('button', { name: 'Salva Trama' }).click();
+
+  await expect(editPlotModal).toBeHidden();
+  await expect(page.getByText('aggiornamento memoria in corso...')).toBeVisible();
+  await expect(page.getByText('memoria aggiornata')).toBeVisible();
+});
+
+test('closing character card does not wait for automatic memory sync', async ({ page }) => {
+  await installNovelistApiMock(page, { wikiSyncDelayMs: 800 });
+  await page.goto('/');
+
+  await createProject(page, 'E2E Character Memory Sync');
+  await page.getByRole('button', { name: 'Personaggi', exact: true }).click();
+
+  const createPanel = page.locator('.panel').filter({
+    has: page.getByRole('heading', { name: 'Nuovo Personaggio' }),
+  });
+  await createPanel.getByLabel('Nome', { exact: true }).fill('Anna');
+  await createPanel.getByRole('button', { name: 'Crea Scheda' }).click();
+
+  await page.locator('.canvas-wrap').getByText('Anna').dblclick();
+  const editCharacterModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Modifica Personaggio' }),
+  });
+  await expect(editCharacterModal).toBeVisible();
+  await editCharacterModal.getByLabel('Note').fill('Nota aggiornata');
+  await editCharacterModal.getByRole('button', { name: 'Chiudi' }).click();
+
+  await expect(editCharacterModal).toBeHidden();
+  await expect(page.getByText('aggiornamento memoria in corso...')).toBeVisible();
+  await expect(page.getByText('memoria aggiornata')).toBeVisible();
+});
+
+test('saving location card does not wait for automatic memory sync', async ({ page }) => {
+  await installNovelistApiMock(page, { wikiSyncDelayMs: 800 });
+  await page.goto('/');
+
+  await createProject(page, 'E2E Location Memory Sync');
+  await page.getByRole('button', { name: 'Location', exact: true }).click();
+
+  await page.getByLabel('Nome').fill('Porto Vecchio');
+  await page.getByRole('button', { name: 'Crea Scheda' }).click();
+
+  await page.locator('.canvas-wrap').getByText('Porto Vecchio').dblclick();
+  const editLocationModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Modifica Location' }),
+  });
+  await expect(editLocationModal).toBeVisible();
+  await editLocationModal.getByLabel('Descrizione').fill('Descrizione aggiornata');
+  await editLocationModal.getByRole('button', { name: 'Salva Scheda' }).click();
+
+  await expect(editLocationModal).toBeHidden();
+  await expect(page.getByText('aggiornamento memoria in corso...')).toBeVisible();
+  await expect(page.getByText('memoria aggiornata')).toBeVisible();
 });

@@ -6,9 +6,11 @@ import { appFetch, toExternalRequestError } from '../network/http';
 
 export type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
 export type AiProvider = 'codex_cli' | 'openai_api' | 'ollama';
+export type AiFallbackProvider = AiProvider | 'none';
 
 export interface CodexRuntimeSettings {
   provider: AiProvider;
+  fallbackProvider: AiFallbackProvider;
   allowApiCalls: boolean;
   apiKey: string | null;
   apiModel: string;
@@ -22,6 +24,7 @@ export interface CodexStatus {
   activeRequest: boolean;
   queuedRequests: number;
   provider: AiProvider;
+  fallbackProvider: AiFallbackProvider;
   apiCallsEnabled: boolean;
 }
 
@@ -39,6 +42,7 @@ export interface CodexChatRequest {
   chapterTitle?: string;
   projectName?: string;
   chapterText?: string;
+  projectMemoryContext?: string;
   workspaceRoot?: string;
 }
 
@@ -55,8 +59,16 @@ interface ActiveRequest {
   abortController: AbortController;
 }
 
+interface ProviderProbe {
+  available: boolean;
+  command: string;
+  mode: 'cli' | 'api' | 'fallback';
+  reason?: string;
+}
+
 const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   provider: 'codex_cli',
+  fallbackProvider: 'none',
   allowApiCalls: false,
   apiKey: null,
   apiModel: 'gpt-5-mini',
@@ -67,15 +79,35 @@ const resolvedPathCache = new Map<string, Promise<string | null>>();
 type RuntimePlatform = NodeJS.Platform;
 
 function normalizeSettings(settings?: Partial<CodexRuntimeSettings>): CodexRuntimeSettings {
+  const fallbackProvider = settings?.fallbackProvider;
+
   return {
     provider:
       settings?.provider === 'openai_api' || settings?.provider === 'ollama'
         ? settings.provider
         : 'codex_cli',
+    fallbackProvider:
+      fallbackProvider === 'codex_cli' ||
+      fallbackProvider === 'openai_api' ||
+      fallbackProvider === 'ollama'
+        ? fallbackProvider
+        : 'none',
     allowApiCalls: Boolean(settings?.allowApiCalls),
     apiKey: settings?.apiKey ?? null,
     apiModel: settings?.apiModel?.trim() || DEFAULT_AI_SETTINGS.apiModel,
   };
+}
+
+function getActiveFallbackProvider(runtime: CodexRuntimeSettings): AiProvider | null {
+  if (runtime.fallbackProvider === 'none' || runtime.fallbackProvider === runtime.provider) {
+    return null;
+  }
+
+  return runtime.fallbackProvider;
+}
+
+function combineFallbackErrors(primaryError?: string, fallbackError?: string): string | undefined {
+  return [primaryError, fallbackError].filter(Boolean).join(' | ') || undefined;
 }
 
 function resolveCommandName(): string {
@@ -127,7 +159,9 @@ function getWindowsExecutableExtensions(env: NodeJS.ProcessEnv = process.env): s
     .map((entry) => (entry.startsWith('.') ? entry : `.${entry}`));
 
   return [...new Set(extensions)].sort((left, right) => {
-    return rankWindowsCommandCandidate(`command${left}`) - rankWindowsCommandCandidate(`command${right}`);
+    return (
+      rankWindowsCommandCandidate(`command${left}`) - rankWindowsCommandCandidate(`command${right}`)
+    );
   });
 }
 
@@ -140,7 +174,10 @@ function getCommandCandidateNames(
     return [commandName];
   }
 
-  return [...getWindowsExecutableExtensions(env).map((extension) => `${commandName}${extension}`), commandName];
+  return [
+    ...getWindowsExecutableExtensions(env).map((extension) => `${commandName}${extension}`),
+    commandName,
+  ];
 }
 
 function getLoginShellCandidates(
@@ -169,9 +206,7 @@ function getCommonCommandCandidates(
       ? [
           pathModule.join(getWindowsAppDataPath(env), 'npm'),
           pathModule.join(getWindowsLocalAppDataPath(env), 'Programs', 'nodejs'),
-          env['ProgramFiles']?.trim()
-            ? pathModule.join(env['ProgramFiles'].trim(), 'nodejs')
-            : '',
+          env['ProgramFiles']?.trim() ? pathModule.join(env['ProgramFiles'].trim(), 'nodejs') : '',
           env['ProgramFiles(x86)']?.trim()
             ? pathModule.join(env['ProgramFiles(x86)'].trim(), 'nodejs')
             : '',
@@ -189,7 +224,9 @@ function getCommonCommandCandidates(
 
   return directories
     .filter(Boolean)
-    .flatMap((directory) => commandCandidates.map((candidate) => pathModule.join(directory, candidate)));
+    .flatMap((directory) =>
+      commandCandidates.map((candidate) => pathModule.join(directory, candidate)),
+    );
 }
 
 function shouldUseShellForSpawn(
@@ -373,7 +410,12 @@ async function resolveCommandViaPosixShell(
     });
     child.on('error', () => resolve(null));
     child.on('close', (code) => {
-      const resolvedPath = stdout.trim().split('\n').find((line) => line.trim())?.trim() ?? '';
+      const resolvedPath =
+        stdout
+          .trim()
+          .split('\n')
+          .find((line) => line.trim())
+          ?.trim() ?? '';
       if (code === 0 && resolvedPath) {
         resolve(resolvedPath);
         return;
@@ -475,7 +517,10 @@ function resolveOllamaHost(): string {
 }
 
 function compactWhitespace(text: string): string {
-  return text.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+  return text
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .trim();
 }
 
 function fallbackTransform(action: CodexTransformAction, sourceText: string): string {
@@ -529,12 +574,22 @@ function buildTransformPrompt(request: CodexTransformRequest): string {
 
 function buildChatPrompt(request: CodexChatRequest): string {
   const chapterContext = (request.chapterText ?? '').trim();
+  const projectMemoryContext = (request.projectMemoryContext ?? '').trim();
 
   return [
     'Sei un assistente editoriale per romanzi e racconti.',
     request.projectName ? `Progetto: ${request.projectName}` : null,
     request.chapterTitle ? `Capitolo corrente: ${request.chapterTitle}` : null,
     chapterContext ? `Estratto capitolo:\n${chapterContext.slice(0, 8000)}` : null,
+    projectMemoryContext ? `Memoria progetto:\n${projectMemoryContext}` : null,
+    projectMemoryContext
+      ? [
+          'Quando rispondi usando la memoria progetto:',
+          '- cita i riferimenti disponibili, per esempio [1] o il percorso del file;',
+          '- distingui fatti scritti, schede autore, sintesi wiki e inferenze;',
+          '- se non trovi evidenza sufficiente, scrivi esplicitamente che non hai trovato conferma.',
+        ].join('\n')
+      : null,
     `Richiesta utente:\n${request.message}`,
     'Rispondi in italiano in modo operativo e conciso.',
   ]
@@ -966,6 +1021,7 @@ function runCodexCli(
 }
 
 export const __testing = {
+  buildChatPrompt,
   clearResolvedCommandCaches,
   getLoginShellCandidates,
   getCommonCommandCandidates,
@@ -982,70 +1038,103 @@ export class CodexCliService {
   private nextRequestId = 1;
   private activeRequest: ActiveRequest | null = null;
 
-  async getStatus(settings?: Partial<CodexRuntimeSettings>, workspaceRoot?: string): Promise<CodexStatus> {
+  async getStatus(
+    settings?: Partial<CodexRuntimeSettings>,
+    workspaceRoot?: string,
+  ): Promise<CodexStatus> {
     const runtime = normalizeSettings(settings);
-    if (runtime.provider === 'openai_api' && runtime.allowApiCalls) {
-      const apiKey = runtime.apiKey?.trim() || process.env['OPENAI_API_KEY']?.trim();
-      if (apiKey) {
+    const primaryProbe = await this.probeProvider(runtime.provider, runtime, workspaceRoot);
+    if (primaryProbe.available) {
+      return this.toStatus(primaryProbe, runtime);
+    }
+
+    const fallbackProvider = getActiveFallbackProvider(runtime);
+    if (!fallbackProvider) {
+      return this.toStatus(primaryProbe, runtime);
+    }
+
+    const fallbackProbe = await this.probeProvider(fallbackProvider, runtime, workspaceRoot);
+    if (fallbackProbe.available) {
+      return this.toStatus(
+        {
+          ...fallbackProbe,
+          reason: `Provider primario non disponibile: ${primaryProbe.reason ?? 'errore sconosciuto'}.`,
+        },
+        runtime,
+      );
+    }
+
+    return this.toStatus(
+      {
+        ...primaryProbe,
+        reason: combineFallbackErrors(primaryProbe.reason, fallbackProbe.reason),
+      },
+      runtime,
+    );
+  }
+
+  private toStatus(probe: ProviderProbe, runtime: CodexRuntimeSettings): CodexStatus {
+    return {
+      available: probe.available,
+      command: probe.command,
+      mode: probe.mode,
+      reason: probe.reason,
+      activeRequest: this.activeRequest !== null,
+      queuedRequests: this.queuedRequests,
+      provider: runtime.provider,
+      fallbackProvider: runtime.fallbackProvider,
+      apiCallsEnabled: runtime.allowApiCalls,
+    };
+  }
+
+  private async probeProvider(
+    provider: AiProvider,
+    runtime: CodexRuntimeSettings,
+    workspaceRoot?: string,
+  ): Promise<ProviderProbe> {
+    if (provider === 'openai_api') {
+      if (!runtime.allowApiCalls) {
         return {
-          available: true,
-          command: this.commandName,
-          mode: 'api',
-          activeRequest: this.activeRequest !== null,
-          queuedRequests: this.queuedRequests,
-          provider: runtime.provider,
-          apiCallsEnabled: true,
+          available: false,
+          command: 'OpenAI API',
+          mode: 'fallback',
+          reason: 'Abilita "chiamate API esterne" nelle Impostazioni AI per usare OpenAI API.',
+        };
+      }
+
+      const apiKey = runtime.apiKey?.trim() || process.env['OPENAI_API_KEY']?.trim();
+      if (!apiKey) {
+        return {
+          available: false,
+          command: 'OpenAI API',
+          mode: 'fallback',
+          reason: 'API key mancante: configura OPENAI_API_KEY o la chiave in Impostazioni AI.',
         };
       }
 
       return {
-        available: false,
-        command: this.commandName,
-        mode: 'fallback',
-        reason: 'API key mancante: configura OPENAI_API_KEY o la chiave in Impostazioni AI.',
-        activeRequest: this.activeRequest !== null,
-        queuedRequests: this.queuedRequests,
-        provider: runtime.provider,
-        apiCallsEnabled: true,
+        available: true,
+        command: 'OpenAI API',
+        mode: 'api',
       };
     }
 
-    if (runtime.provider === 'ollama') {
+    if (provider === 'ollama') {
       if (!runtime.allowApiCalls) {
         return {
           available: false,
           command: 'ollama',
           mode: 'fallback',
           reason: 'Abilita "chiamate API esterne" nelle Impostazioni AI per usare Ollama.',
-          activeRequest: this.activeRequest !== null,
-          queuedRequests: this.queuedRequests,
-          provider: runtime.provider,
-          apiCallsEnabled: false,
         };
       }
 
       const probe = await probeOllama(Math.min(this.timeoutMs, 10_000));
-      if (probe.available) {
-        return {
-          available: true,
-          command: `ollama@${resolveOllamaHost()}`,
-          mode: 'api',
-          activeRequest: this.activeRequest !== null,
-          queuedRequests: this.queuedRequests,
-          provider: runtime.provider,
-          apiCallsEnabled: true,
-        };
-      }
-
       return {
-        available: false,
+        available: probe.available,
         command: `ollama@${resolveOllamaHost()}`,
-        mode: 'fallback',
-        reason: probe.reason ?? 'Ollama non raggiungibile',
-        activeRequest: this.activeRequest !== null,
-        queuedRequests: this.queuedRequests,
-        provider: runtime.provider,
-        apiCallsEnabled: true,
+        mode: probe.available ? 'api' : 'fallback',
+        reason: probe.available ? undefined : (probe.reason ?? 'Ollama non raggiungibile'),
       };
     }
 
@@ -1059,27 +1148,11 @@ export class CodexCliService {
       },
     );
 
-    if (probe.mode === 'cli') {
-      return {
-        available: true,
-        command: resolvedCommandName,
-        mode: 'cli',
-        activeRequest: this.activeRequest !== null,
-        queuedRequests: this.queuedRequests,
-        provider: runtime.provider,
-        apiCallsEnabled: runtime.allowApiCalls,
-      };
-    }
-
     return {
-      available: false,
+      available: probe.mode === 'cli',
       command: resolvedCommandName,
-      mode: 'fallback',
-      reason: probe.error ?? 'Codex CLI non raggiungibile',
-      activeRequest: this.activeRequest !== null,
-      queuedRequests: this.queuedRequests,
-      provider: runtime.provider,
-      apiCallsEnabled: runtime.allowApiCalls,
+      mode: probe.mode === 'cli' ? 'cli' : 'fallback',
+      reason: probe.mode === 'cli' ? undefined : (probe.error ?? 'Codex CLI non raggiungibile'),
     };
   }
 
@@ -1105,7 +1178,10 @@ export class CodexCliService {
     }));
   }
 
-  async chat(request: CodexChatRequest, settings?: Partial<CodexRuntimeSettings>): Promise<CodexResult> {
+  async chat(
+    request: CodexChatRequest,
+    settings?: Partial<CodexRuntimeSettings>,
+  ): Promise<CodexResult> {
     const prompt = buildChatPrompt(request);
     return this.enqueuePrompt(prompt, request.workspaceRoot, settings, (error) => ({
       output: fallbackChatResponse(request.message),
@@ -1131,95 +1207,46 @@ export class CodexCliService {
       this.activeRequest = { id: requestId, abortController };
 
       try {
-        const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
-        const apiKey = runtime.apiKey?.trim() || process.env['OPENAI_API_KEY']?.trim() || '';
-        const shouldTryApi = runtime.provider === 'openai_api' && runtime.allowApiCalls && Boolean(apiKey);
-        const shouldTryOllama = runtime.provider === 'ollama' && runtime.allowApiCalls;
-
-        if (shouldTryApi) {
-          const apiResult = await runOpenAiApi(
-            apiKey,
-            runtime.apiModel,
-            prompt,
-            this.timeoutMs,
-            abortController.signal,
-          );
-          if (apiResult.mode === 'api' && apiResult.output.trim()) {
-            return apiResult;
-          }
-          if (apiResult.cancelled) {
-            return apiResult;
-          }
-
-          const cliFallback = await runCodexCli(
-            resolvedCommandName,
-            prompt,
-            this.timeoutMs,
-            {
-              cwd: workspaceRoot,
-            },
-            abortController.signal,
-          );
-          if (cliFallback.mode === 'cli' && cliFallback.output.trim()) {
-            return cliFallback;
-          }
-          if (cliFallback.cancelled) {
-            return cliFallback;
-          }
-
-          return fallbackBuilder(apiResult.error ?? cliFallback.error);
-        }
-
-        if (shouldTryOllama) {
-          const ollamaResult = await runOllamaApi(
-            runtime.apiModel,
-            prompt,
-            this.timeoutMs,
-            abortController.signal,
-          );
-          if (ollamaResult.mode === 'api' && ollamaResult.output.trim()) {
-            return ollamaResult;
-          }
-          if (ollamaResult.cancelled) {
-            return ollamaResult;
-          }
-
-          const cliFallback = await runCodexCli(
-            resolvedCommandName,
-            prompt,
-            this.timeoutMs,
-            {
-              cwd: workspaceRoot,
-            },
-            abortController.signal,
-          );
-          if (cliFallback.mode === 'cli' && cliFallback.output.trim()) {
-            return cliFallback;
-          }
-          if (cliFallback.cancelled) {
-            return cliFallback;
-          }
-
-          return fallbackBuilder(ollamaResult.error ?? cliFallback.error);
-        }
-
-        const cliResult = await runCodexCli(
-          resolvedCommandName,
+        const primaryResult = await this.runProvider(
+          runtime.provider,
+          runtime,
           prompt,
-          this.timeoutMs,
-          {
-            cwd: workspaceRoot,
-          },
+          workspaceRoot,
           abortController.signal,
         );
-        if (cliResult.mode === 'cli' && cliResult.output.trim()) {
-          return cliResult;
+        if (
+          (primaryResult.mode === 'cli' || primaryResult.mode === 'api') &&
+          primaryResult.output.trim()
+        ) {
+          return primaryResult;
         }
-        if (cliResult.cancelled) {
-          return cliResult;
+        if (primaryResult.cancelled) {
+          return primaryResult;
         }
 
-        return fallbackBuilder(cliResult.error);
+        const fallbackProvider = getActiveFallbackProvider(runtime);
+        if (!fallbackProvider) {
+          return fallbackBuilder(primaryResult.error);
+        }
+
+        const fallbackResult = await this.runProvider(
+          fallbackProvider,
+          runtime,
+          prompt,
+          workspaceRoot,
+          abortController.signal,
+        );
+        if (
+          (fallbackResult.mode === 'cli' || fallbackResult.mode === 'api') &&
+          fallbackResult.output.trim()
+        ) {
+          return fallbackResult;
+        }
+        if (fallbackResult.cancelled) {
+          return fallbackResult;
+        }
+
+        return fallbackBuilder(combineFallbackErrors(primaryResult.error, fallbackResult.error));
       } finally {
         if (this.activeRequest?.id === requestId) {
           this.activeRequest = null;
@@ -1234,5 +1261,60 @@ export class CodexCliService {
     );
 
     return task;
+  }
+
+  private async runProvider(
+    provider: AiProvider,
+    runtime: CodexRuntimeSettings,
+    prompt: string,
+    workspaceRoot: string | undefined,
+    signal: AbortSignal,
+  ): Promise<CodexResult> {
+    if (provider === 'openai_api') {
+      if (!runtime.allowApiCalls) {
+        return {
+          output: '',
+          mode: 'fallback',
+          usedCommand: 'openai_api',
+          error: 'Chiamate API esterne disabilitate nelle Impostazioni AI.',
+        };
+      }
+
+      const apiKey = runtime.apiKey?.trim() || process.env['OPENAI_API_KEY']?.trim() || '';
+      if (!apiKey) {
+        return {
+          output: '',
+          mode: 'fallback',
+          usedCommand: 'openai_api',
+          error: 'API key mancante: configura OPENAI_API_KEY o la chiave in Impostazioni AI.',
+        };
+      }
+
+      return runOpenAiApi(apiKey, runtime.apiModel, prompt, this.timeoutMs, signal);
+    }
+
+    if (provider === 'ollama') {
+      if (!runtime.allowApiCalls) {
+        return {
+          output: '',
+          mode: 'fallback',
+          usedCommand: 'ollama',
+          error: 'Chiamate API esterne disabilitate nelle Impostazioni AI.',
+        };
+      }
+
+      return runOllamaApi(runtime.apiModel, prompt, this.timeoutMs, signal);
+    }
+
+    const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
+    return runCodexCli(
+      resolvedCommandName,
+      prompt,
+      this.timeoutMs,
+      {
+        cwd: workspaceRoot,
+      },
+      signal,
+    );
   }
 }

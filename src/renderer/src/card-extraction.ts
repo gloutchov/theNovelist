@@ -4,6 +4,8 @@ export interface CharacterCardExtraction {
   sexualOrientation: string;
   species: string;
   hairColor: string;
+  eyeColor: string;
+  skinColor: string;
   bald: boolean;
   beard: string;
   physique: string;
@@ -180,6 +182,20 @@ export function parseCharacterCreationSuggestion(responseText: string): Characte
       'coloreCapelli',
       'colore_capelli',
       'capelli',
+    ]),
+    eyeColor: getStringField(lookup, [
+      'eyeColor',
+      'eye_color',
+      'coloreOcchi',
+      'colore_occhi',
+      'occhi',
+    ]),
+    skinColor: getStringField(lookup, [
+      'skinColor',
+      'skin_color',
+      'colorePelle',
+      'colore_pelle',
+      'pelle',
     ]),
     bald: getBooleanField(lookup, ['bald', 'calvo', 'calvizie'], false),
     beard: getStringField(lookup, ['beard', 'barba']),
