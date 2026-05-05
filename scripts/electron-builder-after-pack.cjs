@@ -1,4 +1,4 @@
-/* global require, module, process */
+/* global require, module, process, setTimeout */
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { spawn } = require('node:child_process');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
