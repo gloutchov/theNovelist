@@ -23,6 +23,28 @@ function run(command, args) {
   });
 }
 
+async function runWithRetry(command, args, attempts = 5) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await run(command, args);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) {
+        break;
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, attempt * 1000);
+      });
+    }
+  }
+
+  throw lastError;
+}
+
 module.exports = async function afterPack(context) {
   if (context.electronPlatformName !== 'win32') {
     return;
@@ -46,7 +68,7 @@ module.exports = async function afterPack(context) {
     'rcedit.exe',
   );
 
-  await run(rceditPath, [
+  await runWithRetry(rceditPath, [
     executablePath,
     '--set-icon',
     iconPath,
