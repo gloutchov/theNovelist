@@ -2352,6 +2352,22 @@ export default function App() {
               </button>
               <button
                 type="button"
+                className="export-action-button"
+                onClick={() => void handleExportManuscriptDocx()}
+                disabled={!currentProject || busy}
+              >
+                Esporta DOCX
+              </button>
+              <button
+                type="button"
+                className="export-action-button"
+                onClick={() => void handlePrintManuscript()}
+                disabled={!currentProject || busy}
+              >
+                Stampa
+              </button>
+              <button
+                type="button"
                 className="sidebar-action-button"
                 onClick={requestCloseProject}
                 disabled={!canCloseProject}
@@ -2641,24 +2657,6 @@ export default function App() {
               >
                 Nuovo Capitolo
               </button>
-              <div className="sidebar-export-actions">
-                <button
-                  type="button"
-                  className="export-action-button"
-                  onClick={() => void handleExportManuscriptDocx()}
-                  disabled={!currentProject || busy}
-                >
-                  Esporta DOCX
-                </button>
-                <button
-                  type="button"
-                  className="export-action-button"
-                  onClick={() => void handlePrintManuscript()}
-                  disabled={!currentProject || busy}
-                >
-                  Stampa
-                </button>
-              </div>
             </div>
 
             <div className="panel">
