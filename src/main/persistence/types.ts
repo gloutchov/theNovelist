@@ -139,6 +139,7 @@ export interface SceneCardRecord {
   chapterNodeId: string;
   name: string;
   text: string;
+  contentJson: string | null;
   notes: string;
   plotNumber: number;
   positionX: number;
@@ -280,6 +281,7 @@ export interface CreateSceneCardInput {
   chapterNodeId: string;
   name: string;
   text: string;
+  contentJson?: string | null;
   notes: string;
   plotNumber: number;
   positionX: number;

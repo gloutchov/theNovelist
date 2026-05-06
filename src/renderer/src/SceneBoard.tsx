@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  applyEdgeChanges,
   applyNodeChanges,
   Background,
   Controls,
+  MarkerType,
   MiniMap,
   ReactFlow,
+  type Connection,
+  type Edge,
   type Node,
   type NodeMouseHandler,
+  type OnEdgesChange,
   type OnNodesChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
+import { EditorContent, useEditor } from '@tiptap/react';
+import { Node as TiptapNode, mergeAttributes } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import { TextStyle } from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
+import TextAlign from '@tiptap/extension-text-align';
 import SceneFlowNode, { type SceneFlowNodeData } from './SceneFlowNode';
 import { getStatusTone } from './status-tone';
 
@@ -28,6 +39,7 @@ interface SceneDraft {
   chapterNodeId: string;
   name: string;
   text: string;
+  contentJson: string;
   notes: string;
   plotNumber: number;
 }
@@ -50,17 +62,6 @@ interface SceneBoundaryLocation {
   inlineIndex: number;
 }
 
-interface FlattenedTextToken {
-  node: RichTextNodeJson;
-  start: number;
-  end: number;
-}
-
-interface FlattenedRichText {
-  text: string;
-  tokens: FlattenedTextToken[];
-}
-
 interface SceneBoardProps {
   currentProject: ProjectRecord;
   autosaveSettings: AppPreferences | null;
@@ -72,15 +73,121 @@ interface SceneBoardProps {
   onWikiSync?: () => Promise<void>;
 }
 
+const SceneReferenceMention = TiptapNode.create({
+  name: 'referenceMention',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: false,
+
+  addAttributes() {
+    return {
+      refId: { default: '' },
+      refType: { default: 'character' },
+      label: { default: '' },
+      boundary: { default: 'start' },
+    };
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const label = typeof HTMLAttributes['label'] === 'string' ? HTMLAttributes['label'] : '';
+    const refType =
+      typeof HTMLAttributes['refType'] === 'string' ? HTMLAttributes['refType'] : 'character';
+    const prefix = refType === 'scene' ? '#' : '@';
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        class:
+          refType === 'scene' ? 'reference-mention scene-reference-mention' : 'reference-mention',
+        contenteditable: 'false',
+        'data-reference-mention': '',
+        'data-ref-id': HTMLAttributes['refId'] ?? '',
+        'data-ref-type': refType,
+        'data-label': label,
+        'data-boundary': HTMLAttributes['boundary'] ?? 'start',
+        'data-reference-prefix': prefix,
+      }),
+    ];
+  },
+
+  renderText() {
+    return '';
+  },
+});
+
 function formatPlotLabel(plot: StoryPlot | null | undefined, plotNumber: number): string {
   return plot?.label?.trim() || `Trama ${plotNumber}`;
 }
 
+function createEmptyRichTextDocument(): RichTextDocumentJson {
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [] }],
+  };
+}
+
+function richTextDocumentFromPlainText(text: string): RichTextDocumentJson {
+  const paragraphs = text.split(/\n{2,}/u);
+  return {
+    type: 'doc',
+    content: paragraphs.map((paragraph) => ({
+      type: 'paragraph',
+      content: paragraph
+        .split(/\n/u)
+        .flatMap((line, index) =>
+          index === 0
+            ? line
+              ? [{ type: 'text', text: line }]
+              : []
+            : [{ type: 'hardBreak' }, ...(line ? [{ type: 'text', text: line }] : [])],
+        ),
+    })),
+  };
+}
+
+function parseRichTextDocument(
+  contentJson: string | null | undefined,
+  fallbackText: string,
+): RichTextDocumentJson {
+  if (contentJson?.trim()) {
+    try {
+      const parsed = JSON.parse(contentJson) as RichTextDocumentJson;
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch {
+      return richTextDocumentFromPlainText(fallbackText);
+    }
+  }
+  return fallbackText.trim()
+    ? richTextDocumentFromPlainText(fallbackText)
+    : createEmptyRichTextDocument();
+}
+
+function collectPlainTextFromNode(node: RichTextNodeJson | undefined): string {
+  if (!node || node.type === 'referenceMention') {
+    return '';
+  }
+  if (node.type === 'hardBreak') {
+    return '\n';
+  }
+  if (typeof node.text === 'string') {
+    return node.text;
+  }
+  return (node.content ?? []).map(collectPlainTextFromNode).join('');
+}
+
+function getPlainTextFromDocument(document: RichTextDocumentJson): string {
+  return (document.content ?? []).map(collectPlainTextFromNode).join('\n').trim();
+}
+
 function sceneToDraft(scene: SceneCard): SceneDraft {
+  const contentDocument = parseRichTextDocument(scene.contentJson, scene.text);
   return {
     chapterNodeId: scene.chapterNodeId,
     name: scene.name,
-    text: scene.text,
+    text: getPlainTextFromDocument(contentDocument),
+    contentJson: JSON.stringify(contentDocument),
     notes: scene.notes,
     plotNumber: scene.plotNumber,
   };
@@ -91,6 +198,7 @@ function areSceneDraftsEqual(left: SceneDraft, right: SceneDraft): boolean {
     left.chapterNodeId === right.chapterNodeId &&
     left.name === right.name &&
     left.text === right.text &&
+    left.contentJson === right.contentJson &&
     left.notes === right.notes &&
     left.plotNumber === right.plotNumber
   );
@@ -124,277 +232,84 @@ function cloneRichTextNode(node: RichTextNodeJson): RichTextNodeJson {
   };
 }
 
-function getNodeTextLength(node: RichTextNodeJson): number {
-  if (node.type === 'text') {
-    return node.text?.length ?? 0;
-  }
-  if (node.type === 'hardBreak') {
-    return 1;
-  }
-  return (node.content ?? []).reduce((total, child) => total + getNodeTextLength(child), 0);
+function getSceneContentBlocks(document: RichTextDocumentJson): RichTextNodeJson[] {
+  const blocks = document.content?.length
+    ? document.content
+    : createEmptyRichTextDocument().content;
+  return (blocks ?? [{ type: 'paragraph', content: [] }]).map(cloneRichTextNode);
 }
 
-function flattenRichTextNodes(nodes: RichTextNodeJson[]): FlattenedRichText {
-  const tokens: FlattenedTextToken[] = [];
-  let text = '';
-
-  function visit(node: RichTextNodeJson): void {
-    if (node.type === 'text') {
-      const nodeText = node.text ?? '';
-      const start = text.length;
-      text += nodeText;
-      tokens.push({ node, start, end: text.length });
-      return;
-    }
-
-    if (node.type === 'hardBreak') {
-      const start = text.length;
-      text += '\n';
-      tokens.push({ node, start, end: text.length });
-      return;
-    }
-
-    for (const child of node.content ?? []) {
-      visit(child);
-    }
-  }
-
-  for (const node of nodes) {
-    visit(node);
-  }
-
-  return { text, tokens };
-}
-
-function sliceRichTextNodesByTextRange(
-  nodes: RichTextNodeJson[],
-  from: number,
-  to: number,
-): RichTextNodeJson[] {
-  const slicedNodes: RichTextNodeJson[] = [];
-  let cursor = 0;
-
-  function visit(node: RichTextNodeJson): RichTextNodeJson | null {
-    if (node.type === 'referenceMention') {
-      return cursor >= from && cursor < to ? cloneRichTextNode(node) : null;
-    }
-
-    if (node.type === 'text') {
-      const nodeText = node.text ?? '';
-      const start = cursor;
-      const end = cursor + nodeText.length;
-      cursor = end;
-      if (end <= from || start >= to) {
-        return null;
-      }
-
-      return {
-        ...node,
-        text: nodeText.slice(Math.max(from - start, 0), Math.min(to - start, nodeText.length)),
-        attrs: node.attrs ? { ...node.attrs } : undefined,
-        marks: cloneMarks(node.marks),
-      };
-    }
-
-    if (node.type === 'hardBreak') {
-      const start = cursor;
-      cursor += 1;
-      return start >= from && start < to ? cloneRichTextNode(node) : null;
-    }
-
-    if (Array.isArray(node.content)) {
-      const children: RichTextNodeJson[] = [];
-      for (const child of node.content) {
-        const nextChild = visit(child);
-        if (nextChild) {
-          children.push(nextChild);
-        }
-      }
-      if (children.length === 0) {
-        return null;
-      }
-      return {
-        ...node,
-        attrs: node.attrs ? { ...node.attrs } : undefined,
-        marks: cloneMarks(node.marks),
-        content: children,
-      };
-    }
-
-    cursor += getNodeTextLength(node);
-    return null;
-  }
-
-  for (const node of nodes) {
-    const nextNode = visit(node);
-    if (nextNode) {
-      slicedNodes.push(nextNode);
-    }
-  }
-
-  return slicedNodes;
-}
-
-function findInsertionMarks(
-  flattened: FlattenedRichText,
-  textIndex: number,
-): RichTextNodeJson['marks'] {
-  const before = [...flattened.tokens].reverse().find((token) => {
-    if (token.node.type !== 'text' || token.start >= textIndex) {
-      return false;
-    }
-    return Boolean((token.node.text ?? '').slice(0, textIndex - token.start).trim());
-  });
-  if (before) {
-    return cloneMarks(before.node.marks);
-  }
-
-  const after = flattened.tokens.find((token) => {
-    if (token.node.type !== 'text' || token.end <= textIndex) {
-      return false;
-    }
-    return Boolean((token.node.text ?? '').slice(Math.max(textIndex - token.start, 0)).trim());
-  });
-  return cloneMarks(after?.node.marks);
-}
-
-function richTextNodesFromPlainText(
-  text: string,
-  marks: RichTextNodeJson['marks'],
-): RichTextNodeJson[] {
-  const nodes: RichTextNodeJson[] = [];
-  const lines = text.split(/\n/u);
-
-  lines.forEach((line, index) => {
-    if (index > 0) {
-      nodes.push({ type: 'hardBreak' });
-    }
-    if (line) {
-      nodes.push({
-        type: 'text',
-        text: line,
-        marks: cloneMarks(marks),
-      });
-    }
-  });
-
-  return nodes;
-}
-
-function findTextDiff(
-  previousText: string,
-  nextText: string,
-): { prefixLength: number; previousSuffixStart: number; nextSuffixStart: number } {
-  let prefixLength = 0;
-  const maxPrefixLength = Math.min(previousText.length, nextText.length);
-  while (prefixLength < maxPrefixLength && previousText[prefixLength] === nextText[prefixLength]) {
-    prefixLength += 1;
-  }
-
-  let suffixLength = 0;
-  while (
-    suffixLength < previousText.length - prefixLength &&
-    suffixLength < nextText.length - prefixLength &&
-    previousText[previousText.length - suffixLength - 1] ===
-      nextText[nextText.length - suffixLength - 1]
-  ) {
-    suffixLength += 1;
-  }
-
-  return {
-    prefixLength,
-    previousSuffixStart: previousText.length - suffixLength,
-    nextSuffixStart: nextText.length - suffixLength,
-  };
-}
-
-function trimBoundaryWhitespace(text: string): { leading: number; value: string } {
-  const leading = text.match(/^\s*/u)?.[0].length ?? 0;
-  const trailing = text.match(/\s*$/u)?.[0].length ?? 0;
-  return {
-    leading,
-    value: text.slice(leading, text.length - trailing),
-  };
-}
-
-function replaceSceneNodesPreservingFormatting(
-  nodes: RichTextNodeJson[],
-  nextText: string,
-): RichTextNodeJson[] {
-  const flattened = flattenRichTextNodes(nodes);
-  const trimmed = trimBoundaryWhitespace(flattened.text);
-  const diff = findTextDiff(trimmed.value, nextText);
-  const replaceStart = trimmed.leading + diff.prefixLength;
-  const replaceEnd = trimmed.leading + diff.previousSuffixStart;
-  const insertedText = nextText.slice(diff.prefixLength, diff.nextSuffixStart);
-  const insertionMarks = findInsertionMarks(flattened, replaceStart);
-
-  return [
-    ...sliceRichTextNodesByTextRange(nodes, 0, replaceStart),
-    ...richTextNodesFromPlainText(insertedText, insertionMarks),
-    ...sliceRichTextNodesByTextRange(nodes, replaceEnd, flattened.text.length),
-  ];
-}
-
-function getSceneNodesBetweenBoundaries(
-  blocks: RichTextNodeJson[],
-  start: SceneBoundaryLocation,
-  end: SceneBoundaryLocation,
-): RichTextNodeJson[] {
-  const nodes: RichTextNodeJson[] = [];
-  for (let blockIndex = start.blockIndex; blockIndex <= end.blockIndex; blockIndex += 1) {
-    const content = blocks[blockIndex]?.content;
-    if (!Array.isArray(content)) {
-      continue;
-    }
-    const from = blockIndex === start.blockIndex ? start.inlineIndex + 1 : 0;
-    const to = blockIndex === end.blockIndex ? end.inlineIndex : content.length;
-    nodes.push(...content.slice(from, to));
-    if (blockIndex < end.blockIndex) {
-      nodes.push({ type: 'hardBreak' });
-    }
-  }
-  return nodes;
-}
-
-function replaceSceneTextInInlineContent(
-  content: RichTextNodeJson[] | undefined,
+function replaceSceneContentAcrossTopLevelBlocks(
+  document: RichTextDocumentJson,
   sceneId: string,
-  nextText: string,
+  sceneContentDocument: RichTextDocumentJson,
 ): boolean {
-  if (!Array.isArray(content)) {
+  const blocks = document.content ?? [];
+  const start = findTopLevelSceneBoundary(document, sceneId, 'start');
+  const end = findTopLevelSceneBoundary(document, sceneId, 'end');
+  if (!start || !end) {
+    return false;
+  }
+  if (
+    start.blockIndex > end.blockIndex ||
+    (start.blockIndex === end.blockIndex && start.inlineIndex >= end.inlineIndex)
+  ) {
     return false;
   }
 
-  const startIndex = content.findIndex(
-    (node) =>
-      node.type === 'referenceMention' &&
-      node.attrs?.['refType'] === 'scene' &&
-      node.attrs?.['refId'] === sceneId &&
-      node.attrs?.['boundary'] !== 'end',
-  );
-  if (startIndex < 0) {
+  const startBlock = blocks[start.blockIndex];
+  const endBlock = blocks[end.blockIndex];
+  const startContent = startBlock?.content;
+  const endContent = endBlock?.content;
+  if (!startBlock || !endBlock || !Array.isArray(startContent) || !Array.isArray(endContent)) {
     return false;
   }
 
-  const endIndex = content.findIndex(
-    (node, index) =>
-      index > startIndex &&
-      node.type === 'referenceMention' &&
-      node.attrs?.['refType'] === 'scene' &&
-      node.attrs?.['refId'] === sceneId &&
-      node.attrs?.['boundary'] === 'end',
-  );
-  if (endIndex < 0) {
-    return false;
+  const sceneBlocks = getSceneContentBlocks(sceneContentDocument);
+  const firstSceneBlock = sceneBlocks[0] ?? { type: 'paragraph', content: [] };
+  const lastSceneBlock = sceneBlocks[sceneBlocks.length - 1] ?? firstSceneBlock;
+  if (sceneBlocks.length === 1) {
+    blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, {
+      ...firstSceneBlock,
+      content: [
+        ...startContent.slice(0, start.inlineIndex + 1).map(cloneRichTextNode),
+        ...(firstSceneBlock.content ?? []).map(cloneRichTextNode),
+        ...endContent.slice(end.inlineIndex).map(cloneRichTextNode),
+      ],
+    });
+    return true;
   }
 
-  const replacementNodes = replaceSceneNodesPreservingFormatting(
-    content.slice(startIndex + 1, endIndex),
-    nextText,
-  );
-  content.splice(startIndex + 1, endIndex - startIndex - 1, ...replacementNodes);
+  const replacementBlocks: RichTextNodeJson[] = [
+    {
+      ...firstSceneBlock,
+      content: [
+        ...startContent.slice(0, start.inlineIndex + 1).map(cloneRichTextNode),
+        ...(firstSceneBlock.content ?? []).map(cloneRichTextNode),
+      ],
+    },
+    ...sceneBlocks.slice(1, -1).map(cloneRichTextNode),
+    {
+      ...lastSceneBlock,
+      content: [
+        ...(lastSceneBlock.content ?? []).map(cloneRichTextNode),
+        ...endContent.slice(end.inlineIndex).map(cloneRichTextNode),
+      ],
+    },
+  ];
+  blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, ...replacementBlocks);
   return true;
+}
+
+function replaceSceneContentInDocument(
+  document: RichTextDocumentJson,
+  sceneId: string,
+  sceneContentDocument: RichTextDocumentJson,
+): { document: RichTextDocumentJson; replaced: boolean } {
+  return {
+    document,
+    replaced: replaceSceneContentAcrossTopLevelBlocks(document, sceneId, sceneContentDocument),
+  };
 }
 
 function findTopLevelSceneBoundary(
@@ -423,80 +338,6 @@ function findTopLevelSceneBoundary(
     }
   }
   return null;
-}
-
-function replaceSceneTextAcrossTopLevelBlocks(
-  document: RichTextDocumentJson,
-  sceneId: string,
-  nextText: string,
-): boolean {
-  const blocks = document.content ?? [];
-  const start = findTopLevelSceneBoundary(document, sceneId, 'start');
-  const end = findTopLevelSceneBoundary(document, sceneId, 'end');
-  if (!start || !end) {
-    return false;
-  }
-  if (
-    start.blockIndex > end.blockIndex ||
-    (start.blockIndex === end.blockIndex && start.inlineIndex >= end.inlineIndex)
-  ) {
-    return false;
-  }
-
-  if (start.blockIndex === end.blockIndex) {
-    return replaceSceneTextInInlineContent(blocks[start.blockIndex]?.content, sceneId, nextText);
-  }
-
-  const startBlock = blocks[start.blockIndex];
-  const endBlock = blocks[end.blockIndex];
-  const startContent = startBlock?.content;
-  const endContent = endBlock?.content;
-  if (!startBlock || !endBlock || !Array.isArray(startContent) || !Array.isArray(endContent)) {
-    return false;
-  }
-
-  const sceneNodes = getSceneNodesBetweenBoundaries(blocks, start, end);
-  const replacementNodes = replaceSceneNodesPreservingFormatting(sceneNodes, nextText);
-  const replacementBlock: RichTextNodeJson = {
-    ...startBlock,
-    content: [
-      ...startContent.slice(0, start.inlineIndex + 1),
-      ...replacementNodes,
-      ...endContent.slice(end.inlineIndex),
-    ],
-  };
-  blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, replacementBlock);
-  return true;
-}
-
-function replaceSceneTextInDocument(
-  document: RichTextDocumentJson,
-  sceneId: string,
-  nextText: string,
-): { document: RichTextDocumentJson; replaced: boolean } {
-  if (replaceSceneTextAcrossTopLevelBlocks(document, sceneId, nextText)) {
-    return { document, replaced: true };
-  }
-
-  let replaced = false;
-
-  function visit(node: RichTextNodeJson): void {
-    if (replaced) {
-      return;
-    }
-    if (replaceSceneTextInInlineContent(node.content, sceneId, nextText)) {
-      replaced = true;
-      return;
-    }
-    for (const child of node.content ?? []) {
-      visit(child);
-    }
-  }
-
-  for (const node of document.content ?? []) {
-    visit(node);
-  }
-  return { document, replaced };
 }
 
 function mapSceneToNode(
@@ -544,6 +385,7 @@ export default function SceneBoard({
 }: SceneBoardProps) {
   const [scenes, setScenes] = useState<SceneCard[]>([]);
   const [nodes, setNodes] = useState<SceneCanvasNode[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
   const [storyState, setStoryState] = useState<StoryState | null>(null);
   const [characters, setCharacters] = useState<CharacterCard[]>([]);
   const [locations, setLocations] = useState<LocationCard[]>([]);
@@ -553,6 +395,7 @@ export default function SceneBoard({
     chapterNodeId: '',
     name: '',
     text: '',
+    contentJson: JSON.stringify(createEmptyRichTextDocument()),
     notes: '',
     plotNumber: 1,
   });
@@ -561,6 +404,8 @@ export default function SceneBoard({
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef<boolean>(false);
   const lastDraftEditAtRef = useRef<number>(0);
+  const loadedEditorSceneIdRef = useRef<string | null>(null);
+  const applyingSceneEditorContentRef = useRef<boolean>(false);
 
   const nodeTypes = useMemo(() => ({ scene: SceneFlowNode }), []);
   const scenesById = useMemo(() => new Map(scenes.map((scene) => [scene.id, scene])), [scenes]);
@@ -588,6 +433,32 @@ export default function SceneBoard({
     [locations, editDraft.text],
   );
   const statusTone = getStatusTone(statusMessage);
+  const sceneEditor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit,
+      TextStyle,
+      FontFamily,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      SceneReferenceMention,
+    ],
+    content: createEmptyRichTextDocument(),
+    onUpdate({ editor: activeEditor }) {
+      if (applyingSceneEditorContentRef.current) {
+        return;
+      }
+
+      const document = activeEditor.getJSON() as RichTextDocumentJson;
+      const contentJson = JSON.stringify(document);
+      updateEditDraft((previous) => ({
+        ...previous,
+        text: getPlainTextFromDocument(document),
+        contentJson,
+      }));
+    },
+  });
 
   const refreshScenes = useCallback(async (): Promise<void> => {
     const [nextScenes, nextStoryState, nextCharacters, nextLocations] = await Promise.all([
@@ -598,10 +469,24 @@ export default function SceneBoard({
     ]);
     const nextChaptersById = new Map(nextStoryState.nodes.map((chapter) => [chapter.id, chapter]));
     const nextPlotsByNumber = new Map(nextStoryState.plots.map((plot) => [plot.number, plot]));
+    const sceneIds = new Set(nextScenes.map((scene) => scene.id));
     setScenes(nextScenes);
     setStoryState(nextStoryState);
     setCharacters(nextCharacters);
     setLocations(nextLocations);
+    setEdges(
+      nextStoryState.edges
+        .filter((edge) => sceneIds.has(edge.sourceId) && sceneIds.has(edge.targetId))
+        .map((edge) => ({
+          id: edge.id,
+          source: edge.sourceId,
+          target: edge.targetId,
+          sourceHandle: edge.sourceHandle ?? 'handle-bottom',
+          targetHandle: edge.targetHandle ?? 'handle-top',
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
+          style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
+        })),
+    );
     setNodes((previous) =>
       nextScenes.map((scene) => {
         const previousNode = previous.find((node) => node.id === scene.id);
@@ -615,6 +500,21 @@ export default function SceneBoard({
   useEffect(() => {
     void refreshScenes();
   }, [refreshScenes]);
+
+  useEffect(() => {
+    if (!editSceneId) {
+      loadedEditorSceneIdRef.current = null;
+      return;
+    }
+    if (!sceneEditor || loadedEditorSceneIdRef.current === editSceneId) {
+      return;
+    }
+
+    applyingSceneEditorContentRef.current = true;
+    sceneEditor.commands.setContent(parseRichTextDocument(editDraft.contentJson, editDraft.text));
+    applyingSceneEditorContentRef.current = false;
+    loadedEditorSceneIdRef.current = editSceneId;
+  }, [editDraft.contentJson, editDraft.text, editSceneId, sceneEditor]);
 
   useEffect(() => {
     onDirtyChange?.(editDirty);
@@ -644,21 +544,25 @@ export default function SceneBoard({
           chapterNodeId: draftSnapshot.chapterNodeId,
           name: draftSnapshot.name.trim(),
           text: draftSnapshot.text,
+          contentJson: draftSnapshot.contentJson,
           notes: draftSnapshot.notes,
           plotNumber: draftSnapshot.plotNumber,
           positionX: sceneSnapshot.positionX,
           positionY: sceneSnapshot.positionY,
         });
 
-        if (draftSnapshot.text !== sceneSnapshot.text) {
+        if (
+          draftSnapshot.text !== sceneSnapshot.text ||
+          draftSnapshot.contentJson !== sceneSnapshot.contentJson
+        ) {
           const document = await window.novelistApi.getChapterDocument({
             chapterNodeId: draftSnapshot.chapterNodeId,
           });
           const content = JSON.parse(document.contentJson) as RichTextDocumentJson;
-          const { document: nextContent, replaced } = replaceSceneTextInDocument(
+          const { document: nextContent, replaced } = replaceSceneContentInDocument(
             content,
             updated.id,
-            updated.text,
+            parseRichTextDocument(updated.contentJson, updated.text),
           );
           await window.novelistApi.saveChapterDocument({
             chapterNodeId: draftSnapshot.chapterNodeId,
@@ -750,6 +654,67 @@ export default function SceneBoard({
     [],
   );
 
+  const onEdgesChange: OnEdgesChange = useCallback((changes) => {
+    setEdges((currentEdges) => applyEdgeChanges(changes, currentEdges));
+  }, []);
+
+  async function handleConnect(connection: Connection): Promise<void> {
+    if (!connection.source || !connection.target) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await window.novelistApi.createStoryEdge({
+        sourceId: connection.source,
+        targetId: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+      });
+      setEdges((previous) => [
+        ...previous,
+        {
+          id: created.id,
+          source: created.sourceId,
+          target: created.targetId,
+          sourceHandle: created.sourceHandle ?? 'handle-bottom',
+          targetHandle: created.targetHandle ?? 'handle-top',
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
+          style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
+        },
+      ]);
+      onStatus('Connessione creata');
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const onEdgesDelete = useCallback(
+    async (deletedEdges: Edge[]) => {
+      if (deletedEdges.length === 0) {
+        return;
+      }
+
+      setBusy(true);
+      try {
+        await Promise.all(
+          deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
+        );
+        onStatus(`${deletedEdges.length} connessioni eliminate`);
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setError(message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onStatus],
+  );
+
   const onNodeClick: NodeMouseHandler<SceneCanvasNode> = useCallback((_event, node) => {
     setSelectedSceneId(node.id);
   }, []);
@@ -770,6 +735,7 @@ export default function SceneBoard({
         chapterNodeId: scene.chapterNodeId,
         name: scene.name,
         text: scene.text,
+        contentJson: scene.contentJson,
         notes: scene.notes,
         plotNumber: scene.plotNumber,
         positionX: node.position.x,
@@ -783,8 +749,10 @@ export default function SceneBoard({
   }
 
   function openEditScene(scene: SceneCard): void {
+    const draft = sceneToDraft(scene);
+    setEditDraft(draft);
+    loadedEditorSceneIdRef.current = null;
     setEditSceneId(scene.id);
-    setEditDraft(sceneToDraft(scene));
   }
 
   async function handleDeleteSelectedScene(): Promise<void> {
@@ -864,10 +832,13 @@ export default function SceneBoard({
       <section className="canvas-wrap">
         <ReactFlow<SceneCanvasNode>
           nodes={nodes}
-          edges={[]}
+          edges={edges}
           nodeTypes={nodeTypes}
           onlyRenderVisibleElements
           onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onEdgesDelete={onEdgesDelete}
+          onConnect={(connection) => void handleConnect(connection)}
           onNodeClick={onNodeClick}
           onNodeDragStop={(event, node) => void handleNodeDragStop(event, node)}
           onNodeDoubleClick={(_event, node) => {
@@ -927,13 +898,9 @@ export default function SceneBoard({
             </div>
             <label>
               Testo Scena
-              <textarea
-                rows={8}
-                value={editDraft.text}
-                onChange={(event) =>
-                  updateEditDraft((previous) => ({ ...previous, text: event.target.value }))
-                }
-              />
+              <div className="scene-rich-editor-shell">
+                <EditorContent editor={sceneEditor} className="novelist-editor-content" />
+              </div>
             </label>
             <label>
               Note

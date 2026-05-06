@@ -565,6 +565,16 @@ button:disabled {
   -webkit-box-orient: vertical;
 }
 
+.scene-rich-editor-shell {
+  min-height: 220px;
+  max-height: 42vh;
+  overflow: auto;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  padding: 0.65rem 0.8rem;
+}
+
 .location-flow-node {
   display: flex;
   align-items: center;
