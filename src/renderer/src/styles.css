@@ -347,6 +347,8 @@ body {
 .export-action-button {
   min-height: 44px;
   width: 100%;
+  justify-content: flex-start;
+  text-align: left;
   background: #15803d;
   color: #ffffff;
   box-shadow: var(--panel-shadow);

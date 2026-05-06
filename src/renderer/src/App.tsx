@@ -2250,19 +2250,19 @@ export default function App() {
           </button>
           <button
             type="button"
-            className={activeTab === 'story' ? 'tab-active' : ''}
-            onClick={() => setActiveTab('story')}
-            disabled={!currentProject}
-          >
-            Struttura Storia
-          </button>
-          <button
-            type="button"
             className={activeTab === 'plots' ? 'tab-active' : ''}
             onClick={() => setActiveTab('plots')}
             disabled={!currentProject}
           >
             Trame
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'story' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('story')}
+            disabled={!currentProject}
+          >
+            Capitoli
           </button>
           <button
             type="button"
@@ -3490,7 +3490,7 @@ export default function App() {
                 onClick={() => void handleCreatePlotStructure()}
                 disabled={!canCreatePlotStructure}
               >
-                {plotStructureBusy ? 'In Creazione...' : 'Crea Struttura'}
+                {plotStructureBusy ? 'In Creazione...' : 'Crea Capitoli'}
               </button>
             </div>
           </div>
