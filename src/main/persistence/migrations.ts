@@ -396,6 +396,29 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 16,
+    statements: [
+      `
+      CREATE TABLE IF NOT EXISTS entity_revisions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        entity_type TEXT NOT NULL CHECK(entity_type IN ('chapter', 'scene', 'character', 'location')),
+        entity_id TEXT NOT NULL,
+        label TEXT,
+        reason TEXT NOT NULL CHECK(reason IN ('manual', 'auto', 'restore')),
+        snapshot_json TEXT NOT NULL,
+        text_content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_entity_revisions_entity
+      ON entity_revisions(project_id, entity_type, entity_id, created_at DESC);
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

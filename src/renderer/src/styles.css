@@ -280,6 +280,106 @@ body {
   gap: 0.65rem;
 }
 
+.revision-workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 0;
+}
+
+.revision-sidebar {
+  min-height: 72vh;
+}
+
+.revision-entity-panel {
+  display: grid;
+  gap: 0.8rem;
+  overflow: auto;
+}
+
+.revision-entity-panel h2,
+.revision-entity-group h3,
+.revision-pane h2 {
+  margin: 0;
+}
+
+.revision-entity-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.revision-entity-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.revision-entity-list button {
+  align-items: start;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.revision-entity-list button span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.revision-entity-list button.revision-entity-active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+.revision-main {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.revision-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-height: 70vh;
+}
+
+.revision-pane {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.revision-pane header {
+  align-items: start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.revision-pane select {
+  width: 100%;
+}
+
+.revision-pane pre {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.85rem;
+  white-space: pre-wrap;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -1662,6 +1762,11 @@ button.ai-working:disabled {
   .workspace {
     grid-template-columns: 1fr;
     min-height: unset;
+  }
+
+  .revision-workspace,
+  .revision-compare-grid {
+    grid-template-columns: 1fr;
   }
 
   .dashboard-project-panel,
