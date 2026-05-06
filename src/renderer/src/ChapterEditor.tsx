@@ -51,6 +51,7 @@ interface RichTextNodeJson {
   type?: string;
   text?: string;
   attrs?: Record<string, unknown>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
   content?: RichTextNodeJson[];
 }
 
@@ -460,6 +461,115 @@ function getPlainTextFromDocument(document: RichTextDocumentJson): string {
 
 function getWordCountFromDocument(document: RichTextDocumentJson): number {
   return getWordCountFromText(getPlainTextFromDocument(document));
+}
+
+function cloneRichTextNode(node: RichTextNodeJson): RichTextNodeJson {
+  return {
+    ...node,
+    attrs: node.attrs ? { ...node.attrs } : undefined,
+    marks: node.marks?.map((mark) => ({
+      type: mark.type,
+      attrs: mark.attrs ? { ...mark.attrs } : undefined,
+    })),
+    content: node.content?.map(cloneRichTextNode),
+  };
+}
+
+function isInlineRichTextNode(node: RichTextNodeJson): boolean {
+  return node.type === 'text' || node.type === 'hardBreak' || node.type === 'referenceMention';
+}
+
+function normalizeSceneContentDocument(document: RichTextDocumentJson): RichTextDocumentJson {
+  const content = Array.isArray(document.content) ? document.content.map(cloneRichTextNode) : [];
+  if (content.length === 0) {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] };
+  }
+  if (content.every(isInlineRichTextNode)) {
+    return { type: 'doc', content: [{ type: 'paragraph', content }] };
+  }
+  return { type: 'doc', content };
+}
+
+function richTextDocumentFromSelectionContent(content: RichTextNodeJson[]): RichTextDocumentJson {
+  return normalizeSceneContentDocument({ type: 'doc', content });
+}
+
+interface SceneBoundaryLocation {
+  blockIndex: number;
+  inlineIndex: number;
+}
+
+function findTopLevelSceneBoundary(
+  document: RichTextDocumentJson,
+  sceneId: string,
+  boundary: 'start' | 'end',
+): SceneBoundaryLocation | null {
+  const blocks = document.content ?? [];
+  for (const [blockIndex, block] of blocks.entries()) {
+    const inlineContent = block.content;
+    if (!Array.isArray(inlineContent)) {
+      continue;
+    }
+
+    const inlineIndex = inlineContent.findIndex(
+      (node) =>
+        node.type === 'referenceMention' &&
+        node.attrs?.['refType'] === 'scene' &&
+        node.attrs?.['refId'] === sceneId &&
+        (boundary === 'end'
+          ? node.attrs?.['boundary'] === 'end'
+          : node.attrs?.['boundary'] !== 'end'),
+    );
+    if (inlineIndex >= 0) {
+      return { blockIndex, inlineIndex };
+    }
+  }
+  return null;
+}
+
+function compactSceneContentBlocks(blocks: RichTextNodeJson[]): RichTextNodeJson[] {
+  return blocks
+    .map(cloneRichTextNode)
+    .filter((block) => !Array.isArray(block.content) || block.content.length > 0);
+}
+
+function extractSceneContentDocument(
+  document: RichTextDocumentJson,
+  sceneId: string,
+): RichTextDocumentJson | null {
+  const blocks = document.content ?? [];
+  const start = findTopLevelSceneBoundary(document, sceneId, 'start');
+  const end = findTopLevelSceneBoundary(document, sceneId, 'end');
+  if (!start || !end) {
+    return null;
+  }
+  if (
+    start.blockIndex > end.blockIndex ||
+    (start.blockIndex === end.blockIndex && start.inlineIndex >= end.inlineIndex)
+  ) {
+    return null;
+  }
+
+  const contentBlocks: RichTextNodeJson[] = [];
+  for (let blockIndex = start.blockIndex; blockIndex <= end.blockIndex; blockIndex += 1) {
+    const block = blocks[blockIndex];
+    const inlineContent = block?.content;
+    if (!block || !Array.isArray(inlineContent)) {
+      continue;
+    }
+
+    const from = blockIndex === start.blockIndex ? start.inlineIndex + 1 : 0;
+    const to = blockIndex === end.blockIndex ? end.inlineIndex : inlineContent.length;
+    contentBlocks.push({
+      ...block,
+      content: inlineContent.slice(from, to).map(cloneRichTextNode),
+    });
+  }
+
+  return normalizeSceneContentDocument({
+    type: 'doc',
+    content: compactSceneContentBlocks(contentBlocks),
+  });
 }
 
 function appendTextToActiveScenes(
@@ -1551,10 +1661,13 @@ export default function ChapterEditor({
           .filter((scene) => sceneTextById.has(scene.id))
           .map(async (scene) => {
             const nextText = sceneTextById.get(scene.id) ?? '';
+            const nextContent = extractSceneContentDocument(document, scene.id);
+            const nextContentJson = nextContent ? JSON.stringify(nextContent) : scene.contentJson;
             const nextChapterNodeId = chapterNodeId;
             const nextPlotNumber = currentPlotNumber;
             if (
               scene.text === nextText &&
+              scene.contentJson === nextContentJson &&
               scene.chapterNodeId === nextChapterNodeId &&
               scene.plotNumber === nextPlotNumber
             ) {
@@ -1566,6 +1679,7 @@ export default function ChapterEditor({
               chapterNodeId: nextChapterNodeId,
               name: scene.name,
               text: nextText,
+              contentJson: nextContentJson,
               notes: scene.notes,
               plotNumber: nextPlotNumber,
               positionX: scene.positionX,
@@ -2343,10 +2457,21 @@ export default function ChapterEditor({
           },
         );
 
+        const selectedContent =
+          editor && createReferenceModal.range.from < createReferenceModal.range.to
+            ? ((editor.state.doc
+                .slice(createReferenceModal.range.from, createReferenceModal.range.to)
+                .toJSON().content ?? []) as RichTextNodeJson[])
+            : [];
+        const sceneContentJson = JSON.stringify(
+          richTextDocumentFromSelectionContent(selectedContent),
+        );
+
         const created = await window.novelistApi.createSceneCard({
           chapterNodeId,
           name,
           text: createReferenceModal.text,
+          contentJson: sceneContentJson,
           notes: '',
           plotNumber: chapterRecord?.plotNumber ?? 1,
           positionX: nextPosition.x,

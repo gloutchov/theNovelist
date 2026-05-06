@@ -253,6 +253,7 @@ const novelistApi = {
     chapterNodeId: string;
     name: string;
     text: string;
+    contentJson?: string | null;
     notes: string;
     plotNumber: number;
     positionX: number;
@@ -263,6 +264,7 @@ const novelistApi = {
     chapterNodeId: string;
     name: string;
     text: string;
+    contentJson?: string | null;
     notes: string;
     plotNumber: number;
     positionX: number;

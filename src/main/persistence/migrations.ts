@@ -387,6 +387,15 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 15,
+    statements: [
+      `
+      ALTER TABLE scene_cards
+      ADD COLUMN content_json TEXT;
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

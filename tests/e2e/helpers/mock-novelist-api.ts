@@ -200,6 +200,7 @@ export async function installNovelistApiMock(
         chapterNodeId: string;
         name: string;
         text: string;
+        contentJson: string | null;
         notes: string;
         plotNumber: number;
         positionX: number;
@@ -1063,6 +1064,7 @@ export async function installNovelistApiMock(
         chapterNodeId: string;
         name: string;
         text: string;
+        contentJson?: string | null;
         notes: string;
         plotNumber: number;
         positionX: number;
@@ -1076,6 +1078,7 @@ export async function installNovelistApiMock(
           chapterNodeId: payload.chapterNodeId,
           name: payload.name,
           text: payload.text,
+          contentJson: payload.contentJson ?? null,
           notes: payload.notes,
           plotNumber: payload.plotNumber,
           positionX: payload.positionX,
@@ -1092,6 +1095,7 @@ export async function installNovelistApiMock(
         chapterNodeId: string;
         name: string;
         text: string;
+        contentJson?: string | null;
         notes: string;
         plotNumber: number;
         positionX: number;
