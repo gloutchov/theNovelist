@@ -2405,6 +2405,18 @@ export default function App() {
                   </span>
                 </article>
                 <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Capitoli</span>
+                  <strong>{dashboard.chapterMetrics.length}</strong>
+                  <span className="muted">
+                    {dashboard.chaptersWithoutDescription.length} senza descrizione
+                  </span>
+                </article>
+                <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Scene</span>
+                  <strong>{dashboard.sceneCount}</strong>
+                  <span className="muted">{dashboard.scenesWithoutText.length} senza testo</span>
+                </article>
+                <article className="panel dashboard-stat-card">
                   <span className="dashboard-stat-label">Personaggi</span>
                   <strong>{dashboard.characterCount}</strong>
                   <span className="muted">{dashboard.unusedCharacters.length} non usati</span>
@@ -2414,16 +2426,11 @@ export default function App() {
                   <strong>{dashboard.locationCount}</strong>
                   <span className="muted">{dashboard.unusedLocations.length} non usate</span>
                 </article>
-                <article className="panel dashboard-stat-card">
-                  <span className="dashboard-stat-label">Scene</span>
-                  <strong>{dashboard.sceneCount}</strong>
-                  <span className="muted">{dashboard.scenesWithoutText.length} senza testo</span>
-                </article>
               </section>
 
               <section className="dashboard-grid">
-                <article className="panel dashboard-section">
-                  <h2>Ripresa lavoro</h2>
+                <article className="panel dashboard-section dashboard-section-wide">
+                  <h2>Riepilogo</h2>
                   <dl className="dashboard-detail-list">
                     <div>
                       <dt>Ultimo capitolo modificato</dt>
@@ -2492,7 +2499,7 @@ export default function App() {
                 </article>
 
                 <article className="panel dashboard-section">
-                  <h2>Parole per capitolo</h2>
+                  <h2>Parole per Capitolo</h2>
                   {dashboard.chapterMetrics.length > 0 ? (
                     <div className="dashboard-chapter-list">
                       {dashboard.chapterMetrics.map((chapter) => (
@@ -2506,25 +2513,6 @@ export default function App() {
                     </div>
                   ) : (
                     <p className="muted">Nessun capitolo creato.</p>
-                  )}
-                </article>
-
-                <article className="panel dashboard-section">
-                  <h2>Parole per Scena</h2>
-                  {dashboard.sceneMetrics.length > 0 ? (
-                    <div className="dashboard-chapter-list">
-                      {dashboard.sceneMetrics.map((scene) => (
-                        <div className="dashboard-chapter-row" key={scene.id}>
-                          <span>
-                            {scene.plotNumber} · {scene.name}
-                            <small>{scene.chapterTitle}</small>
-                          </span>
-                          <strong>{scene.wordCount}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="muted">Nessuna scena creata.</p>
                   )}
                 </article>
 
@@ -2559,6 +2547,25 @@ export default function App() {
                 </article>
 
                 <article className="panel dashboard-section">
+                  <h2>Parole per Scena</h2>
+                  {dashboard.sceneMetrics.length > 0 ? (
+                    <div className="dashboard-chapter-list">
+                      {dashboard.sceneMetrics.map((scene) => (
+                        <div className="dashboard-chapter-row" key={scene.id}>
+                          <span>
+                            {scene.plotNumber} · {scene.name}
+                            <small>{scene.chapterTitle}</small>
+                          </span>
+                          <strong>{scene.wordCount}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">Nessuna scena creata.</p>
+                  )}
+                </article>
+
+                <article className="panel dashboard-section">
                   <h2>Scene da controllare</h2>
                   <ul className="dashboard-check-list">
                     <li>
@@ -2574,7 +2581,7 @@ export default function App() {
                   </ul>
                 </article>
 
-                <article className="panel dashboard-section">
+                <article className="panel dashboard-section dashboard-section-wide">
                   <h2>Schede non usate</h2>
                   <div className="dashboard-unused-grid">
                     <div>
