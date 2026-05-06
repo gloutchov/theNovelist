@@ -232,8 +232,8 @@ const updateLocationCardRequestSchema = createLocationCardRequestSchema.extend({
 const createSceneCardRequestSchema = z.object({
   chapterNodeId: z.string().trim().min(1),
   name: z.string().trim().min(1).max(180),
-  text: z.string().trim().max(50_000).default(''),
-  notes: z.string().trim().max(8_000).default(''),
+  text: z.string().max(50_000).default(''),
+  notes: z.string().max(8_000).default(''),
   plotNumber: z.number().int().min(1),
   positionX: z.number().default(0),
   positionY: z.number().default(0),
