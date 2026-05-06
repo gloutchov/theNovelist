@@ -187,6 +187,7 @@ export default function LocationBoard({
   const [error, setError] = useState<string | null>(null);
 
   const [createDraft, setCreateDraft] = useState<LocationDraft>(() => emptyLocationDraft(1));
+  const [isCreateCardModalOpen, setIsCreateCardModalOpen] = useState<boolean>(false);
   const [editCardId, setEditCardId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<LocationDraft>(() => emptyLocationDraft(1));
 
@@ -211,6 +212,13 @@ export default function LocationBoard({
   const selectedCard = useMemo(
     () => (selectedCardId ? (cardsById.get(selectedCardId) ?? null) : null),
     [cardsById, selectedCardId],
+  );
+  const selectedCardPlot = useMemo(
+    () =>
+      selectedCard
+        ? (plotOptions.find((plot) => plot.number === selectedCard.plotNumber) ?? null)
+        : null,
+    [plotOptions, selectedCard],
   );
   const currentEditCard = useMemo(
     () => (editCardId ? (cardsById.get(editCardId) ?? null) : null),
@@ -548,6 +556,7 @@ export default function LocationBoard({
       setNodes((prev) => [...prev, mapCardToNode(created, null)]);
       setCreateDraft(emptyLocationDraft(createDraft.plotNumber));
       setSelectedCardId(created.id);
+      setIsCreateCardModalOpen(false);
       onStatus(`Location creata: ${created.name}`);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
@@ -917,55 +926,14 @@ export default function LocationBoard({
   return (
     <section className="workspace">
       <aside className="sidebar">
-        <div className="panel">
-          <h2>Nuova Location</h2>
-          <label>
-            Nome
-            <input
-              value={createDraft.name}
-              onChange={(event) =>
-                setCreateDraft((prev) => ({ ...prev, name: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Tipo luogo
-            <input
-              value={createDraft.locationType}
-              onChange={(event) =>
-                setCreateDraft((prev) => ({ ...prev, locationType: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Trama
-            <select
-              value={createDraft.plotNumber}
-              onChange={(event) =>
-                setCreateDraft((prev) => ({
-                  ...prev,
-                  plotNumber: Number(event.target.value),
-                }))
-              }
-            >
-              {plotOptions.length > 0 ? (
-                plotOptions.map((plot) => (
-                  <option key={plot.number} value={plot.number}>
-                    {formatPlotLabel(plot)}
-                  </option>
-                ))
-              ) : (
-                <option value={createDraft.plotNumber}>Trama {createDraft.plotNumber}</option>
-              )}
-            </select>
-          </label>
+        <div className="sidebar-action-group">
           <button
             type="button"
             className="sidebar-action-button"
-            onClick={() => void handleCreateCard()}
+            onClick={() => setIsCreateCardModalOpen(true)}
             disabled={busy || !currentProject}
           >
-            Crea Scheda
+            Crea Location
           </button>
         </div>
 
@@ -975,7 +943,7 @@ export default function LocationBoard({
             Location: <strong>{selectedCard?.name ?? '-'}</strong>
           </p>
           <p>
-            Trama: <strong>{selectedCard?.plotNumber ?? '-'}</strong>
+            Trama: <strong>{selectedCardPlot ? formatPlotLabel(selectedCardPlot) : '-'}</strong>
           </p>
           <div className="selection-action-stack">
             <button
@@ -1023,6 +991,94 @@ export default function LocationBoard({
           <Background gap={18} size={1} color="#d1d5db" />
         </ReactFlow>
       </section>
+
+      {isCreateCardModalOpen ? (
+        <div className="modal-overlay">
+          <div className="modal-card large-modal-card">
+            <h3>Crea Location</h3>
+            <div className="grid-two">
+              <label>
+                Nome
+                <input
+                  value={createDraft.name}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, name: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Tipologia luogo
+                <input
+                  value={createDraft.locationType}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, locationType: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Trama
+                <select
+                  value={createDraft.plotNumber}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({
+                      ...prev,
+                      plotNumber: Number(event.target.value),
+                    }))
+                  }
+                >
+                  {plotOptions.length > 0 ? (
+                    plotOptions.map((plot) => (
+                      <option key={plot.number} value={plot.number}>
+                        {formatPlotLabel(plot)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={createDraft.plotNumber}>Trama {createDraft.plotNumber}</option>
+                  )}
+                </select>
+              </label>
+            </div>
+            <label>
+              Descrizione
+              <textarea
+                rows={6}
+                value={createDraft.description}
+                onChange={(event) =>
+                  setCreateDraft((prev) => ({ ...prev, description: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              Note
+              <textarea
+                rows={4}
+                value={createDraft.notes}
+                onChange={(event) =>
+                  setCreateDraft((prev) => ({ ...prev, notes: event.target.value }))
+                }
+              />
+            </label>
+
+            <div className="row-buttons">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setIsCreateCardModalOpen(false)}
+                disabled={busy}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateCard()}
+                disabled={busy || !currentProject}
+              >
+                Crea Scheda
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {editCardId ? (
         <div className="modal-overlay">

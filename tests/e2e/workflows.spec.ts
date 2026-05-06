@@ -153,11 +153,15 @@ test('location board create and edit card', async ({ page }) => {
   await createChapter(page, 'Capitolo Location');
 
   await page.getByRole('button', { name: 'Location', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Nuova Location' })).toBeVisible();
+  await page.getByRole('button', { name: 'Crea Location' }).click();
 
-  await page.getByLabel('Nome').fill('Porto Vecchio');
-  await page.getByLabel('Tipo luogo').fill('Porto');
-  await page.getByRole('button', { name: 'Crea Scheda' }).click();
+  const createModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Crea Location' }),
+  });
+  await expect(createModal).toBeVisible();
+  await createModal.getByLabel('Nome').fill('Porto Vecchio');
+  await createModal.getByLabel('Tipologia luogo').fill('Porto');
+  await createModal.getByRole('button', { name: 'Crea Scheda' }).click();
 
   const canvas = page.locator('.canvas-wrap');
   await expect(canvas.getByText('Porto Vecchio')).toBeVisible();
@@ -419,9 +423,14 @@ test('saving location card does not wait for automatic memory sync', async ({ pa
 
   await createProject(page, 'E2E Location Memory Sync');
   await page.getByRole('button', { name: 'Location', exact: true }).click();
+  await page.getByRole('button', { name: 'Crea Location' }).click();
 
-  await page.getByLabel('Nome').fill('Porto Vecchio');
-  await page.getByRole('button', { name: 'Crea Scheda' }).click();
+  const createModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Crea Location' }),
+  });
+  await expect(createModal).toBeVisible();
+  await createModal.getByLabel('Nome').fill('Porto Vecchio');
+  await createModal.getByRole('button', { name: 'Crea Scheda' }).click();
 
   await page.locator('.canvas-wrap').getByText('Porto Vecchio').dblclick();
   const editLocationModal = page.locator('.modal-card').filter({
