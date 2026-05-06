@@ -229,6 +229,24 @@ const updateLocationCardRequestSchema = createLocationCardRequestSchema.extend({
   id: z.string().trim().min(1),
 });
 
+const createSceneCardRequestSchema = z.object({
+  chapterNodeId: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(180),
+  text: z.string().trim().max(50_000).default(''),
+  notes: z.string().trim().max(8_000).default(''),
+  plotNumber: z.number().int().min(1),
+  positionX: z.number().default(0),
+  positionY: z.number().default(0),
+});
+
+const updateSceneCardRequestSchema = createSceneCardRequestSchema.extend({
+  id: z.string().trim().min(1),
+});
+
+const deleteSceneCardRequestSchema = z.object({
+  id: z.string().trim().min(1),
+});
+
 const deleteLocationCardRequestSchema = z.object({
   id: z.string().trim().min(1),
 });
@@ -433,6 +451,20 @@ const locationImageResponseSchema = z.object({
   createdAt: z.string(),
 });
 
+const sceneCardResponseSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  chapterNodeId: z.string(),
+  name: z.string(),
+  text: z.string(),
+  notes: z.string(),
+  plotNumber: z.number().int(),
+  positionX: z.number(),
+  positionY: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 const chapterLinkIdsResponseSchema = z.array(z.string());
 
 const exportResponseSchema = z.object({
@@ -543,6 +575,7 @@ export type CharacterCardResponse = z.infer<typeof characterCardResponseSchema>;
 export type CharacterImageResponse = z.infer<typeof characterImageResponseSchema>;
 export type LocationCardResponse = z.infer<typeof locationCardResponseSchema>;
 export type LocationImageResponse = z.infer<typeof locationImageResponseSchema>;
+export type SceneCardResponse = z.infer<typeof sceneCardResponseSchema>;
 export type CodexStatusResponse = z.infer<typeof codexStatusResponseSchema>;
 export type CodexResultResponse = z.infer<typeof codexResultResponseSchema>;
 export type CodexSettingsResponse = z.infer<typeof codexSettingsResponseSchema>;
@@ -705,7 +738,12 @@ function getReferenceLabel(
   }
 
   const location = repository.getLocationCardById(id);
-  return location?.name.trim() || null;
+  if (location) {
+    return location.name.trim() || null;
+  }
+
+  const scene = repository.getSceneCardById(id);
+  return scene?.name.trim() || null;
 }
 
 function normalizeRichTextDocumentMentions(
@@ -1617,6 +1655,18 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return z.array(locationCardResponseSchema).parse(linkedLocations);
   });
 
+  ipcMain.handle(IPC_CHANNELS.chapterListScenes, (_event, payload: unknown) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const request = chapterReferenceRequestSchema.parse(payload);
+    const node = repository.getChapterNodeById(request.chapterNodeId);
+    if (!node || node.projectId !== projectId) {
+      throw new Error('Chapter node not found');
+    }
+
+    const scenes = repository.listScenesForChapter(projectId, request.chapterNodeId);
+    return z.array(sceneCardResponseSchema).parse(scenes);
+  });
+
   ipcMain.handle(IPC_CHANNELS.characterListCards, () => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const cards = repository.listCharacterCards(projectId);
@@ -1980,6 +2030,75 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const { repository } = getStoryContext(sessionManager);
     const request = deleteLocationImageRequestSchema.parse(payload);
     repository.deleteLocationImage(request.id);
+    return successResponseSchema.parse({ ok: true });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.sceneListCards, () => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const cards = repository.listSceneCards(projectId);
+    return z.array(sceneCardResponseSchema).parse(cards);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.sceneCreateCard, async (_event, payload: unknown) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const request = createSceneCardRequestSchema.parse(payload);
+    const chapter = repository.getChapterNodeById(request.chapterNodeId);
+    if (!chapter || chapter.projectId !== projectId) {
+      throw new Error('Chapter node not found');
+    }
+
+    const card = repository.createSceneCard(projectId, {
+      chapterNodeId: request.chapterNodeId,
+      name: request.name,
+      text: request.text,
+      notes: request.notes,
+      plotNumber: request.plotNumber,
+      positionX: request.positionX,
+      positionY: request.positionY,
+    });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
+    return sceneCardResponseSchema.parse(card);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.sceneUpdateCard, async (_event, payload: unknown) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const request = updateSceneCardRequestSchema.parse(payload);
+    const existing = repository.getSceneCardById(request.id);
+    if (!existing || existing.projectId !== projectId) {
+      throw new Error('Scene card not found');
+    }
+    const chapter = repository.getChapterNodeById(request.chapterNodeId);
+    if (!chapter || chapter.projectId !== projectId) {
+      throw new Error('Chapter node not found');
+    }
+
+    repository.updateSceneCard(request.id, {
+      chapterNodeId: request.chapterNodeId,
+      name: request.name,
+      text: request.text,
+      notes: request.notes,
+      plotNumber: request.plotNumber,
+      positionX: request.positionX,
+      positionY: request.positionY,
+    });
+
+    const updated = repository.getSceneCardById(request.id);
+    if (!updated) {
+      throw new Error('Scene card not found after update');
+    }
+    await syncProjectWikiSourcesBestEffort(sessionManager);
+    return sceneCardResponseSchema.parse(updated);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.sceneDeleteCard, async (_event, payload: unknown) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const request = deleteSceneCardRequestSchema.parse(payload);
+    const existing = repository.getSceneCardById(request.id);
+    if (!existing || existing.projectId !== projectId) {
+      throw new Error('Scene card not found');
+    }
+    repository.deleteSceneCard(request.id);
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return successResponseSchema.parse({ ok: true });
   });
 
