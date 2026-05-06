@@ -2558,63 +2558,15 @@ export default function App() {
         currentProject ? (
           <section className="workspace">
             <aside className="sidebar">
-              <div className="panel">
-                <h2>Nuova Trama</h2>
-                <label>
-                  Numero trama
-                  <input
-                    type="number"
-                    min={1}
-                    value={newPlotNumber}
-                    onChange={(event) =>
-                      setNewPlotNumber(Math.max(1, Number(event.target.value) || 1))
-                    }
-                  />
-                </label>
-                <label>
-                  Titolo trama
-                  <input
-                    value={existingPlotForNewNumber ? existingPlotForNewNumber.label : newPlotLabel}
-                    onChange={(event) => setNewPlotLabel(event.target.value)}
-                    placeholder="Trama principale"
-                    disabled={Boolean(existingPlotForNewNumber)}
-                  />
-                </label>
-                <label>
-                  Bozza trama / struttura
-                  <textarea
-                    rows={7}
-                    value={
-                      existingPlotForNewNumber ? existingPlotForNewNumber.summary : newPlotSummary
-                    }
-                    onChange={(event) => setNewPlotSummary(event.target.value)}
-                    placeholder="Riassunto, struttura grezza, scene chiave, conflitti..."
-                    disabled={Boolean(existingPlotForNewNumber)}
-                  />
-                </label>
-                {existingPlotForNewNumber ? (
-                  <p className="muted">
-                    Trama esistente: <strong>{existingPlotForNewNumber.label}</strong>. Modificala
-                    con doppio click nel canvas.
-                  </p>
-                ) : null}
-                <div className="plot-structure-actions">
-                  <button
-                    type="button"
-                    onClick={() => void handleCreatePlot()}
-                    disabled={!canCreatePlot}
-                  >
-                    Crea Trama
-                  </button>
-                  <button
-                    type="button"
-                    className={plotStructureBusy ? 'ai-working' : undefined}
-                    onClick={() => void handleCreatePlotStructure()}
-                    disabled={!canCreatePlotStructure}
-                  >
-                    {plotStructureBusy ? 'In Creazione...' : 'Crea Struttura'}
-                  </button>
-                </div>
+              <div className="sidebar-action-group">
+                <button
+                  type="button"
+                  className="sidebar-action-button"
+                  onClick={() => setIsPlotModalOpen(true)}
+                  disabled={!canOpenStoryCreationTools}
+                >
+                  Nuova Trama
+                </button>
               </div>
 
               <div className="panel">
@@ -2629,6 +2581,9 @@ export default function App() {
                 </p>
                 <p>
                   Numero: <strong>{selectedPlot?.number ?? '-'}</strong>
+                </p>
+                <p className="selection-summary">
+                  Sinossi: <strong>{selectedPlot?.summary.trim() || '-'}</strong>
                 </p>
                 <div className="selection-action-stack">
                   <button
@@ -3279,10 +3234,10 @@ export default function App() {
         </div>
       ) : null}
 
-      {activeTab === 'story' && isPlotModalOpen ? (
+      {(activeTab === 'story' || activeTab === 'plots') && isPlotModalOpen ? (
         <div className="modal-overlay">
           <div className="modal-card">
-            <h3>Nuove Trame</h3>
+            <h3>Nuova Trama</h3>
             <label>
               Numero trama
               <input
