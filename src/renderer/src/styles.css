@@ -149,7 +149,7 @@ body {
 
 .dashboard-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -179,6 +179,10 @@ body {
 
 .dashboard-section {
   min-height: 220px;
+}
+
+.dashboard-section-wide {
+  grid-column: 1 / -1;
 }
 
 .dashboard-detail-list {
