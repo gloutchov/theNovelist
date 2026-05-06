@@ -29,8 +29,9 @@ afterEach(async () => {
 
 describe('snapshots', () => {
   it('creates and recovers latest snapshot', async () => {
-    const rootPath = await createTempDir('novelist-snapshots-');
-    await createProjectOnDisk({ rootPath, name: 'Snapshots Test' });
+    const workspacePath = await createTempDir('novelist-snapshots-');
+    const created = await createProjectOnDisk({ rootPath: workspacePath, name: 'Snapshots Test' });
+    const rootPath = created.rootPath;
 
     const paths = resolveProjectPaths(rootPath);
     const originalBytes = await readFile(paths.dbPath);
