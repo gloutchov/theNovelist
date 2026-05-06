@@ -11,6 +11,8 @@ import type {
   CodexResultResponse,
   CodexSettingsResponse,
   CodexStatusResponse,
+  EntityRevisionCurrentResponse,
+  EntityRevisionResponse,
   LocationCardResponse,
   LocationImageResponse,
   PingRequest,
@@ -272,6 +274,22 @@ const novelistApi = {
   }): Promise<SceneCardResponse> => ipcRenderer.invoke(IPC_CHANNELS.sceneUpdateCard, payload),
   deleteSceneCard: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.sceneDeleteCard, payload),
+  getRevisionCurrent: (payload: {
+    entityType: 'chapter' | 'scene' | 'character' | 'location';
+    entityId: string;
+  }): Promise<EntityRevisionCurrentResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.revisionGetCurrent, payload),
+  createRevision: (payload: {
+    entityType: 'chapter' | 'scene' | 'character' | 'location';
+    entityId: string;
+    label?: string;
+  }): Promise<EntityRevisionResponse> => ipcRenderer.invoke(IPC_CHANNELS.revisionCreate, payload),
+  listRevisions: (payload: {
+    entityType: 'chapter' | 'scene' | 'character' | 'location';
+    entityId: string;
+  }): Promise<EntityRevisionResponse[]> => ipcRenderer.invoke(IPC_CHANNELS.revisionList, payload),
+  restoreRevision: (payload: { revisionId: string }): Promise<EntityRevisionCurrentResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.revisionRestore, payload),
   codexStatus: (): Promise<CodexStatusResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexStatus),
   codexGetSettings: (): Promise<CodexSettingsResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexGetSettings),

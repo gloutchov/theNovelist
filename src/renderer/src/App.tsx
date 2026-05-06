@@ -30,6 +30,7 @@ import LocationBoard from './LocationBoard';
 import LocationFlowNode from './LocationFlowNode';
 import PlotFlowNode, { type PlotFlowNodeData } from './PlotFlowNode';
 import SceneBoard from './SceneBoard';
+import RevisionBoard from './RevisionBoard';
 import { getStatusTone } from './status-tone';
 
 type StoryState = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>;
@@ -65,6 +66,7 @@ type WorkspaceTab =
   | 'scenes'
   | 'characters'
   | 'locations'
+  | 'revisions'
   | 'memory';
 
 interface PlotStructureBlock {
@@ -2290,6 +2292,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            className={activeTab === 'revisions' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('revisions')}
+            disabled={!currentProject}
+          >
+            Revisioni
+          </button>
+          <button
+            type="button"
             className={activeTab === 'memory' ? 'tab-active' : ''}
             onClick={openMemoryTab}
             disabled={!currentProject}
@@ -2874,6 +2884,21 @@ export default function App() {
         ) : (
           <section className="panel">
             <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire le location.</p>
+          </section>
+        )
+      ) : null}
+
+      {activeTab === 'revisions' ? (
+        currentProject ? (
+          <RevisionBoard
+            currentProject={currentProject}
+            statusMessage={status}
+            workspaceNotice={workspaceNotice}
+            onStatus={handleWorkspaceStatus}
+          />
+        ) : (
+          <section className="panel">
+            <p>Apri o crea un progetto per gestire revisioni e versioni.</p>
           </section>
         )
       ) : null}

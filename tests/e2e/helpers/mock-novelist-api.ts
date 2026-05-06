@@ -208,6 +208,17 @@ export async function installNovelistApiMock(
         createdAt: string;
         updatedAt: string;
       }>,
+      entityRevisions: [] as Array<{
+        id: string;
+        projectId: string;
+        entityType: 'chapter' | 'scene' | 'character' | 'location';
+        entityId: string;
+        label: string | null;
+        reason: 'manual' | 'auto' | 'restore';
+        snapshotJson: string;
+        textContent: string;
+        createdAt: string;
+      }>,
     };
 
     const ensureProject = () => {
@@ -230,6 +241,7 @@ export async function installNovelistApiMock(
       state.locationImages = [];
       state.locationChapterLinks = [];
       state.sceneCards = [];
+      state.entityRevisions = [];
     };
 
     const buildWordSequence = (wordCount: number): string =>
@@ -247,6 +259,83 @@ export async function installNovelistApiMock(
           },
         ],
       });
+
+    const plainTextFromRichText = (contentJson: string): string => {
+      try {
+        const parsed = JSON.parse(contentJson) as {
+          content?: Array<{ content?: Array<{ text?: string }> }>;
+        };
+        return (parsed.content ?? [])
+          .map((block) => (block.content ?? []).map((span) => span.text ?? '').join(''))
+          .join('\n')
+          .trim();
+      } catch {
+        return '';
+      }
+    };
+
+    const buildRevisionCurrent = (
+      entityType: 'chapter' | 'scene' | 'character' | 'location',
+      entityId: string,
+    ) => {
+      ensureProject();
+      if (entityType === 'chapter') {
+        const node = state.nodes.find((item) => item.id === entityId);
+        if (!node) throw new Error('Chapter node not found');
+        const document = state.chapterDocumentsByNodeId.get(entityId);
+        return {
+          entityType,
+          entityId,
+          title: node.title,
+          subtitle: `Trama ${node.plotNumber} · Capitolo ${node.blockNumber}`,
+          updatedAt: document?.updatedAt ?? node.updatedAt,
+          snapshotJson: JSON.stringify({ version: 1, entityType, node, document }),
+          textContent: document ? plainTextFromRichText(document.contentJson) : node.description,
+        };
+      }
+      if (entityType === 'scene') {
+        const card = state.sceneCards.find((item) => item.id === entityId);
+        if (!card) throw new Error('Scene card not found');
+        return {
+          entityType,
+          entityId,
+          title: `#${card.name}`,
+          subtitle:
+            state.nodes.find((node) => node.id === card.chapterNodeId)?.title ??
+            `Trama ${card.plotNumber}`,
+          updatedAt: card.updatedAt,
+          snapshotJson: JSON.stringify({ version: 1, entityType, card }),
+          textContent: [card.text, card.notes].filter(Boolean).join('\n\n'),
+        };
+      }
+      if (entityType === 'character') {
+        const card = state.characterCards.find((item) => item.id === entityId);
+        if (!card) throw new Error('Character card not found');
+        const title = `${card.firstName} ${card.lastName}`.trim() || 'Personaggio senza nome';
+        return {
+          entityType,
+          entityId,
+          title,
+          subtitle: card.job || `Trama ${card.plotNumber}`,
+          updatedAt: card.updatedAt,
+          snapshotJson: JSON.stringify({ version: 1, entityType, card, chapterNodeIds: [] }),
+          textContent: [title, card.job, card.notes].filter(Boolean).join('\n'),
+        };
+      }
+      const card = state.locationCards.find((item) => item.id === entityId);
+      if (!card) throw new Error('Location card not found');
+      return {
+        entityType,
+        entityId,
+        title: card.name,
+        subtitle: card.locationType || `Trama ${card.plotNumber}`,
+        updatedAt: card.updatedAt,
+        snapshotJson: JSON.stringify({ version: 1, entityType, card, chapterNodeIds: [] }),
+        textContent: [card.name, card.locationType, card.description, card.notes]
+          .filter(Boolean)
+          .join('\n'),
+      };
+    };
 
     const applyBootstrap = (): void => {
       if (!bootstrap) {
@@ -1112,6 +1201,55 @@ export async function installNovelistApiMock(
       deleteSceneCard: async (payload: { id: string }) => {
         state.sceneCards = state.sceneCards.filter((card) => card.id !== payload.id);
         return { ok: true as const };
+      },
+
+      getRevisionCurrent: async (payload: {
+        entityType: 'chapter' | 'scene' | 'character' | 'location';
+        entityId: string;
+      }) => clone(buildRevisionCurrent(payload.entityType, payload.entityId)),
+
+      createRevision: async (payload: {
+        entityType: 'chapter' | 'scene' | 'character' | 'location';
+        entityId: string;
+        label?: string;
+      }) => {
+        const project = ensureProject();
+        const current = buildRevisionCurrent(payload.entityType, payload.entityId);
+        const revision = {
+          id: nextId('revision'),
+          projectId: project.id,
+          entityType: payload.entityType,
+          entityId: payload.entityId,
+          label: payload.label?.trim() || 'Versione manuale',
+          reason: 'manual' as const,
+          snapshotJson: current.snapshotJson,
+          textContent: current.textContent,
+          createdAt: nowIso(),
+        };
+        state.entityRevisions.push(revision);
+        return clone(revision);
+      },
+
+      listRevisions: async (payload: {
+        entityType: 'chapter' | 'scene' | 'character' | 'location';
+        entityId: string;
+      }) =>
+        clone(
+          state.entityRevisions
+            .filter(
+              (revision) =>
+                revision.entityType === payload.entityType &&
+                revision.entityId === payload.entityId,
+            )
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+        ),
+
+      restoreRevision: async (payload: { revisionId: string }) => {
+        const revision = state.entityRevisions.find((item) => item.id === payload.revisionId);
+        if (!revision) {
+          throw new Error('Revision not found');
+        }
+        return clone(buildRevisionCurrent(revision.entityType, revision.entityId));
       },
 
       codexStatus: async () => ({

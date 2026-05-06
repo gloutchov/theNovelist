@@ -1801,6 +1801,32 @@ export default function ChapterEditor({
     [editor, handleSave, isDirty, loading, saving],
   );
 
+  async function handleCreateManualVersion(): Promise<void> {
+    if (!editor || saving) {
+      return;
+    }
+
+    const saved = isDirty
+      ? await handleSave({ successStatus: 'Capitolo salvato prima della versione' })
+      : true;
+    if (!saved) {
+      return;
+    }
+
+    try {
+      const revision = await window.novelistApi.createRevision({
+        entityType: 'chapter',
+        entityId: chapterNodeId,
+        label: 'Versione manuale',
+      });
+      onStatus(`Versione capitolo creata: ${new Date(revision.createdAt).toLocaleString()}`);
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      onStatus('Errore creazione versione capitolo');
+    }
+  }
+
   useEffect(() => {
     onDirtyChange?.(isDirty);
     return () => {
@@ -2983,6 +3009,13 @@ export default function ChapterEditor({
               : ''}
           </p>
           <div className="row-buttons">
+            <button
+              type="button"
+              onClick={() => void handleCreateManualVersion()}
+              disabled={saving || !editor}
+            >
+              Crea Versione
+            </button>
             <button type="button" onClick={() => void handleSave()} disabled={saving || !editor}>
               Salva
             </button>

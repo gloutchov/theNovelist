@@ -14,6 +14,7 @@ import type {
   CreateCodexChatMessageInput,
   CreateCharacterCardInput,
   CreateCharacterImageInput,
+  CreateEntityRevisionInput,
   CreateStoryEdgeInput,
   CreateChapterNodeInput,
   CreateLocationCardInput,
@@ -22,6 +23,7 @@ import type {
   CreatePlotInput,
   SetCharacterChapterLinksInput,
   SetLocationChapterLinksInput,
+  EntityRevisionRecord,
   LocationChapterLinkRecord,
   LocationCardRecord,
   LocationImageRecord,
@@ -227,6 +229,25 @@ function toSceneCardRecord(row: Record<string, unknown>): SceneCardRecord {
     positionY: Number(row.position_y),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+  };
+}
+
+function toEntityRevisionRecord(row: Record<string, unknown>): EntityRevisionRecord {
+  const entityType = String(row.entity_type);
+  const reason = String(row.reason);
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    entityType:
+      entityType === 'scene' || entityType === 'character' || entityType === 'location'
+        ? entityType
+        : 'chapter',
+    entityId: String(row.entity_id),
+    label: row.label === null || row.label === undefined ? null : String(row.label),
+    reason: reason === 'manual' || reason === 'restore' ? reason : 'auto',
+    snapshotJson: String(row.snapshot_json),
+    textContent: String(row.text_content),
+    createdAt: String(row.created_at),
   };
 }
 
@@ -1523,5 +1544,110 @@ export class NovelistRepository {
 
   deleteSceneCard(sceneId: string): void {
     this.db.prepare('DELETE FROM scene_cards WHERE id = ?').run(sceneId);
+  }
+
+  createEntityRevision(projectId: string, input: CreateEntityRevisionInput): EntityRevisionRecord {
+    const id = randomUUID();
+    const timestamp = nowIso();
+
+    this.db
+      .prepare(
+        `
+        INSERT INTO entity_revisions(
+          id,
+          project_id,
+          entity_type,
+          entity_id,
+          label,
+          reason,
+          snapshot_json,
+          text_content,
+          created_at
+        )
+        VALUES (
+          @id,
+          @projectId,
+          @entityType,
+          @entityId,
+          @label,
+          @reason,
+          @snapshotJson,
+          @textContent,
+          @createdAt
+        )
+        `,
+      )
+      .run({
+        id,
+        projectId,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        label: input.label?.trim() ? input.label.trim() : null,
+        reason: input.reason,
+        snapshotJson: input.snapshotJson,
+        textContent: input.textContent,
+        createdAt: timestamp,
+      });
+
+    const created = this.getEntityRevisionById(id);
+    if (!created) {
+      throw new Error('Entity revision creation failed');
+    }
+    return created;
+  }
+
+  createEntityRevisionIfChanged(
+    projectId: string,
+    input: CreateEntityRevisionInput,
+  ): EntityRevisionRecord | null {
+    const latest = this.getLatestEntityRevision(projectId, input.entityType, input.entityId);
+    if (latest?.snapshotJson === input.snapshotJson) {
+      return null;
+    }
+    return this.createEntityRevision(projectId, input);
+  }
+
+  listEntityRevisions(
+    projectId: string,
+    entityType: CreateEntityRevisionInput['entityType'],
+    entityId: string,
+  ): EntityRevisionRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM entity_revisions
+        WHERE project_id = ? AND entity_type = ? AND entity_id = ?
+        ORDER BY created_at DESC, rowid DESC
+        `,
+      )
+      .all(projectId, entityType, entityId) as Record<string, unknown>[];
+    return rows.map(toEntityRevisionRecord);
+  }
+
+  getLatestEntityRevision(
+    projectId: string,
+    entityType: CreateEntityRevisionInput['entityType'],
+    entityId: string,
+  ): EntityRevisionRecord | null {
+    const row = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM entity_revisions
+        WHERE project_id = ? AND entity_type = ? AND entity_id = ?
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT 1
+        `,
+      )
+      .get(projectId, entityType, entityId) as Record<string, unknown> | undefined;
+    return row ? toEntityRevisionRecord(row) : null;
+  }
+
+  getEntityRevisionById(revisionId: string): EntityRevisionRecord | null {
+    const row = this.db.prepare('SELECT * FROM entity_revisions WHERE id = ?').get(revisionId) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? toEntityRevisionRecord(row) : null;
   }
 }

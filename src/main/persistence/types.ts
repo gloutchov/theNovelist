@@ -148,6 +148,21 @@ export interface SceneCardRecord {
   updatedAt: string;
 }
 
+export type EntityRevisionType = 'chapter' | 'scene' | 'character' | 'location';
+export type EntityRevisionReason = 'manual' | 'auto' | 'restore';
+
+export interface EntityRevisionRecord {
+  id: string;
+  projectId: string;
+  entityType: EntityRevisionType;
+  entityId: string;
+  label: string | null;
+  reason: EntityRevisionReason;
+  snapshotJson: string;
+  textContent: string;
+  createdAt: string;
+}
+
 export interface CharacterChapterLinkRecord {
   characterCardId: string;
   chapterNodeId: string;
@@ -289,6 +304,15 @@ export interface CreateSceneCardInput {
 }
 
 export type UpdateSceneCardInput = CreateSceneCardInput;
+
+export interface CreateEntityRevisionInput {
+  entityType: EntityRevisionType;
+  entityId: string;
+  label?: string | null;
+  reason: EntityRevisionReason;
+  snapshotJson: string;
+  textContent: string;
+}
 
 export interface SetCharacterChapterLinksInput {
   characterCardId: string;
