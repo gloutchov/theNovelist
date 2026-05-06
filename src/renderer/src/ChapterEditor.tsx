@@ -232,15 +232,23 @@ const ReferenceMention = TiptapNode.create({
     return {
       refId: {
         default: '',
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute('data-ref-id') ?? element.getAttribute('refId') ?? '',
       },
       refType: {
         default: 'character',
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute('data-ref-type') ?? element.getAttribute('refType') ?? 'character',
       },
       label: {
         default: '',
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute('data-label') ?? element.getAttribute('label') ?? '',
       },
       boundary: {
         default: 'start',
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute('data-boundary') ?? element.getAttribute('boundary') ?? 'start',
       },
     };
   },
@@ -254,11 +262,31 @@ const ReferenceMention = TiptapNode.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const label = typeof HTMLAttributes['label'] === 'string' ? HTMLAttributes['label'] : '';
-    const refId = typeof HTMLAttributes['refId'] === 'string' ? HTMLAttributes['refId'] : '';
+    const label =
+      typeof HTMLAttributes['label'] === 'string'
+        ? HTMLAttributes['label']
+        : typeof HTMLAttributes['data-label'] === 'string'
+          ? HTMLAttributes['data-label']
+          : '';
+    const refId =
+      typeof HTMLAttributes['refId'] === 'string'
+        ? HTMLAttributes['refId']
+        : typeof HTMLAttributes['data-ref-id'] === 'string'
+          ? HTMLAttributes['data-ref-id']
+          : '';
     const refType =
-      typeof HTMLAttributes['refType'] === 'string' ? HTMLAttributes['refType'] : 'character';
+      typeof HTMLAttributes['refType'] === 'string'
+        ? HTMLAttributes['refType']
+        : typeof HTMLAttributes['data-ref-type'] === 'string'
+          ? HTMLAttributes['data-ref-type']
+          : 'character';
     const prefix = refType === 'scene' ? '#' : '@';
+    const boundary =
+      typeof HTMLAttributes['boundary'] === 'string'
+        ? HTMLAttributes['boundary']
+        : typeof HTMLAttributes['data-boundary'] === 'string'
+          ? HTMLAttributes['data-boundary']
+          : 'start';
 
     return [
       'span',
@@ -270,8 +298,9 @@ const ReferenceMention = TiptapNode.create({
         'data-ref-id': refId,
         'data-ref-type': refType,
         'data-label': label,
+        'data-boundary': boundary,
+        'data-reference-prefix': prefix,
       }),
-      `${prefix}${label}`,
     ];
   },
 

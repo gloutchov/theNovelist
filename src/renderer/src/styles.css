@@ -1375,6 +1375,7 @@ button.ai-working:disabled {
 .novelist-editor-content .reference-mention {
   display: inline-flex;
   align-items: center;
+  min-width: max-content;
   margin: 0 0.08rem;
   padding: 0.04rem 0.38rem;
   border-radius: 999px;
@@ -1384,6 +1385,10 @@ button.ai-working:disabled {
   font-size: 0.86em;
   white-space: nowrap;
   vertical-align: baseline;
+}
+
+.novelist-editor-content .reference-mention::before {
+  content: attr(data-reference-prefix) attr(data-label);
 }
 
 .novelist-editor-content .scene-reference-mention {
