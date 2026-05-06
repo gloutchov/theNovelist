@@ -41,20 +41,122 @@ type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPref
 type CreatedChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['createStoryNode']>>;
 type WikiStatus = Awaited<ReturnType<(typeof window.novelistApi)['wikiGetStatus']>>;
 type WikiSearchResult = Awaited<ReturnType<(typeof window.novelistApi)['wikiSearch']>>[number];
+type DashboardSnapshot = Awaited<ReturnType<(typeof window.novelistApi)['listSnapshots']>>[number];
+type DashboardCharacterCard = Awaited<
+  ReturnType<(typeof window.novelistApi)['listCharacterCards']>
+>[number];
+type DashboardLocationCard = Awaited<
+  ReturnType<(typeof window.novelistApi)['listLocationCards']>
+>[number];
 type CodexMemorySource = NonNullable<
   Awaited<ReturnType<(typeof window.novelistApi)['codexChat']>>['memorySources']
 >[number];
 type ChapterCanvasNode = Node<ChapterFlowNodeData, 'chapter'>;
 type PlotCanvasNode = Node<PlotFlowNodeData, 'plot'>;
 
-type WorkspaceTab = 'story' | 'plots' | 'characters' | 'locations' | 'memory';
+type WorkspaceTab = 'dashboard' | 'story' | 'plots' | 'characters' | 'locations' | 'memory';
 
 interface PlotStructureBlock {
   title: string;
   description: string;
 }
 
+interface DashboardChapterMetric {
+  id: string;
+  title: string;
+  plotNumber: number;
+  blockNumber: number;
+  wordCount: number;
+  updatedAt: string;
+  hasDescription: boolean;
+  descriptionStale: boolean;
+}
+
+interface DashboardState {
+  loading: boolean;
+  error: string | null;
+  totalWords: number;
+  chapterMetrics: DashboardChapterMetric[];
+  lastModifiedChapter: DashboardChapterMetric | null;
+  chaptersWithoutDescription: DashboardChapterMetric[];
+  chaptersWithStaleDescription: DashboardChapterMetric[];
+  chaptersWithoutCharacters: DashboardChapterMetric[];
+  chaptersWithoutLocations: DashboardChapterMetric[];
+  unusedCharacters: string[];
+  unusedLocations: string[];
+  disconnectedChapters: DashboardChapterMetric[];
+  latestSnapshot: DashboardSnapshot | null;
+  characterCount: number;
+  locationCount: number;
+}
+
 const DEFAULT_PROJECT_NAME = 'Romanzo senza titolo';
+
+function createEmptyDashboardState(): DashboardState {
+  return {
+    loading: false,
+    error: null,
+    totalWords: 0,
+    chapterMetrics: [],
+    lastModifiedChapter: null,
+    chaptersWithoutDescription: [],
+    chaptersWithStaleDescription: [],
+    chaptersWithoutCharacters: [],
+    chaptersWithoutLocations: [],
+    unusedCharacters: [],
+    unusedLocations: [],
+    disconnectedChapters: [],
+    latestSnapshot: null,
+    characterCount: 0,
+    locationCount: 0,
+  };
+}
+
+function parseTime(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  const timestamp = parseTime(value);
+  if (!timestamp) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('it-IT', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(timestamp));
+}
+
+function formatAutosaveLabel(preferences: AppPreferences | null): string {
+  if (!preferences) {
+    return 'Non caricato';
+  }
+
+  if (preferences.autosaveMode === 'auto') {
+    return 'Automatico a ogni modifica';
+  }
+
+  if (preferences.autosaveMode === 'interval') {
+    return `Ogni ${normalizeIntervalMinutes(preferences.autosaveIntervalMinutes)} min`;
+  }
+
+  return 'Manuale';
+}
+
+function formatCharacterName(card: DashboardCharacterCard): string {
+  const fullName = `${card.firstName} ${card.lastName}`.trim();
+  return fullName || 'Personaggio senza nome';
+}
+
+function formatLocationName(card: DashboardLocationCard): string {
+  return card.name.trim() || 'Location senza nome';
+}
 
 function getApiKeyStorageLabel(storage: CodexSettings['apiKeyStorage']): string {
   if (storage === 'secure_storage') {
@@ -395,7 +497,7 @@ export default function App() {
   const [createProjectRoot, setCreateProjectRoot] = useState<string>('');
   const [createProjectName, setCreateProjectName] = useState<string>(DEFAULT_PROJECT_NAME);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('story');
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('dashboard');
   const [appPreferences, setAppPreferences] = useState<AppPreferences | null>(null);
   const [appPreferencesBusy, setAppPreferencesBusy] = useState<boolean>(false);
   const [aiSettings, setAiSettings] = useState<CodexSettings | null>(null);
@@ -410,6 +512,7 @@ export default function App() {
   const [wikiSearchResults, setWikiSearchResults] = useState<WikiSearchResult[]>([]);
   const [lastAiMemorySources, setLastAiMemorySources] = useState<CodexMemorySource[]>([]);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardState>(() => createEmptyDashboardState());
 
   const [plots, setPlots] = useState<PlotRecord[]>([]);
   const [plotNodes, setPlotNodes] = useState<PlotCanvasNode[]>([]);
@@ -454,10 +557,10 @@ export default function App() {
   const workspaceNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyFlowRef = useRef<ReactFlowInstance<ChapterCanvasNode, Edge> | null>(null);
   const plotFlowRef = useRef<ReactFlowInstance<PlotCanvasNode> | null>(null);
-  const previousStoryTabRef = useRef<WorkspaceTab>('story');
+  const previousStoryTabRef = useRef<WorkspaceTab>('dashboard');
   const previousStoryNodeCountRef = useRef<number>(0);
   const previousStoryProjectRootRef = useRef<string | null>(null);
-  const previousPlotTabRef = useRef<WorkspaceTab>('story');
+  const previousPlotTabRef = useRef<WorkspaceTab>('dashboard');
   const previousPlotCountRef = useRef<number>(0);
   const storyAutosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyAutosaveInFlightRef = useRef<boolean>(false);
@@ -719,6 +822,154 @@ export default function App() {
     setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
   }
 
+  const refreshDashboardData = useCallback(async (): Promise<void> => {
+    setDashboard((previous) => ({
+      ...previous,
+      loading: true,
+      error: null,
+    }));
+
+    try {
+      const [state, characterCards, locationCards, snapshots] = await Promise.all([
+        window.novelistApi.getStoryState(),
+        window.novelistApi.listCharacterCards(),
+        window.novelistApi.listLocationCards(),
+        window.novelistApi.listSnapshots(),
+      ]);
+
+      const [chapterDocuments, characterChapterLinks, locationChapterLinks] = await Promise.all([
+        Promise.all(
+          state.nodes.map((node) =>
+            window.novelistApi.getChapterDocument({ chapterNodeId: node.id }),
+          ),
+        ),
+        Promise.all(
+          characterCards.map(async (card) => ({
+            card,
+            chapterNodeIds: await window.novelistApi.listCharacterChapterLinks({
+              characterCardId: card.id,
+            }),
+          })),
+        ),
+        Promise.all(
+          locationCards.map(async (card) => ({
+            card,
+            chapterNodeIds: await window.novelistApi.listLocationChapterLinks({
+              locationCardId: card.id,
+            }),
+          })),
+        ),
+      ]);
+
+      const documentsByNodeId = new Map(
+        chapterDocuments.map((document) => [document.chapterNodeId, document]),
+      );
+      const characterLinkedChapterIds = new Set(
+        characterChapterLinks.flatMap((link) => link.chapterNodeIds),
+      );
+      const locationLinkedChapterIds = new Set(
+        locationChapterLinks.flatMap((link) => link.chapterNodeIds),
+      );
+      const connectedChapterIds = new Set<string>();
+      for (const edge of state.edges) {
+        connectedChapterIds.add(edge.sourceId);
+        connectedChapterIds.add(edge.targetId);
+      }
+
+      const chapterMetrics = state.nodes
+        .map((node) => {
+          const document = documentsByNodeId.get(node.id);
+          const documentUpdatedAt = document?.updatedAt ?? null;
+          const updatedAt =
+            parseTime(documentUpdatedAt) > parseTime(node.updatedAt)
+              ? (documentUpdatedAt ?? node.updatedAt)
+              : node.updatedAt;
+          const wordCount = document?.wordCount ?? 0;
+          const hasDescription = Boolean(node.description.trim());
+
+          return {
+            id: node.id,
+            title: node.title,
+            plotNumber: node.plotNumber,
+            blockNumber: node.blockNumber,
+            wordCount,
+            updatedAt,
+            hasDescription,
+            descriptionStale:
+              hasDescription &&
+              wordCount > 0 &&
+              parseTime(documentUpdatedAt) > parseTime(node.updatedAt),
+          };
+        })
+        .sort((left, right) => {
+          if (left.plotNumber !== right.plotNumber) {
+            return left.plotNumber - right.plotNumber;
+          }
+
+          return left.blockNumber - right.blockNumber;
+        });
+
+      const latestSnapshot =
+        [...snapshots].sort(
+          (left, right) => parseTime(right.createdAt) - parseTime(left.createdAt),
+        )[0] ?? null;
+
+      setPlots(state.plots);
+      setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
+      setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
+      setDashboard({
+        loading: false,
+        error: null,
+        totalWords: chapterMetrics.reduce((sum, chapter) => sum + chapter.wordCount, 0),
+        chapterMetrics,
+        lastModifiedChapter:
+          [...chapterMetrics].sort(
+            (left, right) => parseTime(right.updatedAt) - parseTime(left.updatedAt),
+          )[0] ?? null,
+        chaptersWithoutDescription: chapterMetrics.filter((chapter) => !chapter.hasDescription),
+        chaptersWithStaleDescription: chapterMetrics.filter((chapter) => chapter.descriptionStale),
+        chaptersWithoutCharacters: chapterMetrics.filter(
+          (chapter) => !characterLinkedChapterIds.has(chapter.id),
+        ),
+        chaptersWithoutLocations: chapterMetrics.filter(
+          (chapter) => !locationLinkedChapterIds.has(chapter.id),
+        ),
+        unusedCharacters: characterChapterLinks
+          .filter((link) => link.chapterNodeIds.length === 0)
+          .map((link) => formatCharacterName(link.card)),
+        unusedLocations: locationChapterLinks
+          .filter((link) => link.chapterNodeIds.length === 0)
+          .map((link) => formatLocationName(link.card)),
+        disconnectedChapters: chapterMetrics.filter(
+          (chapter) => !connectedChapterIds.has(chapter.id),
+        ),
+        latestSnapshot,
+        characterCount: characterCards.length,
+        locationCount: locationCards.length,
+      });
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setDashboard((previous) => ({
+        ...previous,
+        loading: false,
+        error: message,
+      }));
+      setError(message);
+      setStatus('Errore aggiornamento cruscotto');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentProject) {
+      setDashboard(createEmptyDashboardState());
+      return;
+    }
+
+    if (activeTab === 'dashboard') {
+      void refreshDashboardData();
+    }
+  }, [activeTab, currentProject, refreshDashboardData]);
+
   async function refreshWikiStatus(): Promise<void> {
     if (!currentProject) {
       setWikiStatus(null);
@@ -816,7 +1067,7 @@ export default function App() {
       setPlots(state.plots);
       setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
       setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
-      setActiveTab('story');
+      setActiveTab('dashboard');
       setAiSettings(settings);
       setAiApiKeyInput('');
       setClearStoredApiKey(false);
@@ -826,8 +1077,9 @@ export default function App() {
       setWikiSearchResults([]);
       setLastAiMemorySources([]);
       setStatus(statusMessage);
+      void refreshDashboardData();
     },
-    [resetStoryWorkspace],
+    [refreshDashboardData, resetStoryWorkspace],
   );
 
   async function handleCreateProject(): Promise<void> {
@@ -893,6 +1145,7 @@ export default function App() {
     try {
       const snapshot = await window.novelistApi.saveSnapshot({ reason: 'manual' });
       setStatus(`Progetto salvato: ${snapshot.fileName}`);
+      void refreshDashboardData();
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
@@ -924,7 +1177,8 @@ export default function App() {
       setWikiSearchQuery('');
       setWikiSearchResults([]);
       setLastAiMemorySources([]);
-      setActiveTab('story');
+      setActiveTab('dashboard');
+      setDashboard(createEmptyDashboardState());
       resetStoryWorkspace();
       setStatus('Progetto chiuso');
     } catch (caughtError) {
@@ -1003,7 +1257,7 @@ export default function App() {
       }
 
       setCreateProjectRoot(selectedPath);
-      setStatus(`Path progetto selezionato: ${selectedPath}`);
+      setStatus(`Cartella di lavoro selezionata: ${selectedPath}`);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
@@ -1090,7 +1344,9 @@ export default function App() {
         positionY: createdPlot.positionY,
       });
 
-      const persistedAiSettings = normalizeCodexSettings(await window.novelistApi.codexGetSettings());
+      const persistedAiSettings = normalizeCodexSettings(
+        await window.novelistApi.codexGetSettings(),
+      );
       const runtimeAiSettings = hasPendingAiSettingsChanges(
         aiSettings,
         persistedAiSettings,
@@ -1881,8 +2137,16 @@ export default function App() {
         <div className="workspace-tabs">
           <button
             type="button"
+            className={activeTab === 'dashboard' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Cruscotto
+          </button>
+          <button
+            type="button"
             className={activeTab === 'story' ? 'tab-active' : ''}
             onClick={() => setActiveTab('story')}
+            disabled={!currentProject}
           >
             Struttura Storia
           </button>
@@ -1928,11 +2192,11 @@ export default function App() {
         </div>
       </header>
 
-      {activeTab === 'story' ? (
-        <section className="workspace">
-          <aside className="sidebar">
-            <div className="panel">
-              <h2>Progetto</h2>
+      {activeTab === 'dashboard' ? (
+        <section className="dashboard-workspace">
+          <section className="panel dashboard-project-panel">
+            <div>
+              <h2>Cruscotto</h2>
               <p className="muted project-summary">
                 {currentProject ? (
                   <>
@@ -1942,46 +2206,248 @@ export default function App() {
                   'Nessun progetto aperto.'
                 )}
               </p>
-              <div className="project-action-stack">
-                <button
-                  type="button"
-                  className="sidebar-action-button"
-                  onClick={() => {
-                    setCreateProjectRoot('');
-                    setCreateProjectName(DEFAULT_PROJECT_NAME);
-                    setIsCreateProjectModalOpen(true);
-                  }}
-                  disabled={Boolean(currentProject) || busy}
-                >
-                  Crea
-                </button>
-                <button
-                  type="button"
-                  className="sidebar-action-button"
-                  onClick={() => void handleOpenProject()}
-                  disabled={!canOpenProject}
-                >
-                  Apri
-                </button>
-                <button
-                  type="button"
-                  className="sidebar-action-button"
-                  onClick={() => void handleSaveProject()}
-                  disabled={!canSaveProject || !hasUnsavedChanges}
-                >
-                  Salva
-                </button>
-                <button
-                  type="button"
-                  className="sidebar-action-button"
-                  onClick={requestCloseProject}
-                  disabled={!canCloseProject}
-                >
-                  Chiudi
-                </button>
-              </div>
             </div>
+            <div className="dashboard-project-actions">
+              <button
+                type="button"
+                className="sidebar-action-button"
+                onClick={() => {
+                  setCreateProjectRoot('');
+                  setCreateProjectName(DEFAULT_PROJECT_NAME);
+                  setIsCreateProjectModalOpen(true);
+                }}
+                disabled={Boolean(currentProject) || busy}
+              >
+                Crea
+              </button>
+              <button
+                type="button"
+                className="sidebar-action-button"
+                onClick={() => void handleOpenProject()}
+                disabled={!canOpenProject}
+              >
+                Apri
+              </button>
+              <button
+                type="button"
+                className="sidebar-action-button"
+                onClick={() => void handleSaveProject()}
+                disabled={!canSaveProject || !hasUnsavedChanges}
+              >
+                Salva
+              </button>
+              <button
+                type="button"
+                className="sidebar-action-button"
+                onClick={requestCloseProject}
+                disabled={!canCloseProject}
+              >
+                Chiudi
+              </button>
+            </div>
+          </section>
 
+          {!currentProject ? (
+            <section className="panel dashboard-empty-panel">
+              <h2>Nessun progetto aperto</h2>
+              <p className="muted">
+                Crea un nuovo progetto o aprine uno esistente per vedere stato manoscritto,
+                capitoli, schede, memoria, snapshot e impostazioni.
+              </p>
+              <p className={`status status-${statusTone}`}>
+                <span>{status}</span>
+              </p>
+              {error ? <p className="error">{error}</p> : null}
+            </section>
+          ) : (
+            <>
+              <section className="dashboard-summary-grid">
+                <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Parole totali</span>
+                  <strong>{dashboard.totalWords}</strong>
+                  <span className="muted">{dashboard.chapterMetrics.length} capitoli</span>
+                </article>
+                <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Trame</span>
+                  <strong>{plots.length}</strong>
+                  <span className="muted">
+                    {dashboard.disconnectedChapters.length} capitoli non collegati
+                  </span>
+                </article>
+                <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Personaggi</span>
+                  <strong>{dashboard.characterCount}</strong>
+                  <span className="muted">{dashboard.unusedCharacters.length} non usati</span>
+                </article>
+                <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Location</span>
+                  <strong>{dashboard.locationCount}</strong>
+                  <span className="muted">{dashboard.unusedLocations.length} non usate</span>
+                </article>
+              </section>
+
+              <section className="dashboard-grid">
+                <article className="panel dashboard-section">
+                  <h2>Ripresa lavoro</h2>
+                  <dl className="dashboard-detail-list">
+                    <div>
+                      <dt>Ultimo capitolo modificato</dt>
+                      <dd>
+                        {dashboard.lastModifiedChapter ? (
+                          <>
+                            <strong>{dashboard.lastModifiedChapter.title}</strong>
+                            <span>{formatDateTime(dashboard.lastModifiedChapter.updatedAt)}</span>
+                          </>
+                        ) : (
+                          '-'
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Ultimo snapshot</dt>
+                      <dd>
+                        {dashboard.latestSnapshot ? (
+                          <>
+                            <strong>{dashboard.latestSnapshot.fileName}</strong>
+                            <span>{formatDateTime(dashboard.latestSnapshot.createdAt)}</span>
+                          </>
+                        ) : (
+                          'Nessuno snapshot'
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Memoria Wiki</dt>
+                      <dd>
+                        {wikiStatus ? (
+                          <>
+                            <strong>
+                              {wikiStatus.derivedPending ? 'Da aggiornare' : 'Aggiornata'}
+                            </strong>
+                            <span>{formatDateTime(wikiStatus.updatedAt)}</span>
+                          </>
+                        ) : (
+                          'Non disponibile'
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Autosave</dt>
+                      <dd>{formatAutosaveLabel(appPreferences)}</dd>
+                    </div>
+                    <div>
+                      <dt>AI</dt>
+                      <dd>
+                        {aiSettings?.enabled
+                          ? `${getAiProviderLabel(aiSettings.provider)} con fallback ${getAiFallbackLabel(
+                              aiSettings.fallbackProvider,
+                            )}`
+                          : 'Disattivata'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <button
+                    type="button"
+                    onClick={() => void refreshDashboardData()}
+                    disabled={dashboard.loading || busy}
+                  >
+                    {dashboard.loading ? 'Aggiorno...' : 'Aggiorna Cruscotto'}
+                  </button>
+                  {dashboard.error ? <p className="error">{dashboard.error}</p> : null}
+                </article>
+
+                <article className="panel dashboard-section">
+                  <h2>Parole per capitolo</h2>
+                  {dashboard.chapterMetrics.length > 0 ? (
+                    <div className="dashboard-chapter-list">
+                      {dashboard.chapterMetrics.map((chapter) => (
+                        <div className="dashboard-chapter-row" key={chapter.id}>
+                          <span>
+                            {chapter.plotNumber}.{chapter.blockNumber} {chapter.title}
+                          </span>
+                          <strong>{chapter.wordCount}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">Nessun capitolo creato.</p>
+                  )}
+                </article>
+
+                <article className="panel dashboard-section">
+                  <h2>Capitoli da controllare</h2>
+                  <ul className="dashboard-check-list">
+                    <li>
+                      <strong>{dashboard.chaptersWithoutDescription.length}</strong> senza
+                      descrizione
+                    </li>
+                    <li>
+                      <strong>{dashboard.chaptersWithStaleDescription.length}</strong> con
+                      descrizione potenzialmente vecchia
+                    </li>
+                    <li>
+                      <strong>{dashboard.chaptersWithoutCharacters.length}</strong> senza personaggi
+                      collegati
+                    </li>
+                    <li>
+                      <strong>{dashboard.chaptersWithoutLocations.length}</strong> senza location
+                      collegate
+                    </li>
+                    <li>
+                      <strong>{dashboard.disconnectedChapters.length}</strong> non collegati nel
+                      canvas
+                    </li>
+                  </ul>
+                </article>
+
+                <article className="panel dashboard-section">
+                  <h2>Schede non usate</h2>
+                  <div className="dashboard-unused-grid">
+                    <div>
+                      <h3>Personaggi</h3>
+                      {dashboard.unusedCharacters.length > 0 ? (
+                        <ul>
+                          {dashboard.unusedCharacters.slice(0, 8).map((name) => (
+                            <li key={name}>{name}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="muted">Nessuna scheda personaggio isolata.</p>
+                      )}
+                    </div>
+                    <div>
+                      <h3>Location</h3>
+                      {dashboard.unusedLocations.length > 0 ? (
+                        <ul>
+                          {dashboard.unusedLocations.slice(0, 8).map((name) => (
+                            <li key={name}>{name}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="muted">Nessuna scheda location isolata.</p>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              </section>
+
+              <section className="panel status-panel">
+                <p className={`status status-${statusTone}`}>
+                  <span>{status}</span>
+                  {workspaceNotice ? (
+                    <span className="status-inline-notice">{workspaceNotice}</span>
+                  ) : null}
+                </p>
+                {error ? <p className="error">{error}</p> : null}
+              </section>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {activeTab === 'story' ? (
+        <section className="workspace">
+          <aside className="sidebar">
             <div className="sidebar-action-group">
               <button
                 type="button"
@@ -2758,16 +3224,16 @@ export default function App() {
         </div>
       ) : null}
 
-      {activeTab === 'story' && isCreateProjectModalOpen ? (
+      {activeTab === 'dashboard' && isCreateProjectModalOpen ? (
         <div className="modal-overlay">
           <div className="modal-card">
             <h3>Crea Progetto</h3>
             <label>
-              Cartella progetto
+              Cartella di lavoro
               <div className="input-with-button">
                 <input
                   value={createProjectRoot}
-                  placeholder="Seleziona la cartella del progetto"
+                  placeholder="Seleziona la cartella che conterra il progetto"
                   readOnly
                 />
                 <button
@@ -2788,6 +3254,10 @@ export default function App() {
                 placeholder="Titolo progetto"
               />
             </label>
+            <p className="muted">
+              The Novelist creera una sottocartella con il nome del progetto e salvera li database,
+              asset, snapshot e memoria.
+            </p>
             <div className="row-buttons modal-actions">
               <button
                 type="button"

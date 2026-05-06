@@ -9,8 +9,10 @@ import {
   PROJECT_SNAPSHOTS_DIRNAME,
   PROJECT_WIKI_DIRNAME,
   createProjectOnDisk,
+  getProjectDirectoryName,
   openProjectFromDisk,
   projectExists,
+  resolveNewProjectRootPath,
 } from '../../src/main/projects/project-files';
 
 const tempDirs: string[] = [];
@@ -27,13 +29,15 @@ afterEach(async () => {
 
 describe('project-files', () => {
   it('creates and opens a project with canonical disk layout', async () => {
-    const rootPath = await createTempDir('novelist-project-');
+    const workspacePath = await createTempDir('novelist-project-');
 
     const created = await createProjectOnDisk({
-      rootPath,
+      rootPath: workspacePath,
       name: 'Il mio romanzo',
     });
 
+    const rootPath = path.join(workspacePath, 'Il mio romanzo');
+    expect(created.rootPath).toBe(rootPath);
     await access(path.join(rootPath, PROJECT_DB_FILENAME));
     await access(path.join(rootPath, PROJECT_ASSETS_DIRNAME));
     await access(path.join(rootPath, PROJECT_SNAPSHOTS_DIRNAME));
@@ -42,6 +46,7 @@ describe('project-files', () => {
     await access(path.join(rootPath, PROJECT_WIKI_DIRNAME, 'maintenance', 'last-sync.json'));
 
     expect(created.project.name).toBe('Il mio romanzo');
+    expect(await projectExists(workspacePath)).toBe(false);
     expect(await projectExists(rootPath)).toBe(true);
 
     const opened = await openProjectFromDisk(rootPath);
@@ -50,19 +55,39 @@ describe('project-files', () => {
     expect(opened.wikiPath).toBe(path.join(rootPath, PROJECT_WIKI_DIRNAME));
   });
 
+  it('normalizes the project directory name when creating the project folder', async () => {
+    const workspacePath = await createTempDir('novelist-project-normalize-');
+
+    const created = await createProjectOnDisk({
+      rootPath: workspacePath,
+      name: '  CON: capitolo?/  ',
+    });
+
+    expect(getProjectDirectoryName('  CON: capitolo?/  ')).toBe('CON capitolo');
+    expect(created.rootPath).toBe(path.join(workspacePath, 'CON capitolo'));
+    await access(path.join(created.rootPath, PROJECT_DB_FILENAME));
+  });
+
+  it('falls back to a generic project folder for unusable project names', () => {
+    expect(getProjectDirectoryName('...')).toBe('Progetto');
+    expect(getProjectDirectoryName('CON')).toBe('Progetto');
+    expect(resolveNewProjectRootPath('workspace', 'CON')).toBe(path.join('workspace', 'Progetto'));
+  });
+
   it('fails when trying to open a missing project database', async () => {
     const rootPath = await createTempDir('novelist-missing-project-');
     await expect(openProjectFromDisk(rootPath)).rejects.toThrow();
   });
 
   it('updates stored project root and asset paths when the project folder is moved', async () => {
-    const originalRootPath = await createTempDir('novelist-project-move-src-');
+    const originalWorkspacePath = await createTempDir('novelist-project-move-src-');
     const movedRootPath = await createTempDir('novelist-project-move-dst-');
 
     const created = await createProjectOnDisk({
-      rootPath: originalRootPath,
+      rootPath: originalWorkspacePath,
       name: 'Romanzo spostato',
     });
+    const originalRootPath = created.rootPath;
 
     const db = new Database(path.join(originalRootPath, PROJECT_DB_FILENAME));
     try {

@@ -22,6 +22,55 @@ export interface ProjectContext extends ProjectPaths {
   project: ProjectRecord;
 }
 
+const WINDOWS_RESERVED_NAMES = new Set([
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  'COM1',
+  'COM2',
+  'COM3',
+  'COM4',
+  'COM5',
+  'COM6',
+  'COM7',
+  'COM8',
+  'COM9',
+  'LPT1',
+  'LPT2',
+  'LPT3',
+  'LPT4',
+  'LPT5',
+  'LPT6',
+  'LPT7',
+  'LPT8',
+  'LPT9',
+]);
+
+export function getProjectDirectoryName(projectName: string): string {
+  const invalidPathChars = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
+  const normalized = projectName
+    .trim()
+    .split('')
+    .map((character) =>
+      invalidPathChars.has(character) || character.charCodeAt(0) < 32 ? ' ' : character,
+    )
+    .join('')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/g, '')
+    .trim();
+
+  if (!normalized || WINDOWS_RESERVED_NAMES.has(normalized.toUpperCase())) {
+    return 'Progetto';
+  }
+
+  return normalized;
+}
+
+export function resolveNewProjectRootPath(parentPath: string, projectName: string): string {
+  return path.join(parentPath, getProjectDirectoryName(projectName));
+}
+
 export function resolveProjectPaths(rootPath: string): ProjectPaths {
   return {
     rootPath,
@@ -43,7 +92,8 @@ export async function createProjectOnDisk(params: {
   rootPath: string;
   name: string;
 }): Promise<ProjectContext> {
-  const paths = resolveProjectPaths(params.rootPath);
+  const projectRootPath = resolveNewProjectRootPath(params.rootPath, params.name);
+  const paths = resolveProjectPaths(projectRootPath);
   await ensureProjectDirectories(paths);
 
   const db = openDatabase(paths.dbPath);
