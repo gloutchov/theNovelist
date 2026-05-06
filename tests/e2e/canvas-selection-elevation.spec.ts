@@ -50,13 +50,14 @@ async function createCharacter(page: Page, firstName: string, lastName: string):
 
 async function createLocation(page: Page, name: string, locationType: string): Promise<void> {
   await page.getByRole('button', { name: 'Location', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Nuova Location' })).toBeVisible();
+  await page.getByRole('button', { name: 'Crea Location' }).click();
 
-  const createPanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuova Location' }),
+  const createPanel = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Crea Location' }),
   });
+  await expect(createPanel).toBeVisible();
   await createPanel.getByLabel('Nome').fill(name);
-  await createPanel.getByLabel('Tipo luogo').fill(locationType);
+  await createPanel.getByLabel('Tipologia luogo').fill(locationType);
   await createPanel.getByRole('button', { name: 'Crea Scheda' }).click();
 
   await expect(page.locator('.canvas-wrap').getByText(name)).toBeVisible();

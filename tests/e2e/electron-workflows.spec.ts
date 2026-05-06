@@ -182,13 +182,14 @@ test.describe('electron real e2e workflows', () => {
       await expect(window.locator('.canvas-wrap').getByText('Anna Rossi')).toBeVisible();
 
       await window.getByRole('button', { name: 'Location' }).click();
-      await expect(window.getByRole('heading', { name: 'Nuova Location' })).toBeVisible();
+      await window.getByRole('button', { name: 'Crea Location' }).click();
 
-      const locationPanel = window.locator('.panel').filter({
-        has: window.getByRole('heading', { name: 'Nuova Location' }),
+      const locationPanel = window.locator('.modal-card').filter({
+        has: window.getByRole('heading', { name: 'Crea Location' }),
       });
+      await expect(locationPanel).toBeVisible();
       await locationPanel.getByLabel('Nome').fill('Porto Vecchio');
-      await locationPanel.getByLabel('Tipo luogo').fill('Porto');
+      await locationPanel.getByLabel('Tipologia luogo').fill('Porto');
       await locationPanel.getByRole('button', { name: 'Crea Scheda' }).click();
       await expect(window.locator('.canvas-wrap').getByText('Porto Vecchio')).toBeVisible();
 
