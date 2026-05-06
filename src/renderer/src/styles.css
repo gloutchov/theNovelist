@@ -234,6 +234,15 @@ body {
   white-space: nowrap;
 }
 
+.dashboard-chapter-row small {
+  display: block;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dashboard-check-list,
 .dashboard-unused-grid ul {
   margin: 0;

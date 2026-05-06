@@ -83,6 +83,18 @@ interface DashboardChapterMetric {
   descriptionStale: boolean;
 }
 
+interface DashboardSceneMetric {
+  id: string;
+  name: string;
+  chapterTitle: string;
+  plotNumber: number;
+  wordCount: number;
+  updatedAt: string;
+  hasText: boolean;
+  hasChapter: boolean;
+  connected: boolean;
+}
+
 interface DashboardState {
   loading: boolean;
   error: string | null;
@@ -98,6 +110,8 @@ interface DashboardState {
   unusedLocations: string[];
   unusedScenes: string[];
   scenesWithoutText: string[];
+  disconnectedScenes: string[];
+  sceneMetrics: DashboardSceneMetric[];
   disconnectedChapters: DashboardChapterMetric[];
   latestSnapshot: DashboardSnapshot | null;
   characterCount: number;
@@ -123,6 +137,8 @@ function createEmptyDashboardState(): DashboardState {
     unusedLocations: [],
     unusedScenes: [],
     scenesWithoutText: [],
+    disconnectedScenes: [],
+    sceneMetrics: [],
     disconnectedChapters: [],
     latestSnapshot: null,
     characterCount: 0,
@@ -179,6 +195,14 @@ function formatLocationName(card: DashboardLocationCard): string {
 
 function formatSceneName(card: DashboardSceneCard): string {
   return card.name.trim() || 'Scena senza nome';
+}
+
+function countWords(value: string): number {
+  const text = value.trim();
+  if (!text) {
+    return 0;
+  }
+  return text.split(/\s+/).filter(Boolean).length;
 }
 
 function getApiKeyStorageLabel(storage: CodexSettings['apiKeyStorage']): string {
@@ -903,10 +927,19 @@ export default function App() {
       );
       const sceneLinkedChapterIds = new Set(sceneCards.map((scene) => scene.chapterNodeId));
       const chapterIds = new Set(state.nodes.map((node) => node.id));
+      const chapterTitleById = new Map(state.nodes.map((node) => [node.id, node.title]));
+      const sceneIds = new Set(sceneCards.map((scene) => scene.id));
+      const connectedSceneIds = new Set<string>();
       const connectedChapterIds = new Set<string>();
       for (const edge of state.edges) {
         connectedChapterIds.add(edge.sourceId);
         connectedChapterIds.add(edge.targetId);
+        if (sceneIds.has(edge.sourceId)) {
+          connectedSceneIds.add(edge.sourceId);
+        }
+        if (sceneIds.has(edge.targetId)) {
+          connectedSceneIds.add(edge.targetId);
+        }
       }
 
       const chapterMetrics = state.nodes
@@ -940,6 +973,25 @@ export default function App() {
           }
 
           return left.blockNumber - right.blockNumber;
+        });
+
+      const sceneMetrics = sceneCards
+        .map((scene) => ({
+          id: scene.id,
+          name: formatSceneName(scene),
+          chapterTitle: chapterTitleById.get(scene.chapterNodeId) ?? 'Capitolo non trovato',
+          plotNumber: scene.plotNumber,
+          wordCount: countWords(scene.text),
+          updatedAt: scene.updatedAt,
+          hasText: Boolean(scene.text.trim()),
+          hasChapter: chapterIds.has(scene.chapterNodeId),
+          connected: connectedSceneIds.has(scene.id),
+        }))
+        .sort((left, right) => {
+          if (left.plotNumber !== right.plotNumber) {
+            return left.plotNumber - right.plotNumber;
+          }
+          return left.name.localeCompare(right.name, 'it');
         });
 
       const latestSnapshot =
@@ -979,7 +1031,13 @@ export default function App() {
         unusedScenes: sceneCards
           .filter((scene) => !chapterIds.has(scene.chapterNodeId))
           .map(formatSceneName),
-        scenesWithoutText: sceneCards.filter((scene) => !scene.text.trim()).map(formatSceneName),
+        scenesWithoutText: sceneMetrics
+          .filter((scene) => !scene.hasText)
+          .map((scene) => scene.name),
+        disconnectedScenes: sceneMetrics
+          .filter((scene) => !scene.connected)
+          .map((scene) => scene.name),
+        sceneMetrics,
         disconnectedChapters: chapterMetrics.filter(
           (chapter) => !connectedChapterIds.has(chapter.id),
         ),
@@ -2436,6 +2494,25 @@ export default function App() {
                 </article>
 
                 <article className="panel dashboard-section">
+                  <h2>Parole per Scena</h2>
+                  {dashboard.sceneMetrics.length > 0 ? (
+                    <div className="dashboard-chapter-list">
+                      {dashboard.sceneMetrics.map((scene) => (
+                        <div className="dashboard-chapter-row" key={scene.id}>
+                          <span>
+                            {scene.plotNumber} · {scene.name}
+                            <small>{scene.chapterTitle}</small>
+                          </span>
+                          <strong>{scene.wordCount}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">Nessuna scena creata.</p>
+                  )}
+                </article>
+
+                <article className="panel dashboard-section">
                   <h2>Capitoli da controllare</h2>
                   <ul className="dashboard-check-list">
                     <li>
@@ -2460,6 +2537,22 @@ export default function App() {
                     </li>
                     <li>
                       <strong>{dashboard.disconnectedChapters.length}</strong> non collegati nel
+                      canvas
+                    </li>
+                  </ul>
+                </article>
+
+                <article className="panel dashboard-section">
+                  <h2>Scene da controllare</h2>
+                  <ul className="dashboard-check-list">
+                    <li>
+                      <strong>{dashboard.scenesWithoutText.length}</strong> senza testo
+                    </li>
+                    <li>
+                      <strong>{dashboard.unusedScenes.length}</strong> senza capitolo valido
+                    </li>
+                    <li>
+                      <strong>{dashboard.disconnectedScenes.length}</strong> non collegate nel
                       canvas
                     </li>
                   </ul>
