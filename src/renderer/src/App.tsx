@@ -49,6 +49,9 @@ type DashboardCharacterCard = Awaited<
 type DashboardLocationCard = Awaited<
   ReturnType<(typeof window.novelistApi)['listLocationCards']>
 >[number];
+type DashboardSceneCard = Awaited<
+  ReturnType<(typeof window.novelistApi)['listSceneCards']>
+>[number];
 type CodexMemorySource = NonNullable<
   Awaited<ReturnType<(typeof window.novelistApi)['codexChat']>>['memorySources']
 >[number];
@@ -90,12 +93,16 @@ interface DashboardState {
   chaptersWithStaleDescription: DashboardChapterMetric[];
   chaptersWithoutCharacters: DashboardChapterMetric[];
   chaptersWithoutLocations: DashboardChapterMetric[];
+  chaptersWithoutScenes: DashboardChapterMetric[];
   unusedCharacters: string[];
   unusedLocations: string[];
+  unusedScenes: string[];
+  scenesWithoutText: string[];
   disconnectedChapters: DashboardChapterMetric[];
   latestSnapshot: DashboardSnapshot | null;
   characterCount: number;
   locationCount: number;
+  sceneCount: number;
 }
 
 const DEFAULT_PROJECT_NAME = 'Romanzo senza titolo';
@@ -111,12 +118,16 @@ function createEmptyDashboardState(): DashboardState {
     chaptersWithStaleDescription: [],
     chaptersWithoutCharacters: [],
     chaptersWithoutLocations: [],
+    chaptersWithoutScenes: [],
     unusedCharacters: [],
     unusedLocations: [],
+    unusedScenes: [],
+    scenesWithoutText: [],
     disconnectedChapters: [],
     latestSnapshot: null,
     characterCount: 0,
     locationCount: 0,
+    sceneCount: 0,
   };
 }
 
@@ -164,6 +175,10 @@ function formatCharacterName(card: DashboardCharacterCard): string {
 
 function formatLocationName(card: DashboardLocationCard): string {
   return card.name.trim() || 'Location senza nome';
+}
+
+function formatSceneName(card: DashboardSceneCard): string {
+  return card.name.trim() || 'Scena senza nome';
 }
 
 function getApiKeyStorageLabel(storage: CodexSettings['apiKeyStorage']): string {
@@ -845,10 +860,11 @@ export default function App() {
     }));
 
     try {
-      const [state, characterCards, locationCards, snapshots] = await Promise.all([
+      const [state, characterCards, locationCards, sceneCards, snapshots] = await Promise.all([
         window.novelistApi.getStoryState(),
         window.novelistApi.listCharacterCards(),
         window.novelistApi.listLocationCards(),
+        window.novelistApi.listSceneCards(),
         window.novelistApi.listSnapshots(),
       ]);
 
@@ -885,6 +901,8 @@ export default function App() {
       const locationLinkedChapterIds = new Set(
         locationChapterLinks.flatMap((link) => link.chapterNodeIds),
       );
+      const sceneLinkedChapterIds = new Set(sceneCards.map((scene) => scene.chapterNodeId));
+      const chapterIds = new Set(state.nodes.map((node) => node.id));
       const connectedChapterIds = new Set<string>();
       for (const edge of state.edges) {
         connectedChapterIds.add(edge.sourceId);
@@ -949,18 +967,26 @@ export default function App() {
         chaptersWithoutLocations: chapterMetrics.filter(
           (chapter) => !locationLinkedChapterIds.has(chapter.id),
         ),
+        chaptersWithoutScenes: chapterMetrics.filter(
+          (chapter) => !sceneLinkedChapterIds.has(chapter.id),
+        ),
         unusedCharacters: characterChapterLinks
           .filter((link) => link.chapterNodeIds.length === 0)
           .map((link) => formatCharacterName(link.card)),
         unusedLocations: locationChapterLinks
           .filter((link) => link.chapterNodeIds.length === 0)
           .map((link) => formatLocationName(link.card)),
+        unusedScenes: sceneCards
+          .filter((scene) => !chapterIds.has(scene.chapterNodeId))
+          .map(formatSceneName),
+        scenesWithoutText: sceneCards.filter((scene) => !scene.text.trim()).map(formatSceneName),
         disconnectedChapters: chapterMetrics.filter(
           (chapter) => !connectedChapterIds.has(chapter.id),
         ),
         latestSnapshot,
         characterCount: characterCards.length,
         locationCount: locationCards.length,
+        sceneCount: sceneCards.length,
       });
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
@@ -2314,6 +2340,11 @@ export default function App() {
                   <strong>{dashboard.locationCount}</strong>
                   <span className="muted">{dashboard.unusedLocations.length} non usate</span>
                 </article>
+                <article className="panel dashboard-stat-card">
+                  <span className="dashboard-stat-label">Scene</span>
+                  <strong>{dashboard.sceneCount}</strong>
+                  <span className="muted">{dashboard.scenesWithoutText.length} senza testo</span>
+                </article>
               </section>
 
               <section className="dashboard-grid">
@@ -2424,6 +2455,10 @@ export default function App() {
                       collegate
                     </li>
                     <li>
+                      <strong>{dashboard.chaptersWithoutScenes.length}</strong> senza scene
+                      collegate
+                    </li>
+                    <li>
                       <strong>{dashboard.disconnectedChapters.length}</strong> non collegati nel
                       canvas
                     </li>
@@ -2455,6 +2490,24 @@ export default function App() {
                         </ul>
                       ) : (
                         <p className="muted">Nessuna scheda location isolata.</p>
+                      )}
+                    </div>
+                    <div>
+                      <h3>Scene</h3>
+                      {dashboard.unusedScenes.length > 0 ? (
+                        <ul>
+                          {dashboard.unusedScenes.slice(0, 8).map((name) => (
+                            <li key={name}>{name}</li>
+                          ))}
+                        </ul>
+                      ) : dashboard.scenesWithoutText.length > 0 ? (
+                        <ul>
+                          {dashboard.scenesWithoutText.slice(0, 8).map((name) => (
+                            <li key={name}>{name} senza testo</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="muted">Nessuna scheda scena isolata.</p>
                       )}
                     </div>
                   </div>
