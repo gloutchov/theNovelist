@@ -170,11 +170,12 @@ test.describe('electron real e2e workflows', () => {
       await nodeModal.getByRole('button', { name: 'Crea Blocco' }).click();
 
       await window.getByRole('button', { name: 'Personaggi' }).click();
-      await expect(window.getByRole('heading', { name: 'Nuovo Personaggio' })).toBeVisible();
+      await window.getByRole('button', { name: 'Crea Personaggio' }).click();
 
-      const characterPanel = window.locator('.panel').filter({
-        has: window.getByRole('heading', { name: 'Nuovo Personaggio' }),
+      const characterPanel = window.locator('.modal-card').filter({
+        has: window.getByRole('heading', { name: 'Crea Personaggio' }),
       });
+      await expect(characterPanel).toBeVisible();
       await characterPanel.getByLabel('Nome', { exact: true }).fill('Anna');
       await characterPanel.getByLabel('Cognome', { exact: true }).fill('Rossi');
       await characterPanel.getByRole('button', { name: 'Crea Scheda' }).click();

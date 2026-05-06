@@ -24,11 +24,12 @@ test('plot board shows existing plot cards with current project creation flow', 
   const plotsTab = page.getByRole('button', { name: 'Trame', exact: true });
   await expect(plotsTab).toBeEnabled();
   await plotsTab.click();
-  await expect(page.getByRole('heading', { name: 'Nuova Trama' })).toBeVisible();
+  await page.getByRole('button', { name: 'Nuova Trama' }).click();
 
-  const plotPanel = page.locator('.panel').filter({
+  const plotPanel = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
+  await expect(plotPanel).toBeVisible();
   await plotPanel.getByLabel('Titolo trama').fill('Trama di prova');
   await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza sintetica');
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();

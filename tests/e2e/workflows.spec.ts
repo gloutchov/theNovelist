@@ -114,11 +114,12 @@ test('character board create and edit card', async ({ page }) => {
   await createChapter(page, 'Capitolo Personaggi');
 
   await page.getByRole('button', { name: 'Personaggi', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Nuovo Personaggio' })).toBeVisible();
+  await page.getByRole('button', { name: 'Crea Personaggio' }).click();
 
-  const createPanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuovo Personaggio' }),
+  const createPanel = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Crea Personaggio' }),
   });
+  await expect(createPanel).toBeVisible();
   await createPanel.getByLabel('Nome', { exact: true }).fill('Anna');
   await createPanel.getByLabel('Cognome', { exact: true }).fill('Rossi');
   await createPanel.getByRole('button', { name: 'Crea Scheda' }).click();
@@ -273,11 +274,12 @@ test('plot board shows created plot cards on canvas', async ({ page }) => {
   await createProject(page, 'E2E Plots');
 
   await page.getByRole('button', { name: 'Trame', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Nuova Trama' })).toBeVisible();
+  await page.getByRole('button', { name: 'Nuova Trama' }).click();
 
-  const plotPanel = page.locator('.panel').filter({
+  const plotPanel = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
+  await expect(plotPanel).toBeVisible();
   await plotPanel.getByLabel('Titolo trama').fill('Trama di prova');
   await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza sintetica');
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
@@ -360,10 +362,12 @@ test('saving plot does not wait for automatic memory sync', async ({ page }) => 
 
   await createProject(page, 'E2E Plot Memory Sync');
   await page.getByRole('button', { name: 'Trame', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuova Trama' }).click();
 
-  const plotPanel = page.locator('.panel').filter({
+  const plotPanel = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
+  await expect(plotPanel).toBeVisible();
   await plotPanel.getByLabel('Titolo trama').fill('Trama memoria');
   await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza iniziale');
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
@@ -387,10 +391,12 @@ test('closing character card does not wait for automatic memory sync', async ({ 
 
   await createProject(page, 'E2E Character Memory Sync');
   await page.getByRole('button', { name: 'Personaggi', exact: true }).click();
+  await page.getByRole('button', { name: 'Crea Personaggio' }).click();
 
-  const createPanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuovo Personaggio' }),
+  const createPanel = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Crea Personaggio' }),
   });
+  await expect(createPanel).toBeVisible();
   await createPanel.getByLabel('Nome', { exact: true }).fill('Anna');
   await createPanel.getByRole('button', { name: 'Crea Scheda' }).click();
 
