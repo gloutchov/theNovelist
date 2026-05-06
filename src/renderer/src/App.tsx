@@ -2651,14 +2651,6 @@ export default function App() {
               <button
                 type="button"
                 className="sidebar-action-button"
-                onClick={() => setIsPlotModalOpen(true)}
-                disabled={!canOpenStoryCreationTools}
-              >
-                Nuove Trame
-              </button>
-              <button
-                type="button"
-                className="sidebar-action-button"
                 onClick={() => setIsNewNodeModalOpen(true)}
                 disabled={!canOpenStoryCreationTools}
               >
