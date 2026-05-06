@@ -9,6 +9,7 @@ import type {
   LocationCardRecord,
   PlotRecord,
   ProjectRecord,
+  SceneCardRecord,
 } from '../persistence/types';
 import { extractRichTextBlocks, type RichTextDocument } from '../chapters/rich-text';
 import { writeTextFileAtomic } from './atomic-write';
@@ -113,6 +114,10 @@ function sourceRelativePathFromKey(key: string): string | null {
 
   if (key === 'cards/locations.md') {
     return path.join('sources', 'cards', 'locations.md');
+  }
+
+  if (key === 'cards/scenes.md') {
+    return path.join('sources', 'cards', 'scenes.md');
   }
 
   if (key === 'cards/plot.md') {
@@ -230,6 +235,35 @@ function formatLocationsSource(
   return ['# Location Sources', '', ...sections].join('\n');
 }
 
+function formatScenesSource(scenes: SceneCardRecord[], chapters: ChapterNodeRecord[]): string {
+  const chaptersById = new Map(chapters.map((chapter) => [chapter.id, chapter]));
+  const sections = scenes.map((scene) => {
+    const chapter = chaptersById.get(scene.chapterNodeId);
+
+    return [
+      `## ${scene.name}`,
+      '',
+      `- id: ${scene.id}`,
+      `- source_type: scene`,
+      `- chapter_node_id: ${scene.chapterNodeId}`,
+      `- chapter_title: ${chapter?.title ?? 'unknown'}`,
+      `- plot_number: ${scene.plotNumber}`,
+      `- updated_at: ${scene.updatedAt}`,
+      '',
+      'Text:',
+      '',
+      normalizeText(scene.text) || 'No scene text.',
+      '',
+      'Notes:',
+      '',
+      normalizeText(scene.notes) || 'No notes.',
+      '',
+    ].join('\n');
+  });
+
+  return ['# Scene Sources', '', ...sections].join('\n');
+}
+
 function formatPlotSource(plots: PlotRecord[], chapters: ChapterNodeRecord[]): string {
   const chaptersByPlot = new Map<number, ChapterNodeRecord[]>();
   for (const chapter of chapters) {
@@ -308,6 +342,7 @@ function buildSourceFiles(params: {
   const chapters = repository.listChapterNodes(project.id);
   const characters = repository.listCharacterCards(project.id);
   const locations = repository.listLocationCards(project.id);
+  const scenes = repository.listSceneCards(project.id);
   const plots = repository.listPlots(project.id);
   const aiChatMessages = repository.listProjectCodexChatMessages(project.id);
 
@@ -339,6 +374,11 @@ function buildSourceFiles(params: {
       key: 'cards/locations.md',
       relativePath: path.join('sources', 'cards', 'locations.md'),
       content: formatLocationsSource(repository, locations),
+    },
+    {
+      key: 'cards/scenes.md',
+      relativePath: path.join('sources', 'cards', 'scenes.md'),
+      content: formatScenesSource(scenes, chapters),
     },
     {
       key: 'cards/plot.md',

@@ -133,6 +133,20 @@ export interface LocationImageRecord {
   createdAt: string;
 }
 
+export interface SceneCardRecord {
+  id: string;
+  projectId: string;
+  chapterNodeId: string;
+  name: string;
+  text: string;
+  notes: string;
+  plotNumber: number;
+  positionX: number;
+  positionY: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CharacterChapterLinkRecord {
   characterCardId: string;
   chapterNodeId: string;
@@ -261,6 +275,18 @@ export interface CreateLocationImageInput {
   filePath: string;
   prompt: string;
 }
+
+export interface CreateSceneCardInput {
+  chapterNodeId: string;
+  name: string;
+  text: string;
+  notes: string;
+  plotNumber: number;
+  positionX: number;
+  positionY: number;
+}
+
+export type UpdateSceneCardInput = CreateSceneCardInput;
 
 export interface SetCharacterChapterLinksInput {
   characterCardId: string;

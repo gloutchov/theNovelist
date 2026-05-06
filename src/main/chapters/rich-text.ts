@@ -11,7 +11,7 @@ export interface RichTextDocument {
   content?: RichTextNode[];
 }
 
-export type RichTextReferenceType = 'character' | 'location';
+export type RichTextReferenceType = 'character' | 'location' | 'scene';
 
 export interface CanonicalRichTextReferenceResolver {
   getLabel: (type: RichTextReferenceType, id: string) => string | null;
@@ -45,7 +45,7 @@ function normalizeReferenceMentionNode(
 ): RichTextNode | null {
   const refId = typeof node.attrs?.['refId'] === 'string' ? node.attrs['refId'].trim() : '';
   const refType = node.attrs?.['refType'];
-  if (!refId || (refType !== 'character' && refType !== 'location')) {
+  if (!refId || (refType !== 'character' && refType !== 'location' && refType !== 'scene')) {
     return null;
   }
 
@@ -54,13 +54,19 @@ function normalizeReferenceMentionNode(
     return null;
   }
 
+  const attrs: Record<string, unknown> = {
+    refId,
+    refType,
+    label,
+  };
+
+  if (refType === 'scene') {
+    attrs['boundary'] = node.attrs?.['boundary'] === 'end' ? 'end' : 'start';
+  }
+
   return {
     type: 'referenceMention',
-    attrs: {
-      refId,
-      refType,
-      label,
-    },
+    attrs,
   };
 }
 
@@ -191,9 +197,7 @@ export function extractRichTextBlocks(document: RichTextDocument): RichTextBlock
 
 export function getWordCountFromDocument(document: RichTextDocument): number {
   const blocks = extractRichTextBlocks(document);
-  const text = blocks
-    .map((block) => block.spans.map((s) => s.text || '').join(''))
-    .join(' ');
+  const text = blocks.map((block) => block.spans.map((s) => s.text || '').join('')).join(' ');
 
   const cleaned = text.trim();
   if (!cleaned) {

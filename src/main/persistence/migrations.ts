@@ -357,6 +357,36 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 14,
+    statements: [
+      `
+      CREATE TABLE IF NOT EXISTS scene_cards (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        chapter_node_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        plot_number INTEGER NOT NULL,
+        position_x REAL NOT NULL,
+        position_y REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_node_id) REFERENCES chapter_nodes(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_scene_cards_project_plot
+      ON scene_cards(project_id, plot_number);
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_scene_cards_chapter
+      ON scene_cards(chapter_node_id);
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

@@ -18,6 +18,7 @@ import type {
   CreateChapterNodeInput,
   CreateLocationCardInput,
   CreateLocationImageInput,
+  CreateSceneCardInput,
   CreatePlotInput,
   SetCharacterChapterLinksInput,
   SetLocationChapterLinksInput,
@@ -26,10 +27,12 @@ import type {
   LocationImageRecord,
   PlotRecord,
   ProjectRecord,
+  SceneCardRecord,
   UpdateChapterNodeInput,
   UpdateCharacterCardInput,
   UpdatePlotInput,
   UpdateLocationCardInput,
+  UpdateSceneCardInput,
   UpsertChapterDocumentInput,
   UpsertCodexSettingsInput,
 } from './types';
@@ -210,6 +213,22 @@ function toLocationImageRecord(row: Record<string, unknown>): LocationImageRecor
   };
 }
 
+function toSceneCardRecord(row: Record<string, unknown>): SceneCardRecord {
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    chapterNodeId: String(row.chapter_node_id),
+    name: String(row.name),
+    text: String(row.text),
+    notes: String(row.notes),
+    plotNumber: Number(row.plot_number),
+    positionX: Number(row.position_x),
+    positionY: Number(row.position_y),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
 function toCharacterChapterLinkRecord(row: Record<string, unknown>): CharacterChapterLinkRecord {
   return {
     characterCardId: String(row.character_card_id),
@@ -332,7 +351,11 @@ export class NovelistRepository {
     })();
   }
 
-  updateProjectRootPathAndAssetReferences(id: string, previousRootPath: string, nextRootPath: string): void {
+  updateProjectRootPathAndAssetReferences(
+    id: string,
+    previousRootPath: string,
+    nextRootPath: string,
+  ): void {
     void previousRootPath;
     this.repairProjectAssetReferences(id, nextRootPath);
   }
@@ -547,7 +570,9 @@ export class NovelistRepository {
 
   listChapterNodes(projectId: string): ChapterNodeRecord[] {
     const rows = this.db
-      .prepare('SELECT * FROM chapter_nodes WHERE project_id = ? ORDER BY plot_number, block_number')
+      .prepare(
+        'SELECT * FROM chapter_nodes WHERE project_id = ? ORDER BY plot_number, block_number',
+      )
       .all(projectId) as Record<string, unknown>[];
 
     return rows.map(toChapterNodeRecord);
@@ -652,6 +677,11 @@ export class NovelistRepository {
       .prepare('SELECT 1 FROM location_cards WHERE project_id = ? AND id = ?')
       .get(projectId, entityId);
     if (locationExists) return true;
+
+    const sceneExists = this.db
+      .prepare('SELECT 1 FROM scene_cards WHERE project_id = ? AND id = ?')
+      .get(projectId, entityId);
+    if (sceneExists) return true;
 
     return false;
   }
@@ -774,7 +804,8 @@ export class NovelistRepository {
       allowApiCalls: input.allowApiCalls ?? current.allowApiCalls,
       allowExternalMemorySharing:
         input.allowExternalMemorySharing ?? current.allowExternalMemorySharing,
-      autoSummarizeDescriptions: input.autoSummarizeDescriptions ?? current.autoSummarizeDescriptions,
+      autoSummarizeDescriptions:
+        input.autoSummarizeDescriptions ?? current.autoSummarizeDescriptions,
       apiKey: input.apiKey === undefined ? current.apiKey : input.apiKey,
       apiModel: input.apiModel?.trim() ? input.apiModel.trim() : current.apiModel,
       updatedAt: nowIso(),
@@ -866,9 +897,9 @@ export class NovelistRepository {
         createdAt: timestamp,
       });
 
-    const created = this.db
-      .prepare('SELECT * FROM codex_chat_messages WHERE id = ?')
-      .get(id) as Record<string, unknown> | undefined;
+    const created = this.db.prepare('SELECT * FROM codex_chat_messages WHERE id = ?').get(id) as
+      | Record<string, unknown>
+      | undefined;
 
     if (!created) {
       throw new Error('Codex chat message creation failed');
@@ -1060,7 +1091,9 @@ export class NovelistRepository {
 
   listCharacterCards(projectId: string): CharacterCardRecord[] {
     const rows = this.db
-      .prepare('SELECT * FROM character_cards WHERE project_id = ? ORDER BY plot_number, last_name, first_name')
+      .prepare(
+        'SELECT * FROM character_cards WHERE project_id = ? ORDER BY plot_number, last_name, first_name',
+      )
       .all(projectId) as Record<string, unknown>[];
     return rows.map(toCharacterCardRecord);
   }
@@ -1100,7 +1133,9 @@ export class NovelistRepository {
 
   listCharacterImages(characterCardId: string): CharacterImageRecord[] {
     const rows = this.db
-      .prepare('SELECT * FROM character_images WHERE character_card_id = ? ORDER BY created_at DESC')
+      .prepare(
+        'SELECT * FROM character_images WHERE character_card_id = ? ORDER BY created_at DESC',
+      )
       .all(characterCardId) as Record<string, unknown>[];
     return rows.map(toCharacterImageRecord);
   }
@@ -1125,7 +1160,9 @@ export class NovelistRepository {
 
   setCharacterChapterLinks(input: SetCharacterChapterLinksInput): void {
     const uniqueChapterNodeIds = [...new Set(input.chapterNodeIds)];
-    const removeLinks = this.db.prepare('DELETE FROM character_chapter_links WHERE character_card_id = ?');
+    const removeLinks = this.db.prepare(
+      'DELETE FROM character_chapter_links WHERE character_card_id = ?',
+    );
     const insertLink = this.db.prepare(
       `
       INSERT INTO character_chapter_links(character_card_id, chapter_node_id, created_at)
@@ -1321,7 +1358,9 @@ export class NovelistRepository {
 
   setLocationChapterLinks(input: SetLocationChapterLinksInput): void {
     const uniqueChapterNodeIds = [...new Set(input.chapterNodeIds)];
-    const removeLinks = this.db.prepare('DELETE FROM location_chapter_links WHERE location_card_id = ?');
+    const removeLinks = this.db.prepare(
+      'DELETE FROM location_chapter_links WHERE location_card_id = ?',
+    );
     const insertLink = this.db.prepare(
       `
       INSERT INTO location_chapter_links(location_card_id, chapter_node_id, created_at)
@@ -1353,5 +1392,130 @@ export class NovelistRepository {
       .all(projectId, chapterNodeId) as Record<string, unknown>[];
 
     return rows.map(toLocationCardRecord);
+  }
+
+  createSceneCard(projectId: string, input: CreateSceneCardInput): SceneCardRecord {
+    const id = randomUUID();
+    const timestamp = nowIso();
+
+    this.db
+      .prepare(
+        `
+        INSERT INTO scene_cards(
+          id,
+          project_id,
+          chapter_node_id,
+          name,
+          text,
+          notes,
+          plot_number,
+          position_x,
+          position_y,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          @id,
+          @projectId,
+          @chapterNodeId,
+          @name,
+          @text,
+          @notes,
+          @plotNumber,
+          @positionX,
+          @positionY,
+          @createdAt,
+          @updatedAt
+        )
+        `,
+      )
+      .run({
+        id,
+        projectId,
+        chapterNodeId: input.chapterNodeId,
+        name: input.name,
+        text: input.text,
+        notes: input.notes,
+        plotNumber: input.plotNumber,
+        positionX: input.positionX,
+        positionY: input.positionY,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+    const scene = this.getSceneCardById(id);
+    if (!scene) {
+      throw new Error('Scene card creation failed');
+    }
+    return scene;
+  }
+
+  updateSceneCard(sceneId: string, input: UpdateSceneCardInput): void {
+    this.db
+      .prepare(
+        `
+        UPDATE scene_cards
+        SET
+          chapter_node_id = @chapterNodeId,
+          name = @name,
+          text = @text,
+          notes = @notes,
+          plot_number = @plotNumber,
+          position_x = @positionX,
+          position_y = @positionY,
+          updated_at = @updatedAt
+        WHERE id = @sceneId
+        `,
+      )
+      .run({
+        sceneId,
+        chapterNodeId: input.chapterNodeId,
+        name: input.name,
+        text: input.text,
+        notes: input.notes,
+        plotNumber: input.plotNumber,
+        positionX: input.positionX,
+        positionY: input.positionY,
+        updatedAt: nowIso(),
+      });
+  }
+
+  getSceneCardById(sceneId: string): SceneCardRecord | null {
+    const row = this.db.prepare('SELECT * FROM scene_cards WHERE id = ?').get(sceneId) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? toSceneCardRecord(row) : null;
+  }
+
+  listSceneCards(projectId: string): SceneCardRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM scene_cards
+        WHERE project_id = ?
+        ORDER BY plot_number ASC, updated_at DESC, name ASC
+        `,
+      )
+      .all(projectId) as Record<string, unknown>[];
+    return rows.map(toSceneCardRecord);
+  }
+
+  listScenesForChapter(projectId: string, chapterNodeId: string): SceneCardRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM scene_cards
+        WHERE project_id = ? AND chapter_node_id = ?
+        ORDER BY created_at ASC
+        `,
+      )
+      .all(projectId, chapterNodeId) as Record<string, unknown>[];
+    return rows.map(toSceneCardRecord);
+  }
+
+  deleteSceneCard(sceneId: string): void {
+    this.db.prepare('DELETE FROM scene_cards WHERE id = ?').run(sceneId);
   }
 }

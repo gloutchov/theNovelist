@@ -29,6 +29,7 @@ import { getNearbyCanvasPosition } from './canvas-position';
 import LocationBoard from './LocationBoard';
 import LocationFlowNode from './LocationFlowNode';
 import PlotFlowNode, { type PlotFlowNodeData } from './PlotFlowNode';
+import SceneBoard from './SceneBoard';
 import { getStatusTone } from './status-tone';
 
 type StoryState = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>;
@@ -54,7 +55,14 @@ type CodexMemorySource = NonNullable<
 type ChapterCanvasNode = Node<ChapterFlowNodeData, 'chapter'>;
 type PlotCanvasNode = Node<PlotFlowNodeData, 'plot'>;
 
-type WorkspaceTab = 'dashboard' | 'story' | 'plots' | 'characters' | 'locations' | 'memory';
+type WorkspaceTab =
+  | 'dashboard'
+  | 'story'
+  | 'plots'
+  | 'scenes'
+  | 'characters'
+  | 'locations'
+  | 'memory';
 
 interface PlotStructureBlock {
   title: string;
@@ -548,11 +556,13 @@ export default function App() {
   const [chapterEditorDirty, setChapterEditorDirty] = useState<boolean>(false);
   const [characterBoardDirty, setCharacterBoardDirty] = useState<boolean>(false);
   const [locationBoardDirty, setLocationBoardDirty] = useState<boolean>(false);
+  const [sceneBoardDirty, setSceneBoardDirty] = useState<boolean>(false);
   const [isCloseProjectConfirmOpen, setIsCloseProjectConfirmOpen] = useState<boolean>(false);
 
   const chapterEditorFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const characterBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const locationBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const sceneBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const wikiAutoSyncInFlightRef = useRef<Promise<void> | null>(null);
   const workspaceNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyFlowRef = useRef<ReactFlowInstance<ChapterCanvasNode, Edge> | null>(null);
@@ -616,7 +626,11 @@ export default function App() {
   const canCreatePlotStructure = canCreatePlot && Boolean(newPlotSummary.trim());
   const canOpenStoryCreationTools = Boolean(currentProject) && !busy;
   const hasUnsavedChanges =
-    isStoryEditDirty || chapterEditorDirty || characterBoardDirty || locationBoardDirty;
+    isStoryEditDirty ||
+    chapterEditorDirty ||
+    characterBoardDirty ||
+    locationBoardDirty ||
+    sceneBoardDirty;
   const nodeTypes = useMemo(
     () => ({
       chapter: ChapterFlowNode,
@@ -744,6 +758,7 @@ export default function App() {
     setChapterEditorDirty(false);
     setCharacterBoardDirty(false);
     setLocationBoardDirty(false);
+    setSceneBoardDirty(false);
     setIsCloseProjectConfirmOpen(false);
   }, []);
 
@@ -1213,6 +1228,13 @@ export default function App() {
     if (locationBoardFlushRef.current) {
       const ok = await locationBoardFlushRef.current();
       if (!ok && locationBoardDirty) {
+        return false;
+      }
+    }
+
+    if (sceneBoardFlushRef.current) {
+      const ok = await sceneBoardFlushRef.current();
+      if (!ok && sceneBoardDirty) {
         return false;
       }
     }
@@ -2160,6 +2182,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            className={activeTab === 'scenes' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('scenes')}
+            disabled={!currentProject}
+          >
+            Scene
+          </button>
+          <button
+            type="button"
             className={activeTab === 'characters' ? 'tab-active' : ''}
             onClick={() => setActiveTab('characters')}
             disabled={!currentProject}
@@ -2636,6 +2666,27 @@ export default function App() {
         ) : (
           <section className="panel">
             <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire le trame.</p>
+          </section>
+        )
+      ) : null}
+
+      {activeTab === 'scenes' ? (
+        currentProject ? (
+          <SceneBoard
+            currentProject={currentProject}
+            autosaveSettings={appPreferences}
+            statusMessage={status}
+            workspaceNotice={workspaceNotice}
+            onStatus={handleWorkspaceStatus}
+            onDirtyChange={setSceneBoardDirty}
+            onRegisterFlush={(handler) => {
+              sceneBoardFlushRef.current = handler;
+            }}
+            onWikiSync={syncProjectWikiAfterWorkspaceChange}
+          />
+        ) : (
+          <section className="panel">
+            <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire le scene.</p>
           </section>
         )
       ) : null}

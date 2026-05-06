@@ -194,6 +194,19 @@ export async function installNovelistApiMock(
         chapterNodeId: string;
         createdAt: string;
       }>,
+      sceneCards: [] as Array<{
+        id: string;
+        projectId: string;
+        chapterNodeId: string;
+        name: string;
+        text: string;
+        notes: string;
+        plotNumber: number;
+        positionX: number;
+        positionY: number;
+        createdAt: string;
+        updatedAt: string;
+      }>,
     };
 
     const ensureProject = () => {
@@ -215,6 +228,7 @@ export async function installNovelistApiMock(
       state.locationCards = [];
       state.locationImages = [];
       state.locationChapterLinks = [];
+      state.sceneCards = [];
     };
 
     const buildWordSequence = (wordCount: number): string =>
@@ -403,7 +417,7 @@ export async function installNovelistApiMock(
         initialized: true,
         derivedPending: false,
         updatedAt: nowIso(),
-        sourceCount: state.nodes.length + 4,
+        sourceCount: state.nodes.length + 5,
       }),
 
       wikiSync: async () => {
@@ -415,7 +429,7 @@ export async function installNovelistApiMock(
         return {
           changed: false,
           changedSources: [],
-          sourceCount: state.nodes.length + 4,
+          sourceCount: state.nodes.length + 5,
           derivedPending: false,
         };
       },
@@ -441,7 +455,24 @@ export async function installNovelistApiMock(
             snippet: node.description || node.title,
           }));
 
-        return chapterResults;
+        const remaining = Math.max(limit - chapterResults.length, 0);
+        const sceneResults = state.sceneCards
+          .filter(
+            (card) =>
+              card.name.toLowerCase().includes(query) ||
+              card.text.toLowerCase().includes(query) ||
+              card.notes.toLowerCase().includes(query),
+          )
+          .slice(0, remaining)
+          .map((card) => ({
+            path: 'sources/cards/scenes.md',
+            title: card.name,
+            category: 'source' as const,
+            score: 1,
+            snippet: card.text || card.notes || card.name,
+          }));
+
+        return [...chapterResults, ...sceneResults];
       },
 
       getStoryState: async () => ({
@@ -527,6 +558,15 @@ export async function installNovelistApiMock(
             .filter((card) => card.projectId === plot.projectId && card.plotNumber === plot.number)
             .map((card) => card.id),
         );
+        const deletedSceneIds = new Set(
+          state.sceneCards
+            .filter(
+              (card) =>
+                card.projectId === plot.projectId &&
+                (card.plotNumber === plot.number || deletedNodeIds.has(card.chapterNodeId)),
+            )
+            .map((card) => card.id),
+        );
 
         state.nodes = state.nodes.filter((node) => !deletedNodeIds.has(node.id));
         state.edges = state.edges.filter(
@@ -559,6 +599,7 @@ export async function installNovelistApiMock(
         state.locationImages = state.locationImages.filter(
           (image) => !deletedLocationIds.has(image.locationCardId),
         );
+        state.sceneCards = state.sceneCards.filter((card) => !deletedSceneIds.has(card.id));
         state.plots = state.plots.filter((item) => item.id !== payload.id);
         return { ok: true as const };
       },
@@ -630,6 +671,7 @@ export async function installNovelistApiMock(
         state.locationChapterLinks = state.locationChapterLinks.filter(
           (link) => link.chapterNodeId !== payload.id,
         );
+        state.sceneCards = state.sceneCards.filter((card) => card.chapterNodeId !== payload.id);
         return { ok: true as const };
       },
 
@@ -731,6 +773,9 @@ export async function installNovelistApiMock(
         );
         return clone(state.locationCards.filter((card) => ids.has(card.id)));
       },
+
+      listChapterScenes: async (payload: { chapterNodeId: string }) =>
+        clone(state.sceneCards.filter((card) => card.chapterNodeId === payload.chapterNodeId)),
 
       listCharacterCards: async () => clone(state.characterCards),
 
@@ -1009,6 +1054,59 @@ export async function installNovelistApiMock(
 
       deleteLocationImage: async (payload: { id: string }) => {
         state.locationImages = state.locationImages.filter((image) => image.id !== payload.id);
+        return { ok: true as const };
+      },
+
+      listSceneCards: async () => clone(state.sceneCards),
+
+      createSceneCard: async (payload: {
+        chapterNodeId: string;
+        name: string;
+        text: string;
+        notes: string;
+        plotNumber: number;
+        positionX: number;
+        positionY: number;
+      }) => {
+        const project = ensureProject();
+        const now = nowIso();
+        const card = {
+          id: nextId('scene'),
+          projectId: project.id,
+          chapterNodeId: payload.chapterNodeId,
+          name: payload.name,
+          text: payload.text,
+          notes: payload.notes,
+          plotNumber: payload.plotNumber,
+          positionX: payload.positionX,
+          positionY: payload.positionY,
+          createdAt: now,
+          updatedAt: now,
+        };
+        state.sceneCards.push(card);
+        return clone(card);
+      },
+
+      updateSceneCard: async (payload: {
+        id: string;
+        chapterNodeId: string;
+        name: string;
+        text: string;
+        notes: string;
+        plotNumber: number;
+        positionX: number;
+        positionY: number;
+      }) => {
+        const card = state.sceneCards.find((item) => item.id === payload.id);
+        if (!card) {
+          throw new Error('Scene card not found');
+        }
+        Object.assign(card, payload, { updatedAt: nowIso() });
+        return clone(card);
+      },
+
+      deleteSceneCard: async (payload: { id: string }) => {
+        state.sceneCards = state.sceneCards.filter((card) => card.id !== payload.id);
         return { ok: true as const };
       },
 

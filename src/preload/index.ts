@@ -18,6 +18,7 @@ import type {
   PlotResponse,
   ProjectInspectPathResponse,
   ProjectResponse,
+  SceneCardResponse,
   SnapshotResponse,
   StoryStateResponse,
   WikiStatusResponse,
@@ -128,6 +129,8 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.chapterListCharacters, payload),
   listChapterLocations: (payload: { chapterNodeId: string }): Promise<LocationCardResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.chapterListLocations, payload),
+  listChapterScenes: (payload: { chapterNodeId: string }): Promise<SceneCardResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.chapterListScenes, payload),
   listCharacterCards: (): Promise<CharacterCardResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.characterListCards),
   createCharacterCard: (payload: {
@@ -244,6 +247,29 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.locationGenerateImage, payload),
   deleteLocationImage: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.locationDeleteImage, payload),
+  listSceneCards: (): Promise<SceneCardResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.sceneListCards),
+  createSceneCard: (payload: {
+    chapterNodeId: string;
+    name: string;
+    text: string;
+    notes: string;
+    plotNumber: number;
+    positionX: number;
+    positionY: number;
+  }): Promise<SceneCardResponse> => ipcRenderer.invoke(IPC_CHANNELS.sceneCreateCard, payload),
+  updateSceneCard: (payload: {
+    id: string;
+    chapterNodeId: string;
+    name: string;
+    text: string;
+    notes: string;
+    plotNumber: number;
+    positionX: number;
+    positionY: number;
+  }): Promise<SceneCardResponse> => ipcRenderer.invoke(IPC_CHANNELS.sceneUpdateCard, payload),
+  deleteSceneCard: (payload: { id: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.sceneDeleteCard, payload),
   codexStatus: (): Promise<CodexStatusResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexStatus),
   codexGetSettings: (): Promise<CodexSettingsResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexGetSettings),

@@ -39,12 +39,13 @@ type CodexMemorySource = NonNullable<
 >[number];
 type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
+type SceneCard = Awaited<ReturnType<(typeof window.novelistApi)['listSceneCards']>>[number];
 type StoryChapterNode = Awaited<
   ReturnType<(typeof window.novelistApi)['getStoryState']>
 >['nodes'][number];
 
 type BlockStyle = 'paragraph' | 'heading' | 'blockquote';
-type ReferenceType = 'character' | 'location';
+type ReferenceType = 'character' | 'location' | 'scene';
 
 interface RichTextNodeJson {
   type?: string;
@@ -92,6 +93,7 @@ interface FindMatch {
 interface MentionIds {
   characterIds: string[];
   locationIds: string[];
+  sceneIds: string[];
 }
 
 interface ReferenceOption {
@@ -99,12 +101,14 @@ interface ReferenceOption {
   type: ReferenceType;
   label: string;
   searchText: string;
+  trigger: '@' | '#';
 }
 
 interface MentionMenuState {
   from: number;
   to: number;
   query: string;
+  trigger: '@' | '#';
   left: number;
   top: number;
   items: ReferenceOption[];
@@ -235,6 +239,9 @@ const ReferenceMention = TiptapNode.create({
       label: {
         default: '',
       },
+      boundary: {
+        default: 'start',
+      },
     };
   },
 
@@ -251,18 +258,20 @@ const ReferenceMention = TiptapNode.create({
     const refId = typeof HTMLAttributes['refId'] === 'string' ? HTMLAttributes['refId'] : '';
     const refType =
       typeof HTMLAttributes['refType'] === 'string' ? HTMLAttributes['refType'] : 'character';
+    const prefix = refType === 'scene' ? '#' : '@';
 
     return [
       'span',
       mergeAttributes(HTMLAttributes, {
-        class: 'reference-mention',
+        class:
+          refType === 'scene' ? 'reference-mention scene-reference-mention' : 'reference-mention',
         contenteditable: 'false',
         'data-reference-mention': '',
         'data-ref-id': refId,
         'data-ref-type': refType,
         'data-label': label,
       }),
-      `@${label}`,
+      `${prefix}${label}`,
     ];
   },
 
@@ -423,6 +432,7 @@ function getWordCountFromDocument(document: RichTextDocumentJson): number {
 function extractMentionIds(document: RichTextDocumentJson): MentionIds {
   const characterIds = new Set<string>();
   const locationIds = new Set<string>();
+  const sceneIds = new Set<string>();
 
   function visit(node: RichTextNodeJson | undefined): void {
     if (!node) {
@@ -437,6 +447,9 @@ function extractMentionIds(document: RichTextDocumentJson): MentionIds {
       }
       if (refId && refType === 'location') {
         locationIds.add(refId);
+      }
+      if (refId && refType === 'scene') {
+        sceneIds.add(refId);
       }
       return;
     }
@@ -457,6 +470,7 @@ function extractMentionIds(document: RichTextDocumentJson): MentionIds {
   return {
     characterIds: [...characterIds],
     locationIds: [...locationIds],
+    sceneIds: [...sceneIds],
   };
 }
 
@@ -497,14 +511,16 @@ function buildMentionMenuState(
     '\n',
     '\0',
   );
-  const match = /(?:^|[\s([{'"«])@([^\s@]*)$/u.exec(textBeforeCursor);
+  const match = /(?:^|[\s([{'"«])([@#])([^\s@#]*)$/u.exec(textBeforeCursor);
   if (!match) {
     return null;
   }
 
-  const query = match[1] ?? '';
+  const trigger = match[1] === '#' ? '#' : '@';
+  const query = match[2] ?? '';
   const normalizedQuery = normalizeReferenceSearch(query);
   const items = options
+    .filter((option) => option.trigger === trigger)
     .filter((option) => !normalizedQuery || option.searchText.includes(normalizedQuery))
     .slice(0, 8);
   const coords = editor.view.coordsAtPos(cursor);
@@ -519,6 +535,7 @@ function buildMentionMenuState(
     from: cursor - query.length - 1,
     to: cursor,
     query,
+    trigger,
     left: coords.left,
     top: coords.bottom + 8,
     items,
@@ -682,12 +699,15 @@ export default function ChapterEditor({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [linkedCharacters, setLinkedCharacters] = useState<CharacterCard[]>([]);
   const [linkedLocations, setLinkedLocations] = useState<LocationCard[]>([]);
+  const [linkedScenes, setLinkedScenes] = useState<SceneCard[]>([]);
   const [availableCharacters, setAvailableCharacters] = useState<CharacterCard[]>([]);
   const [availableLocations, setAvailableLocations] = useState<LocationCard[]>([]);
+  const [availableScenes, setAvailableScenes] = useState<SceneCard[]>([]);
   const [chapterRecord, setChapterRecord] = useState<StoryChapterNode | null>(null);
   const [mentionedIds, setMentionedIds] = useState<MentionIds>({
     characterIds: [],
     locationIds: [],
+    sceneIds: [],
   });
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState | null>(null);
   const [selectionContextMenu, setSelectionContextMenu] =
@@ -723,6 +743,10 @@ export default function ChapterEditor({
     () => new Map(availableLocations.map((card) => [card.id, card])),
     [availableLocations],
   );
+  const sceneMap = useMemo(
+    () => new Map(availableScenes.map((card) => [card.id, card])),
+    [availableScenes],
+  );
   const referenceOptions = useMemo<ReferenceOption[]>(
     () =>
       [
@@ -734,6 +758,7 @@ export default function ChapterEditor({
               type: 'character' as const,
               label,
               searchText: normalizeReferenceSearch(label),
+              trigger: '@' as const,
             };
           })
           .filter((item) => item.label),
@@ -743,10 +768,20 @@ export default function ChapterEditor({
             type: 'location' as const,
             label: card.name.trim(),
             searchText: normalizeReferenceSearch(card.name),
+            trigger: '@' as const,
+          }))
+          .filter((item) => item.label),
+        ...availableScenes
+          .map((card) => ({
+            id: card.id,
+            type: 'scene' as const,
+            label: card.name.trim(),
+            searchText: normalizeReferenceSearch(card.name),
+            trigger: '#' as const,
           }))
           .filter((item) => item.label),
       ].sort((left, right) => left.label.localeCompare(right.label, 'it')),
-    [availableCharacters, availableLocations],
+    [availableCharacters, availableLocations, availableScenes],
   );
   const displayedCharacters = useMemo(() => {
     const ordered = new Map<string, CharacterCard>();
@@ -774,6 +809,19 @@ export default function ChapterEditor({
     }
     return [...ordered.values()];
   }, [linkedLocations, locationMap, mentionedIds.locationIds]);
+  const displayedScenes = useMemo(() => {
+    const ordered = new Map<string, SceneCard>();
+    for (const card of linkedScenes) {
+      ordered.set(card.id, card);
+    }
+    for (const id of mentionedIds.sceneIds) {
+      const card = sceneMap.get(id);
+      if (card && !ordered.has(id)) {
+        ordered.set(id, card);
+      }
+    }
+    return [...ordered.values()];
+  }, [linkedScenes, mentionedIds.sceneIds, sceneMap]);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -946,7 +994,8 @@ export default function ChapterEditor({
       scheduleWordCountUpdate(getWordCountFromDocument(document));
       setMentionedIds((previous) =>
         areStringArraysEqual(previous.characterIds, nextMentionedIds.characterIds) &&
-        areStringArraysEqual(previous.locationIds, nextMentionedIds.locationIds)
+        areStringArraysEqual(previous.locationIds, nextMentionedIds.locationIds) &&
+        areStringArraysEqual(previous.sceneIds, nextMentionedIds.sceneIds)
           ? previous
           : nextMentionedIds,
       );
@@ -991,8 +1040,10 @@ export default function ChapterEditor({
           history,
           chapterCharacters,
           chapterLocations,
+          chapterScenes,
           allCharacters,
           allLocations,
+          allScenes,
           storyState,
         ] = await Promise.all([
           window.novelistApi.getChapterDocument({ chapterNodeId }),
@@ -1001,8 +1052,10 @@ export default function ChapterEditor({
           window.novelistApi.codexGetChatHistory({ chapterNodeId }),
           window.novelistApi.listChapterCharacters({ chapterNodeId }),
           window.novelistApi.listChapterLocations({ chapterNodeId }),
+          window.novelistApi.listChapterScenes({ chapterNodeId }),
           window.novelistApi.listCharacterCards(),
           window.novelistApi.listLocationCards(),
+          window.novelistApi.listSceneCards(),
           window.novelistApi.getStoryState(),
         ]);
 
@@ -1015,8 +1068,10 @@ export default function ChapterEditor({
         setChatMessages(history.map(mapHistoryMessageToChatMessage));
         setLinkedCharacters(chapterCharacters);
         setLinkedLocations(chapterLocations);
+        setLinkedScenes(chapterScenes);
         setAvailableCharacters(allCharacters);
         setAvailableLocations(allLocations);
+        setAvailableScenes(allScenes);
         setChapterRecord(storyState.nodes.find((node) => node.id === chapterNodeId) ?? null);
         setDocumentRecord(record);
         const content = JSON.parse(record.contentJson) as Record<string, unknown>;
@@ -1234,7 +1289,12 @@ export default function ChapterEditor({
     }
 
     setActiveFindIndex(normalizedIndex);
-    editor.chain().focus().setTextSelection({ from: match.from, to: match.to }).scrollIntoView().run();
+    editor
+      .chain()
+      .focus()
+      .setTextSelection({ from: match.from, to: match.to })
+      .scrollIntoView()
+      .run();
     onStatus(`Risultato ${normalizedIndex + 1} di ${findMatches.length}`);
   }
 
@@ -1249,7 +1309,9 @@ export default function ChapterEditor({
 
   function handleReplaceCurrent(): void {
     if (!editor || findMatches.length === 0) {
-      onStatus(findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare');
+      onStatus(
+        findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare',
+      );
       return;
     }
 
@@ -1265,7 +1327,9 @@ export default function ChapterEditor({
 
   function handleReplaceAll(): void {
     if (!editor || findMatches.length === 0) {
-      onStatus(findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare');
+      onStatus(
+        findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare',
+      );
       return;
     }
 
@@ -1286,16 +1350,27 @@ export default function ChapterEditor({
   }
 
   const refreshChapterReferences = useCallback(async (): Promise<void> => {
-    const [chapterCharacters, chapterLocations, allCharacters, allLocations] = await Promise.all([
+    const [
+      chapterCharacters,
+      chapterLocations,
+      chapterScenes,
+      allCharacters,
+      allLocations,
+      allScenes,
+    ] = await Promise.all([
       window.novelistApi.listChapterCharacters({ chapterNodeId }),
       window.novelistApi.listChapterLocations({ chapterNodeId }),
+      window.novelistApi.listChapterScenes({ chapterNodeId }),
       window.novelistApi.listCharacterCards(),
       window.novelistApi.listLocationCards(),
+      window.novelistApi.listSceneCards(),
     ]);
     setLinkedCharacters(chapterCharacters);
     setLinkedLocations(chapterLocations);
+    setLinkedScenes(chapterScenes);
     setAvailableCharacters(allCharacters);
     setAvailableLocations(allLocations);
+    setAvailableScenes(allScenes);
   }, [chapterNodeId]);
 
   const syncChapterReferences = useCallback(
@@ -1750,7 +1825,7 @@ export default function ChapterEditor({
   function insertReference(
     item: ReferenceOption,
     range?: { from: number; to: number },
-    options?: { preserveSelectedContent?: boolean },
+    options?: { preserveSelectedContent?: boolean; sceneBoundary?: 'start' | 'end' },
   ): void {
     if (!editor) {
       return;
@@ -1776,6 +1851,7 @@ export default function ChapterEditor({
             refId: item.id,
             refType: item.type,
             label: item.label,
+            boundary: options?.sceneBoundary ?? 'start',
           },
         },
         {
@@ -1800,6 +1876,7 @@ export default function ChapterEditor({
         type: 'character',
         label: getCharacterLabel(card),
         searchText: normalizeReferenceSearch(getCharacterLabel(card)),
+        trigger: '@',
       },
       range,
       options,
@@ -1817,10 +1894,64 @@ export default function ChapterEditor({
         type: 'location',
         label: card.name,
         searchText: normalizeReferenceSearch(card.name),
+        trigger: '@',
       },
       range,
       options,
     );
+  }
+
+  function insertSceneReference(card: SceneCard, range?: { from: number; to: number }): void {
+    insertReference(
+      {
+        id: card.id,
+        type: 'scene',
+        label: card.name,
+        searchText: normalizeReferenceSearch(card.name),
+        trigger: '#',
+      },
+      range,
+    );
+  }
+
+  function wrapSelectionWithSceneReference(
+    card: SceneCard,
+    range: { from: number; to: number },
+  ): void {
+    if (!editor) {
+      return;
+    }
+
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(range.to, [
+        { type: 'text', text: ' ' },
+        {
+          type: 'referenceMention',
+          attrs: {
+            refId: card.id,
+            refType: 'scene',
+            label: card.name,
+            boundary: 'end',
+          },
+        },
+      ])
+      .insertContentAt(range.from, [
+        {
+          type: 'referenceMention',
+          attrs: {
+            refId: card.id,
+            refType: 'scene',
+            label: card.name,
+            boundary: 'start',
+          },
+        },
+        { type: 'text', text: ' ' },
+      ])
+      .run();
+    setMentionMenu(null);
+    setSelectionContextMenu(null);
   }
 
   function handleEditorContextMenu(event: ReactMouseEvent<HTMLDivElement>): void {
@@ -1992,7 +2123,7 @@ export default function ChapterEditor({
         insertCharacterReference(created, createReferenceModal.range, {
           preserveSelectedContent: true,
         });
-      } else {
+      } else if (createReferenceModal.type === 'location') {
         const suggestion = await requestLocationSuggestion(name, createReferenceModal.text);
         const nextPosition = getNearbyCanvasPosition(
           availableLocations.map((card) => ({
@@ -2043,6 +2174,30 @@ export default function ChapterEditor({
         insertLocationReference(created, createReferenceModal.range, {
           preserveSelectedContent: true,
         });
+      } else {
+        const nextPosition = getNearbyCanvasPosition(
+          availableScenes.map((card) => ({
+            x: card.positionX,
+            y: card.positionY,
+          })),
+          {
+            emptyPosition: { x: 120, y: 120 },
+            minDistance: 225,
+            radiusStep: 155,
+          },
+        );
+
+        const created = await window.novelistApi.createSceneCard({
+          chapterNodeId,
+          name,
+          text: createReferenceModal.text,
+          notes: '',
+          plotNumber: chapterRecord?.plotNumber ?? 1,
+          positionX: nextPosition.x,
+          positionY: nextPosition.y,
+        });
+
+        wrapSelectionWithSceneReference(created, createReferenceModal.range);
       }
 
       await refreshChapterReferences();
@@ -2053,8 +2208,12 @@ export default function ChapterEditor({
       const baseStatus =
         createReferenceModal.type === 'character'
           ? `Personaggio creato e inserito nel testo: @${name}`
-          : `Location creata e inserita nel testo: @${name}`;
-      if (autoImageGenerated) {
+          : createReferenceModal.type === 'location'
+            ? `Location creata e inserita nel testo: @${name}`
+            : `Scena creata e inserita nel testo: #${name}`;
+      if (createReferenceModal.type === 'scene') {
+        onStatus(baseStatus);
+      } else if (autoImageGenerated) {
         onStatus(`${baseStatus} con immagine generata automaticamente`);
       } else if (autoImageError) {
         onStatus(`${baseStatus}. Immagine automatica non generata: ${autoImageError}`);
@@ -2326,6 +2485,25 @@ export default function ChapterEditor({
                     ))}
                   </div>
                 </div>
+                <div>
+                  <p className="muted">Scene collegate o citate</p>
+                  {displayedScenes.length === 0 ? (
+                    <p className="muted">Nessuna scena collegata.</p>
+                  ) : null}
+                  <div className="reference-chip-list">
+                    {displayedScenes.map((card) => (
+                      <button
+                        key={card.id}
+                        type="button"
+                        className="reference-chip"
+                        onClick={() => insertSceneReference(card)}
+                        disabled={!editor}
+                      >
+                        #{card.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="row-buttons">
                 <button type="button" onClick={() => void refreshChapterReferences()}>
@@ -2364,8 +2542,14 @@ export default function ChapterEditor({
                       });
                     }}
                   >
-                    <span>{`@${item.label}`}</span>
-                    <small>{item.type === 'character' ? 'Personaggio' : 'Location'}</small>
+                    <span>{`${item.trigger}${item.label}`}</span>
+                    <small>
+                      {item.type === 'character'
+                        ? 'Personaggio'
+                        : item.type === 'location'
+                          ? 'Location'
+                          : 'Scena'}
+                    </small>
                   </button>
                 ))}
               </div>
@@ -2407,6 +2591,21 @@ export default function ChapterEditor({
                   }}
                 >
                   Crea location
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionContextMenu(null);
+                    setCreateReferenceModal({
+                      type: 'scene',
+                      text: selectionContextMenu.text,
+                      range: selectionContextMenu.range,
+                      name: '',
+                      submitting: false,
+                    });
+                  }}
+                >
+                  Crea scena
                 </button>
               </div>
             ) : null}
@@ -2630,10 +2829,16 @@ export default function ChapterEditor({
               <h3>
                 {createReferenceModal.type === 'character'
                   ? 'Crea Scheda Personaggio'
-                  : 'Crea Scheda Location'}
+                  : createReferenceModal.type === 'location'
+                    ? 'Crea Scheda Location'
+                    : 'Crea Scheda Scena'}
               </h3>
               <label>
-                {createReferenceModal.type === 'character' ? 'Nome personaggio' : 'Nome location'}
+                {createReferenceModal.type === 'character'
+                  ? 'Nome personaggio'
+                  : createReferenceModal.type === 'location'
+                    ? 'Nome location'
+                    : 'Nome scena'}
                 <input
                   autoFocus
                   value={createReferenceModal.name}
@@ -2649,8 +2854,9 @@ export default function ChapterEditor({
                 <textarea rows={6} value={createReferenceModal.text} readOnly />
               </label>
               <p className="muted">
-                La descrizione verra salvata nelle note. Se l&apos;AI e disponibile, prova anche a
-                compilare i campi deducibili.
+                {createReferenceModal.type === 'scene'
+                  ? 'Il testo selezionato verra salvato nella scheda scena e marcato nel capitolo.'
+                  : 'La descrizione verra salvata nelle note. Se l&apos;AI e disponibile, prova anche a compilare i campi deducibili.'}
               </p>
               <div className="row-buttons">
                 <button
@@ -2667,7 +2873,11 @@ export default function ChapterEditor({
                   disabled={createReferenceModal.submitting}
                   className={createReferenceModal.submitting ? 'ai-working' : undefined}
                 >
-                  {createReferenceModal.submitting ? 'Creazione...' : 'Crea e inserisci @'}
+                  {createReferenceModal.submitting
+                    ? 'Creazione...'
+                    : createReferenceModal.type === 'scene'
+                      ? 'Crea e inserisci #'
+                      : 'Crea e inserisci @'}
                 </button>
               </div>
             </div>
