@@ -409,6 +409,10 @@ function collectPlainTextFromNode(node: RichTextNodeJson | undefined): string {
     return '';
   }
 
+  if (node.type === 'hardBreak') {
+    return '\n';
+  }
+
   if (typeof node.text === 'string') {
     return node.text;
   }
@@ -427,6 +431,87 @@ function getPlainTextFromDocument(document: RichTextDocumentJson): string {
 
 function getWordCountFromDocument(document: RichTextDocumentJson): number {
   return getWordCountFromText(getPlainTextFromDocument(document));
+}
+
+function appendTextToActiveScenes(
+  sceneTextById: Map<string, string[]>,
+  activeSceneIds: string[],
+  text: string,
+): void {
+  if (!text || activeSceneIds.length === 0) {
+    return;
+  }
+
+  for (const sceneId of activeSceneIds) {
+    const chunks = sceneTextById.get(sceneId) ?? [];
+    chunks.push(text);
+    sceneTextById.set(sceneId, chunks);
+  }
+}
+
+function collectSceneTextFromNode(
+  node: RichTextNodeJson | undefined,
+  sceneTextById: Map<string, string[]>,
+  activeSceneIds: string[],
+): void {
+  if (!node) {
+    return;
+  }
+
+  if (node.type === 'referenceMention') {
+    const refId = typeof node.attrs?.['refId'] === 'string' ? node.attrs['refId'].trim() : '';
+    if (!refId || node.attrs?.['refType'] !== 'scene') {
+      return;
+    }
+
+    if (node.attrs?.['boundary'] === 'end') {
+      const activeIndex = activeSceneIds.lastIndexOf(refId);
+      if (activeIndex >= 0) {
+        activeSceneIds.splice(activeIndex, 1);
+      }
+      return;
+    }
+
+    if (!activeSceneIds.includes(refId)) {
+      activeSceneIds.push(refId);
+    }
+    if (!sceneTextById.has(refId)) {
+      sceneTextById.set(refId, []);
+    }
+    return;
+  }
+
+  if (node.type === 'hardBreak') {
+    appendTextToActiveScenes(sceneTextById, activeSceneIds, '\n');
+    return;
+  }
+
+  if (typeof node.text === 'string') {
+    appendTextToActiveScenes(sceneTextById, activeSceneIds, node.text);
+    return;
+  }
+
+  for (const child of node.content ?? []) {
+    collectSceneTextFromNode(child, sceneTextById, activeSceneIds);
+  }
+}
+
+function extractSceneTexts(document: RichTextDocumentJson): Map<string, string> {
+  const sceneTextById = new Map<string, string[]>();
+  const activeSceneIds: string[] = [];
+  const blocks = Array.isArray(document.content) ? document.content : [];
+
+  blocks.forEach((block, index) => {
+    if (index > 0 && activeSceneIds.length > 0) {
+      appendTextToActiveScenes(sceneTextById, activeSceneIds, '\n');
+    }
+
+    collectSceneTextFromNode(block, sceneTextById, activeSceneIds);
+  });
+
+  return new Map(
+    [...sceneTextById.entries()].map(([sceneId, chunks]) => [sceneId, chunks.join('').trim()]),
+  );
 }
 
 function extractMentionIds(document: RichTextDocumentJson): MentionIds {
@@ -1423,6 +1508,46 @@ export default function ChapterEditor({
     [chapterNodeId],
   );
 
+  const syncSceneCardsFromDocument = useCallback(
+    async (document: RichTextDocumentJson): Promise<void> => {
+      const sceneTextById = extractSceneTexts(document);
+      if (sceneTextById.size === 0) {
+        return;
+      }
+
+      const allScenes = await window.novelistApi.listSceneCards();
+      const currentPlotNumber = chapterRecord?.plotNumber ?? 1;
+      await Promise.all(
+        allScenes
+          .filter((scene) => sceneTextById.has(scene.id))
+          .map(async (scene) => {
+            const nextText = sceneTextById.get(scene.id) ?? '';
+            const nextChapterNodeId = chapterNodeId;
+            const nextPlotNumber = currentPlotNumber;
+            if (
+              scene.text === nextText &&
+              scene.chapterNodeId === nextChapterNodeId &&
+              scene.plotNumber === nextPlotNumber
+            ) {
+              return;
+            }
+
+            await window.novelistApi.updateSceneCard({
+              id: scene.id,
+              chapterNodeId: nextChapterNodeId,
+              name: scene.name,
+              text: nextText,
+              notes: scene.notes,
+              plotNumber: nextPlotNumber,
+              positionX: scene.positionX,
+              positionY: scene.positionY,
+            });
+          }),
+      );
+    },
+    [chapterNodeId, chapterRecord?.plotNumber],
+  );
+
   async function handleToggleCodexConsent(enabled: boolean): Promise<void> {
     setCodexSettingsBusy(true);
     setError(null);
@@ -1485,6 +1610,7 @@ export default function ChapterEditor({
         setIsDirty(false);
         let referenceSyncFailed = false;
         try {
+          await syncSceneCardsFromDocument(document);
           await syncChapterReferences(document);
           await refreshChapterReferences();
         } catch (caughtReferenceError) {
@@ -1517,6 +1643,7 @@ export default function ChapterEditor({
       onStatus,
       refreshChapterReferences,
       syncChapterReferences,
+      syncSceneCardsFromDocument,
     ],
   );
 
