@@ -230,6 +230,7 @@ export default function CharacterBoard({
   const [error, setError] = useState<string | null>(null);
 
   const [createDraft, setCreateDraft] = useState<CharacterDraft>(() => emptyCharacterDraft(1));
+  const [isCreateCardModalOpen, setIsCreateCardModalOpen] = useState<boolean>(false);
   const [editCardId, setEditCardId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<CharacterDraft>(() => emptyCharacterDraft(1));
 
@@ -254,6 +255,13 @@ export default function CharacterBoard({
   const selectedCard = useMemo(
     () => (selectedCardId ? (cardsById.get(selectedCardId) ?? null) : null),
     [cardsById, selectedCardId],
+  );
+  const selectedCardPlot = useMemo(
+    () =>
+      selectedCard
+        ? (plotOptions.find((plot) => plot.number === selectedCard.plotNumber) ?? null)
+        : null,
+    [plotOptions, selectedCard],
   );
   const currentEditCard = useMemo(
     () => (editCardId ? (cardsById.get(editCardId) ?? null) : null),
@@ -617,6 +625,7 @@ export default function CharacterBoard({
       setNodes((prev) => [...prev, mapCardToNode(created, null)]);
       setCreateDraft(emptyCharacterDraft(createDraft.plotNumber));
       setSelectedCardId(created.id);
+      setIsCreateCardModalOpen(false);
       onStatus(`Personaggio creato: ${created.firstName} ${created.lastName}`.trim());
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
@@ -999,55 +1008,14 @@ export default function CharacterBoard({
   return (
     <section className="workspace">
       <aside className="sidebar">
-        <div className="panel">
-          <h2>Nuovo Personaggio</h2>
-          <label>
-            Nome
-            <input
-              value={createDraft.firstName}
-              onChange={(event) =>
-                setCreateDraft((prev) => ({ ...prev, firstName: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Cognome
-            <input
-              value={createDraft.lastName}
-              onChange={(event) =>
-                setCreateDraft((prev) => ({ ...prev, lastName: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Trama
-            <select
-              value={createDraft.plotNumber}
-              onChange={(event) =>
-                setCreateDraft((prev) => ({
-                  ...prev,
-                  plotNumber: Number(event.target.value),
-                }))
-              }
-            >
-              {plotOptions.length > 0 ? (
-                plotOptions.map((plot) => (
-                  <option key={plot.number} value={plot.number}>
-                    {formatPlotLabel(plot)}
-                  </option>
-                ))
-              ) : (
-                <option value={createDraft.plotNumber}>Trama {createDraft.plotNumber}</option>
-              )}
-            </select>
-          </label>
+        <div className="sidebar-action-group">
           <button
             type="button"
             className="sidebar-action-button"
-            onClick={() => void handleCreateCard()}
+            onClick={() => setIsCreateCardModalOpen(true)}
             disabled={busy || !currentProject}
           >
-            Crea Scheda
+            Crea Personaggio
           </button>
         </div>
 
@@ -1060,7 +1028,10 @@ export default function CharacterBoard({
             </strong>
           </p>
           <p>
-            Trama: <strong>{selectedCard?.plotNumber ?? '-'}</strong>
+            Ruolo: <strong>{selectedCard?.job.trim() || '-'}</strong>
+          </p>
+          <p>
+            Trama: <strong>{selectedCardPlot ? formatPlotLabel(selectedCardPlot) : '-'}</strong>
           </p>
           <div className="selection-action-stack">
             <button
@@ -1109,6 +1080,189 @@ export default function CharacterBoard({
           <Background gap={18} size={1} color="#d1d5db" />
         </ReactFlow>
       </section>
+
+      {isCreateCardModalOpen ? (
+        <div className="modal-overlay">
+          <div className="modal-card large-modal-card">
+            <h3>Crea Personaggio</h3>
+            <div className="grid-two">
+              <label>
+                Nome
+                <input
+                  value={createDraft.firstName}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, firstName: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Cognome
+                <input
+                  value={createDraft.lastName}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, lastName: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Sesso
+                <input
+                  value={createDraft.sex}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, sex: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Età
+                <input
+                  type="number"
+                  min={0}
+                  value={createDraft.age}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, age: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Orientamento sessuale
+                <input
+                  value={createDraft.sexualOrientation}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({
+                      ...prev,
+                      sexualOrientation: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Razza/Specie
+                <input
+                  value={createDraft.species}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, species: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Colore capelli
+                <input
+                  value={createDraft.hairColor}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, hairColor: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Colore occhi
+                <input
+                  value={createDraft.eyeColor}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, eyeColor: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Colore pelle
+                <input
+                  value={createDraft.skinColor}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, skinColor: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Barba
+                <input
+                  value={createDraft.beard}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, beard: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Fisicità
+                <input
+                  value={createDraft.physique}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, physique: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Lavoro
+                <input
+                  value={createDraft.job}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, job: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Trama
+                <select
+                  value={createDraft.plotNumber}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({
+                      ...prev,
+                      plotNumber: Number(event.target.value),
+                    }))
+                  }
+                >
+                  {plotOptions.length > 0 ? (
+                    plotOptions.map((plot) => (
+                      <option key={plot.number} value={plot.number}>
+                        {formatPlotLabel(plot)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={createDraft.plotNumber}>Trama {createDraft.plotNumber}</option>
+                  )}
+                </select>
+              </label>
+              <label className="checkbox-inline">
+                <input
+                  type="checkbox"
+                  checked={createDraft.bald}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, bald: event.target.checked }))
+                  }
+                />
+                <span>Calvizie</span>
+              </label>
+            </div>
+            <label>
+              Note
+              <textarea
+                rows={6}
+                value={createDraft.notes}
+                onChange={(event) =>
+                  setCreateDraft((prev) => ({ ...prev, notes: event.target.value }))
+                }
+              />
+            </label>
+
+            <div className="row-buttons">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setIsCreateCardModalOpen(false)}
+                disabled={busy}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateCard()}
+                disabled={busy || !currentProject}
+              >
+                Crea Scheda
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {editCardId ? (
         <div className="modal-overlay">

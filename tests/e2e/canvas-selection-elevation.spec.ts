@@ -21,11 +21,12 @@ async function createProject(page: Page, name: string): Promise<void> {
 
 async function createPlot(page: Page, title: string, summary = 'Bozza sintetica'): Promise<void> {
   await page.getByRole('button', { name: 'Trame', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Nuova Trama' })).toBeVisible();
+  await page.getByRole('button', { name: 'Nuova Trama' }).click();
 
-  const plotPanel = page.locator('.panel').filter({
+  const plotPanel = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
+  await expect(plotPanel).toBeVisible();
   await plotPanel.getByLabel('Titolo trama').fill(title);
   await plotPanel.getByLabel('Bozza trama / struttura').fill(summary);
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
@@ -34,11 +35,12 @@ async function createPlot(page: Page, title: string, summary = 'Bozza sintetica'
 
 async function createCharacter(page: Page, firstName: string, lastName: string): Promise<void> {
   await page.getByRole('button', { name: 'Personaggi', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Nuovo Personaggio' })).toBeVisible();
+  await page.getByRole('button', { name: 'Crea Personaggio' }).click();
 
-  const createPanel = page.locator('.panel').filter({
-    has: page.getByRole('heading', { name: 'Nuovo Personaggio' }),
+  const createPanel = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Crea Personaggio' }),
   });
+  await expect(createPanel).toBeVisible();
   await createPanel.getByLabel('Nome', { exact: true }).fill(firstName);
   await createPanel.getByLabel('Cognome', { exact: true }).fill(lastName);
   await createPanel.getByRole('button', { name: 'Crea Scheda' }).click();
