@@ -75,6 +75,8 @@ export interface CodexSettingsRecord {
   autoSummarizeDescriptions: boolean;
   apiKey: string | null;
   apiModel: string;
+  apiImageModel: string;
+  ollamaModel: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -269,6 +271,8 @@ export interface UpsertCodexSettingsInput {
   autoSummarizeDescriptions?: boolean;
   apiKey?: string | null;
   apiModel?: string;
+  apiImageModel?: string;
+  ollamaModel?: string;
 }
 
 export interface CreateCodexChatMessageInput {

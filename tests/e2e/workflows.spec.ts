@@ -26,6 +26,7 @@ async function createChapter(
   title: string,
   description = '',
 ): Promise<void> {
+  await page.getByRole('button', { name: 'Capitoli' }).click();
   await page.getByRole('button', { name: 'Nuovo Capitolo' }).click();
 
   const createChapterModal = page.locator('.modal-card').filter({
@@ -63,6 +64,30 @@ async function openChapterEditorWithText(
   await editorContent.click({ position: { x: 24, y: 18 } });
   await editorContent.pressSequentially(chapterText);
   await expect(editorContent).toContainText(chapterText);
+}
+
+async function expectMiniMapHasColoredContent(page: Page): Promise<void> {
+  await expect(page.locator('.react-flow__minimap')).toBeVisible();
+  await expect(page.locator('.react-flow__minimap-node').first()).toBeVisible();
+  const fills = await page.locator('.react-flow__minimap-node').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const fill = node.getAttribute('fill') || window.getComputedStyle(node).fill;
+      return fill.trim().toLowerCase();
+    }),
+  );
+  expect(
+    fills.some(
+      (fill) =>
+        fill &&
+        fill !== 'none' &&
+        fill !== 'transparent' &&
+        fill !== 'white' &&
+        fill !== '#fff' &&
+        fill !== '#ffffff' &&
+        fill !== 'rgb(255, 255, 255)' &&
+        fill !== 'rgba(255, 255, 255, 1)',
+    ),
+  ).toBe(true);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -107,6 +132,187 @@ test('chapter editor find and replace updates text', async ({ page }) => {
   await findPanel.getByRole('button', { name: 'Sostituisci tutto' }).click();
 
   await expect(editorContent).toContainText('La porta blu resta blu.');
+});
+
+test('outline opens chapters and complete document in reading view', async ({ page }) => {
+  await createProject(page, 'E2E Reading View');
+  await createChapter(page, 'Capitolo Uno', 'Primo passaggio');
+  await createChapter(page, 'Capitolo Due', 'Secondo passaggio');
+
+  await page.evaluate(async () => {
+    const state = await window.novelistApi.getStoryState();
+    const firstChapter = state.nodes.find((node) => node.title === 'Capitolo Uno');
+    const secondChapter = state.nodes.find((node) => node.title === 'Capitolo Due');
+    if (!firstChapter || !secondChapter) {
+      throw new Error('Capitoli test non trovati');
+    }
+
+    await window.novelistApi.createStoryEdge({
+      sourceId: firstChapter.id,
+      targetId: secondChapter.id,
+    });
+    await window.novelistApi.saveChapterDocument({
+      chapterNodeId: firstChapter.id,
+      contentJson: JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Testo di lettura del primo capitolo.' }],
+          },
+        ],
+      }),
+      wordCount: 7,
+    });
+    await window.novelistApi.saveChapterDocument({
+      chapterNodeId: secondChapter.id,
+      contentJson: JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Testo di lettura del secondo capitolo.' }],
+          },
+        ],
+      }),
+      wordCount: 7,
+    });
+  });
+
+  await page.getByRole('button', { name: 'Scaletta' }).click();
+  await expect(page.getByRole('heading', { name: 'Scaletta' })).toBeVisible();
+
+  const firstChapterCard = page.locator('.outline-chapter-card').filter({
+    has: page.getByRole('heading', { name: 'Capitolo Uno', exact: true }),
+  });
+  await firstChapterCard.getByRole('button', { name: 'Apri' }).click();
+  const reader = page.locator('.reading-view-overlay');
+  await expect(reader).toBeVisible();
+  await expect(reader.getByRole('heading', { name: 'Capitolo Uno' })).toBeVisible();
+  await expect(reader).toContainText('Testo di lettura del primo capitolo.');
+  await reader.getByRole('button', { name: 'Chiudi' }).click();
+  await expect(reader).toBeHidden();
+
+  await page.getByRole('button', { name: 'Apri Documento completo' }).click();
+  await expect(reader).toBeVisible();
+  await expect(reader).toContainText('E2E Reading View - Documento completo');
+  await expect(reader.getByText('Capitolo Uno').first()).toBeVisible();
+  await expect(reader.getByText('Capitolo Due').first()).toBeVisible();
+  await expect(reader).toContainText('Testo di lettura del primo capitolo.');
+  await expect(reader).toContainText('Testo di lettura del secondo capitolo.');
+});
+
+test('timeline keeps zoom controls and minimap inside the canvas', async ({ page }) => {
+  await createProject(page, 'E2E Timeline Controls');
+  await createChapter(page, 'Capitolo Timeline', 'Evento iniziale');
+
+  await page.getByRole('button', { name: 'Timeline' }).click();
+  await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
+  await expect(page.locator('.timeline-canvas-controls')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zoom out' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Adatta vista' })).toBeVisible();
+  await expect(page.locator('.timeline-minimap')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Zoom' })).toHaveCount(0);
+});
+
+test('flow minimaps show simplified canvas content', async ({ page }) => {
+  await createProject(page, 'E2E Flow Minimap Content');
+  await createChapter(page, 'Capitolo MiniMap', 'Nodo visibile nella minimappa');
+
+  await page.evaluate(async () => {
+    const state = await window.novelistApi.getStoryState();
+    const chapter = state.nodes[0];
+    if (!chapter) {
+      throw new Error('Capitolo test non trovato');
+    }
+
+    await window.novelistApi.createSceneCard({
+      chapterNodeId: chapter.id,
+      name: 'Scena MiniMap',
+      text: 'Contenuto scena',
+      contentJson: null,
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+    await window.novelistApi.createCharacterCard({
+      firstName: 'Ada',
+      lastName: 'MiniMap',
+      sex: '',
+      age: null,
+      sexualOrientation: '',
+      species: '',
+      hairColor: '',
+      eyeColor: '',
+      skinColor: '',
+      bald: false,
+      beard: '',
+      physique: '',
+      job: 'pilota',
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+    await window.novelistApi.createLocationCard({
+      name: 'Ponte MiniMap',
+      locationType: 'astronave',
+      description: '',
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+  });
+
+  await page.getByRole('button', { name: 'Capitoli' }).click();
+  await expectMiniMapHasColoredContent(page);
+
+  await page.getByRole('button', { name: 'Scene' }).click();
+  await expectMiniMapHasColoredContent(page);
+
+  await page.getByRole('button', { name: 'Personaggi' }).click();
+  await expectMiniMapHasColoredContent(page);
+
+  await page.getByRole('button', { name: 'Location' }).click();
+  await expectMiniMapHasColoredContent(page);
+});
+
+test('settings separates AI options, consents and secrets', async ({ page }) => {
+  await createProject(page, 'E2E Settings Layout');
+
+  await page.getByRole('button', { name: 'Impostazioni' }).click();
+  const settingsModal = page.locator('.settings-modal-card');
+  await expect(settingsModal.getByRole('heading', { name: 'Impostazioni' })).toBeVisible();
+
+  const aiSection = settingsModal.locator('details.settings-section').nth(1);
+  await expect(aiSection.getByLabel('Modello API', { exact: true })).toHaveValue('gpt-5-mini');
+  await expect(aiSection.getByLabel('Modello API immagini', { exact: true })).toHaveValue(
+    'gpt-image-1',
+  );
+  await expect(aiSection.getByLabel('Modello Ollama', { exact: true })).toHaveValue(
+    'gemma4:e4b-it-q4_K_M',
+  );
+  await expect(aiSection.getByLabel('Consenso invio testo a strumenti AI')).toHaveCount(0);
+  await expect(aiSection.getByLabel('Abilita chiamate API esterne')).toHaveCount(0);
+  await expect(aiSection.getByLabel('Auto-riassunto descrizione blocco al salvataggio')).toHaveCount(
+    0,
+  );
+
+  const consentSection = settingsModal.locator('details.settings-section').nth(2);
+  await expect(consentSection.getByLabel('Abilita chiamate API esterne')).toBeVisible();
+  await expect(consentSection.getByLabel('Consenso invio testo a strumenti AI')).toBeVisible();
+  await expect(
+    consentSection.getByLabel('Auto-riassunto descrizione blocco al salvataggio'),
+  ).toBeVisible();
+
+  const secretsSection = settingsModal.locator('details.settings-section').nth(3);
+  await expect(secretsSection.getByText('Segreti', { exact: true })).toBeVisible();
+  await expect(settingsModal.getByText('API Key (opzionale)')).toHaveCount(0);
+  await secretsSection.locator('summary').click();
+  await expect(secretsSection.getByLabel('API Key', { exact: true })).toBeVisible();
 });
 
 test('character board create and edit card', async ({ page }) => {

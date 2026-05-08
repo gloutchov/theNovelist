@@ -142,6 +142,8 @@ function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettingsRecor
   const provider = row.provider;
   const fallbackProvider = row.fallback_provider;
   const apiModel = row.api_model;
+  const apiImageModel = row.api_image_model;
+  const ollamaModel = row.ollama_model;
   const normalizedProvider =
     provider === 'openai_api' || provider === 'ollama' ? provider : 'codex_cli';
   const normalizedFallbackProvider =
@@ -162,6 +164,12 @@ function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettingsRecor
     autoSummarizeDescriptions: Number(row.auto_summarize_descriptions ?? 1) === 1,
     apiKey: row.api_key === null || row.api_key === undefined ? null : String(row.api_key),
     apiModel: typeof apiModel === 'string' && apiModel.trim() ? apiModel : 'gpt-5-mini',
+    apiImageModel:
+      typeof apiImageModel === 'string' && apiImageModel.trim() ? apiImageModel : 'gpt-image-1',
+    ollamaModel:
+      typeof ollamaModel === 'string' && ollamaModel.trim()
+        ? ollamaModel
+        : 'gemma4:e4b-it-q4_K_M',
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -1012,10 +1020,12 @@ export class NovelistRepository {
           auto_summarize_descriptions,
           api_key,
           api_model,
+          api_image_model,
+          ollama_model,
           created_at,
           updated_at
         )
-        VALUES (?, 0, 'codex_cli', 'none', 0, 1, 1, NULL, 'gpt-5-mini', ?, ?)
+        VALUES (?, 0, 'codex_cli', 'none', 0, 1, 1, NULL, 'gpt-5-mini', 'gpt-image-1', 'gemma4:e4b-it-q4_K_M', ?, ?)
         `,
       )
       .run(projectId, timestamp, timestamp);
@@ -1045,6 +1055,10 @@ export class NovelistRepository {
         input.autoSummarizeDescriptions ?? current.autoSummarizeDescriptions,
       apiKey: input.apiKey === undefined ? current.apiKey : input.apiKey,
       apiModel: input.apiModel?.trim() ? input.apiModel.trim() : current.apiModel,
+      apiImageModel: input.apiImageModel?.trim()
+        ? input.apiImageModel.trim()
+        : current.apiImageModel,
+      ollamaModel: input.ollamaModel?.trim() ? input.ollamaModel.trim() : current.ollamaModel,
       updatedAt: nowIso(),
     };
     if (next.fallbackProvider === next.provider) {
@@ -1065,6 +1079,8 @@ export class NovelistRepository {
           auto_summarize_descriptions,
           api_key,
           api_model,
+          api_image_model,
+          ollama_model,
           created_at,
           updated_at
         )
@@ -1078,6 +1094,8 @@ export class NovelistRepository {
           @autoSummarizeDescriptions,
           @apiKey,
           @apiModel,
+          @apiImageModel,
+          @ollamaModel,
           @createdAt,
           @updatedAt
         )
@@ -1090,6 +1108,8 @@ export class NovelistRepository {
           auto_summarize_descriptions = excluded.auto_summarize_descriptions,
           api_key = excluded.api_key,
           api_model = excluded.api_model,
+          api_image_model = excluded.api_image_model,
+          ollama_model = excluded.ollama_model,
           updated_at = excluded.updated_at
         `,
       )
@@ -1103,6 +1123,8 @@ export class NovelistRepository {
         autoSummarizeDescriptions: next.autoSummarizeDescriptions ? 1 : 0,
         apiKey: next.apiKey,
         apiModel: next.apiModel,
+        apiImageModel: next.apiImageModel,
+        ollamaModel: next.ollamaModel,
         createdAt: timestamp,
         updatedAt: timestamp,
       });

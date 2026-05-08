@@ -18,6 +18,11 @@ import {
 } from '@xyflow/react';
 import { getNearbyCanvasPosition } from './canvas-position';
 import CharacterFlowNode, { type CharacterFlowNodeData } from './CharacterFlowNode';
+import {
+  FLOW_MINIMAP_MASK_COLOR,
+  getFlowMiniMapNodeColor,
+  getFlowMiniMapNodeStrokeColor,
+} from './flow-minimap';
 import { getStatusTone } from './status-tone';
 import { toImageSource } from './image-path';
 
@@ -1075,7 +1080,13 @@ export default function CharacterBoard({
           fitView
           deleteKeyCode={['Backspace', 'Delete']}
         >
-          <MiniMap zoomable pannable />
+          <MiniMap
+            zoomable
+            pannable
+            nodeColor={getFlowMiniMapNodeColor}
+            nodeStrokeColor={getFlowMiniMapNodeStrokeColor}
+            maskColor={FLOW_MINIMAP_MASK_COLOR}
+          />
           <Controls />
           <Background gap={18} size={1} color="#d1d5db" />
         </ReactFlow>

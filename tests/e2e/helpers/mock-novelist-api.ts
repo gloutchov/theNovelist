@@ -118,6 +118,8 @@ export async function installNovelistApiMock(
         hasRuntimeApiKey: false,
         apiKeyStorage: 'none' as 'secure_storage' | 'legacy_db' | 'none',
         apiModel: 'gpt-5-mini',
+        apiImageModel: 'gpt-image-1',
+        ollamaModel: 'gemma4:e4b-it-q4_K_M',
         createdAt: nowIso(),
         updatedAt: nowIso(),
       },
@@ -1421,6 +1423,8 @@ export async function installNovelistApiMock(
         apiKey?: string | null;
         clearStoredApiKey?: boolean;
         apiModel?: string;
+        apiImageModel?: string;
+        ollamaModel?: string;
       }) => {
         if (payload.enabled !== undefined) {
           state.codexSettings.enabled = payload.enabled;
@@ -1448,6 +1452,12 @@ export async function installNovelistApiMock(
         }
         if (payload.apiModel !== undefined && payload.apiModel.trim()) {
           state.codexSettings.apiModel = payload.apiModel.trim();
+        }
+        if (payload.apiImageModel !== undefined && payload.apiImageModel.trim()) {
+          state.codexSettings.apiImageModel = payload.apiImageModel.trim();
+        }
+        if (payload.ollamaModel !== undefined && payload.ollamaModel.trim()) {
+          state.codexSettings.ollamaModel = payload.ollamaModel.trim();
         }
         if (payload.clearStoredApiKey || payload.apiKey === null) {
           state.codexSettings.hasStoredApiKey = false;

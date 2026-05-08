@@ -482,6 +482,24 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE timeline_settings ADD COLUMN timeline_end_x REAL NOT NULL DEFAULT 1148;`,
     ],
   },
+  {
+    version: 20,
+    statements: [
+      `
+      ALTER TABLE codex_settings
+      ADD COLUMN ollama_model TEXT NOT NULL DEFAULT 'gemma4:e4b-it-q4_K_M';
+      `,
+    ],
+  },
+  {
+    version: 21,
+    statements: [
+      `
+      ALTER TABLE codex_settings
+      ADD COLUMN api_image_model TEXT NOT NULL DEFAULT 'gpt-image-1';
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {
