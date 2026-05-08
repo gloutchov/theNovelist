@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   applyEdgeChanges,
   applyNodeChanges,
@@ -21,6 +21,7 @@ import {
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import AnalysisBoard from './AnalysisBoard';
 import ChapterEditor from './ChapterEditor';
 import ChapterFlowNode, { type ChapterFlowNodeData } from './ChapterFlowNode';
 import CharacterBoard from './CharacterBoard';
@@ -30,6 +31,7 @@ import LocationBoard from './LocationBoard';
 import LocationFlowNode from './LocationFlowNode';
 import PlotFlowNode, { type PlotFlowNodeData } from './PlotFlowNode';
 import SceneBoard from './SceneBoard';
+import TimelineBoard from './TimelineBoard';
 import RevisionBoard from './RevisionBoard';
 import { getStatusTone } from './status-tone';
 
@@ -44,6 +46,9 @@ type CreatedChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['create
 type WikiStatus = Awaited<ReturnType<(typeof window.novelistApi)['wikiGetStatus']>>;
 type WikiSearchResult = Awaited<ReturnType<(typeof window.novelistApi)['wikiSearch']>>[number];
 type DashboardSnapshot = Awaited<ReturnType<(typeof window.novelistApi)['listSnapshots']>>[number];
+type DashboardWritingSession = Awaited<
+  ReturnType<(typeof window.novelistApi)['listWritingSessions']>
+>[number];
 type DashboardCharacterCard = Awaited<
   ReturnType<(typeof window.novelistApi)['listCharacterCards']>
 >[number];
@@ -61,12 +66,15 @@ type PlotCanvasNode = Node<PlotFlowNodeData, 'plot'>;
 
 type WorkspaceTab =
   | 'dashboard'
+  | 'outline'
+  | 'timeline'
   | 'story'
   | 'plots'
   | 'scenes'
   | 'characters'
   | 'locations'
   | 'revisions'
+  | 'analysis'
   | 'memory';
 
 interface PlotStructureBlock {
@@ -116,12 +124,51 @@ interface DashboardState {
   sceneMetrics: DashboardSceneMetric[];
   disconnectedChapters: DashboardChapterMetric[];
   latestSnapshot: DashboardSnapshot | null;
+  writingSessions: DashboardWritingSession[];
   characterCount: number;
   locationCount: number;
   sceneCount: number;
 }
 
+interface DashboardGoalMetrics {
+  targetWordCount: number | null;
+  targetChapterWordCount: number | null;
+  plannedCompletionDate: string | null;
+  editorialFolders: number | null;
+  progressPercent: number | null;
+  remainingWords: number | null;
+  averageWordsPerSession: number | null;
+  averageWordsPerDay: number | null;
+  requiredWordsPerDay: number | null;
+  estimatedCompletionDate: Date | null;
+  plannedDaysRemaining: number | null;
+  estimatedDaysRemaining: number | null;
+  deliveryStatus: string;
+  deliveryTone: 'success' | 'warning' | 'neutral';
+}
+
+interface OutlineChapter {
+  node: StoryNodeRecord;
+  plot: PlotRecord | null;
+  scenes: DashboardSceneCard[];
+  characters: DashboardCharacterCard[];
+  locations: DashboardLocationCard[];
+  incomingIds: string[];
+  outgoingIds: string[];
+  issues: string[];
+}
+
+interface OutlineState {
+  loading: boolean;
+  saving: boolean;
+  error: string | null;
+  chapters: OutlineChapter[];
+  isolatedCount: number;
+  ambiguousCount: number;
+}
+
 const DEFAULT_PROJECT_NAME = 'Romanzo senza titolo';
+const MEMORY_SUMMARY_STORAGE_PREFIX = 'the-novelist.memory-summary.v1';
 
 function createEmptyDashboardState(): DashboardState {
   return {
@@ -143,9 +190,21 @@ function createEmptyDashboardState(): DashboardState {
     sceneMetrics: [],
     disconnectedChapters: [],
     latestSnapshot: null,
+    writingSessions: [],
     characterCount: 0,
     locationCount: 0,
     sceneCount: 0,
+  };
+}
+
+function createEmptyOutlineState(): OutlineState {
+  return {
+    loading: false,
+    saving: false,
+    error: null,
+    chapters: [],
+    isolatedCount: 0,
+    ambiguousCount: 0,
   };
 }
 
@@ -168,6 +227,266 @@ function formatDateTime(value: string | null | undefined): string {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(timestamp));
+}
+
+function formatDate(value: string | Date | null | undefined): string {
+  const timestamp = value instanceof Date ? value.getTime() : parseTime(value);
+  if (!timestamp) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('it-IT', {
+    dateStyle: 'medium',
+  }).format(new Date(timestamp));
+}
+
+function formatInteger(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return '-';
+  }
+
+  return new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return '-';
+  }
+
+  return `${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 }).format(value)}%`;
+}
+
+function parseDateInput(value: string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(`${value}T00:00:00`);
+  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+}
+
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function differenceInDays(left: Date, right: Date): number {
+  const millisecondsPerDay = 86_400_000;
+  return Math.ceil((left.getTime() - right.getTime()) / millisecondsPerDay);
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function toOptionalPositiveInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getEditorialFoldersFromWords(wordCount: number | null | undefined): number | null {
+  if (!wordCount || wordCount <= 0) {
+    return null;
+  }
+
+  return Math.ceil(wordCount / 300);
+}
+
+function projectPlanningMatches(
+  project: NonNullable<ProjectRecord>,
+  input: {
+    targetWordCount: number | null;
+    targetChapterWordCount: number | null;
+    plannedCompletionDate: string | null;
+  },
+): boolean {
+  return (
+    (project.targetWordCount ?? null) === input.targetWordCount &&
+    (project.targetChapterWordCount ?? null) === input.targetChapterWordCount &&
+    (project.plannedCompletionDate ?? null) === input.plannedCompletionDate
+  );
+}
+
+function buildDashboardGoalMetrics(
+  project: NonNullable<ProjectRecord>,
+  dashboard: DashboardState,
+): DashboardGoalMetrics {
+  const targetWordCount = project.targetWordCount ?? null;
+  const targetChapterWordCount = project.targetChapterWordCount ?? null;
+  const plannedCompletionDate = project.plannedCompletionDate ?? null;
+  const progressPercent = targetWordCount
+    ? Math.min(100, (dashboard.totalWords / targetWordCount) * 100)
+    : null;
+  const remainingWords = targetWordCount
+    ? Math.max(0, targetWordCount - dashboard.totalWords)
+    : null;
+  const writtenInSessions = dashboard.writingSessions.reduce(
+    (sum, session) => sum + Math.max(0, session.wordDelta),
+    0,
+  );
+  const averageWordsPerSession =
+    dashboard.writingSessions.length > 0
+      ? writtenInSessions / dashboard.writingSessions.length
+      : null;
+
+  const firstSessionDate = dashboard.writingSessions[0]
+    ? new Date(parseTime(dashboard.writingSessions[0].createdAt))
+    : null;
+  const today = startOfToday();
+  const activeDays = firstSessionDate
+    ? Math.max(
+        1,
+        differenceInDays(
+          today,
+          new Date(
+            firstSessionDate.getFullYear(),
+            firstSessionDate.getMonth(),
+            firstSessionDate.getDate(),
+          ),
+        ) + 1,
+      )
+    : 0;
+  const averageWordsPerDay =
+    activeDays > 0 && writtenInSessions > 0 ? writtenInSessions / activeDays : null;
+  const estimatedDaysRemaining =
+    remainingWords !== null && averageWordsPerDay && averageWordsPerDay > 0
+      ? Math.ceil(remainingWords / averageWordsPerDay)
+      : null;
+  const estimatedCompletionDate =
+    estimatedDaysRemaining !== null ? addDays(today, estimatedDaysRemaining) : null;
+  const plannedDate = parseDateInput(plannedCompletionDate);
+  const plannedDaysRemaining = plannedDate
+    ? Math.max(0, differenceInDays(plannedDate, today))
+    : null;
+  const requiredWordsPerDay =
+    remainingWords !== null && plannedDaysRemaining !== null
+      ? remainingWords / Math.max(1, plannedDaysRemaining)
+      : null;
+
+  let deliveryStatus = 'Imposta un target parole e una data prevista';
+  let deliveryTone: DashboardGoalMetrics['deliveryTone'] = 'neutral';
+  if (targetWordCount && plannedDate && estimatedCompletionDate) {
+    const driftDays = differenceInDays(estimatedCompletionDate, plannedDate);
+    if (driftDays <= 0) {
+      deliveryStatus = 'In linea con la data prevista';
+      deliveryTone = 'success';
+    } else {
+      deliveryStatus = `Ritardo stimato: ${driftDays} giorni`;
+      deliveryTone = 'warning';
+    }
+  } else if (targetWordCount && plannedDate) {
+    deliveryStatus =
+      requiredWordsPerDay !== null
+        ? `${formatInteger(requiredWordsPerDay)} parole/giorno richieste`
+        : 'Servono sessioni salvate per calcolare la proiezione';
+  }
+
+  return {
+    targetWordCount,
+    targetChapterWordCount,
+    plannedCompletionDate,
+    editorialFolders: getEditorialFoldersFromWords(targetWordCount),
+    progressPercent,
+    remainingWords,
+    averageWordsPerSession,
+    averageWordsPerDay,
+    requiredWordsPerDay,
+    estimatedCompletionDate,
+    plannedDaysRemaining,
+    estimatedDaysRemaining,
+    deliveryStatus,
+    deliveryTone,
+  };
+}
+
+function ProgressPie({ percent }: { percent: number | null }) {
+  const normalizedPercent =
+    percent === null || !Number.isFinite(percent) ? 0 : Math.max(0, Math.min(100, percent));
+  const style = { '--progress': `${normalizedPercent}%` } as CSSProperties;
+
+  return (
+    <div className="dashboard-progress-pie" style={style} aria-label="Avanzamento percentuale">
+      <span>{formatPercent(percent)}</span>
+    </div>
+  );
+}
+
+function SessionBars({ sessions }: { sessions: DashboardWritingSession[] }) {
+  const maxWords = Math.max(1, ...sessions.map((session) => Math.max(0, session.wordDelta)));
+
+  if (sessions.length === 0) {
+    return <p className="muted">Nessuna sessione registrata.</p>;
+  }
+
+  return (
+    <div className="dashboard-session-bars" aria-label="Parole scritte per sessione">
+      {sessions.map((session, index) => {
+        const heightPercent = Math.max(8, (Math.max(0, session.wordDelta) / maxWords) * 100);
+        return (
+          <div className="dashboard-session-bar-item" key={session.id}>
+            <span
+              className="dashboard-session-bar"
+              style={{ '--bar-height': `${heightPercent}%` } as CSSProperties}
+              title={`${formatInteger(session.wordDelta)} parole - ${formatDateTime(
+                session.createdAt,
+              )}`}
+            />
+            <small>{index + 1}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DeliveryBars({ metrics }: { metrics: DashboardGoalMetrics }) {
+  const requiredWordsPerDay = metrics.requiredWordsPerDay ?? 0;
+  const averageWordsPerDay = metrics.averageWordsPerDay ?? 0;
+  const maxWordsPerDay = Math.max(1, requiredWordsPerDay, averageWordsPerDay);
+
+  return (
+    <div className="dashboard-delivery-bars" aria-label="Confronto ritmo di consegna">
+      <div>
+        <span>Richiesto</span>
+        <strong>
+          {metrics.requiredWordsPerDay === null
+            ? '-'
+            : `${formatInteger(requiredWordsPerDay)} parole/g`}
+        </strong>
+        <div className="dashboard-horizontal-bar-track">
+          <span
+            className="dashboard-horizontal-bar dashboard-horizontal-bar-planned"
+            style={
+              { '--bar-width': `${(requiredWordsPerDay / maxWordsPerDay) * 100}%` } as CSSProperties
+            }
+          />
+        </div>
+      </div>
+      <div>
+        <span>Attuale</span>
+        <strong>
+          {metrics.averageWordsPerDay === null
+            ? '-'
+            : `${formatInteger(averageWordsPerDay)} parole/g`}
+        </strong>
+        <div className="dashboard-horizontal-bar-track">
+          <span
+            className="dashboard-horizontal-bar dashboard-horizontal-bar-estimated"
+            style={
+              { '--bar-width': `${(averageWordsPerDay / maxWordsPerDay) * 100}%` } as CSSProperties
+            }
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function formatAutosaveLabel(preferences: AppPreferences | null): string {
@@ -270,6 +589,104 @@ function colorFromPlotNumber(plotNumber: number): string {
 
 function getPlotColor(plotNumber: number, plots: PlotRecord[]): string {
   return plots.find((plot) => plot.number === plotNumber)?.color ?? colorFromPlotNumber(plotNumber);
+}
+
+function sortStoryNodesForOutline(chapters: StoryNodeRecord[]): StoryNodeRecord[] {
+  return [...chapters].sort((left, right) => {
+    if (left.plotNumber !== right.plotNumber) {
+      return left.plotNumber - right.plotNumber;
+    }
+    if (left.blockNumber !== right.blockNumber) {
+      return left.blockNumber - right.blockNumber;
+    }
+    return left.title.localeCompare(right.title, 'it');
+  });
+}
+
+function buildOutlineChapterOrder(
+  chapters: StoryNodeRecord[],
+  edges: StoryEdgeRecord[],
+): {
+  orderedChapters: StoryNodeRecord[];
+  incomingById: Map<string, string[]>;
+  outgoingById: Map<string, string[]>;
+  cycleIds: Set<string>;
+} {
+  const chapterIds = new Set(chapters.map((chapter) => chapter.id));
+  const chapterById = new Map(chapters.map((chapter) => [chapter.id, chapter]));
+  const incomingById = new Map<string, string[]>(chapters.map((chapter) => [chapter.id, []]));
+  const outgoingById = new Map<string, string[]>(chapters.map((chapter) => [chapter.id, []]));
+
+  for (const edge of edges) {
+    if (!chapterIds.has(edge.sourceId) || !chapterIds.has(edge.targetId)) {
+      continue;
+    }
+    outgoingById.get(edge.sourceId)?.push(edge.targetId);
+    incomingById.get(edge.targetId)?.push(edge.sourceId);
+  }
+
+  const byCanonicalOrder = (leftId: string, rightId: string): number => {
+    const left = chapterById.get(leftId);
+    const right = chapterById.get(rightId);
+    if (!left || !right) {
+      return leftId.localeCompare(rightId);
+    }
+    return sortStoryNodesForOutline([left, right])[0]?.id === left.id ? -1 : 1;
+  };
+
+  for (const ids of incomingById.values()) {
+    ids.sort(byCanonicalOrder);
+  }
+  for (const ids of outgoingById.values()) {
+    ids.sort(byCanonicalOrder);
+  }
+
+  const orderedChapters: StoryNodeRecord[] = [];
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const cycleIds = new Set<string>();
+
+  function visit(chapter: StoryNodeRecord): void {
+    if (visiting.has(chapter.id)) {
+      cycleIds.add(chapter.id);
+      return;
+    }
+    if (visited.has(chapter.id)) {
+      return;
+    }
+
+    visiting.add(chapter.id);
+    orderedChapters.push(chapter);
+    visited.add(chapter.id);
+
+    for (const targetId of outgoingById.get(chapter.id) ?? []) {
+      const target = chapterById.get(targetId);
+      if (!target) {
+        continue;
+      }
+      if (visiting.has(targetId)) {
+        cycleIds.add(chapter.id);
+        cycleIds.add(targetId);
+        continue;
+      }
+      visit(target);
+    }
+    visiting.delete(chapter.id);
+  }
+
+  const canonicalChapters = sortStoryNodesForOutline(chapters);
+  const startChapters = canonicalChapters.filter(
+    (chapter) => (incomingById.get(chapter.id)?.length ?? 0) === 0,
+  );
+
+  for (const chapter of startChapters.length > 0 ? startChapters : canonicalChapters) {
+    visit(chapter);
+  }
+  for (const chapter of canonicalChapters) {
+    visit(chapter);
+  }
+
+  return { orderedChapters, incomingById, outgoingById, cycleIds };
 }
 
 function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
@@ -470,6 +887,115 @@ function normalizePlotLabel(plotNumber: number, label: string): string {
   return label.trim() || `Trama ${plotNumber}`;
 }
 
+function buildMemoryStorySummary(plots: PlotRecord[]): string {
+  const plotSummaries = getPlotSummaryLines(plots);
+
+  if (plotSummaries.length === 0) {
+    return 'Riassunto non ancora disponibile.\nAggiungi una sinossi alle trame.\nLa memoria usera questa sintesi quando sara disponibile.';
+  }
+
+  return plotSummaries
+    .slice(0, 5)
+    .map((line) => truncateSummaryLine(line))
+    .join('\n');
+}
+
+function truncateSummaryLine(value: string, maxLength = 180): string {
+  const compact = value.replace(/\s+/g, ' ').trim();
+  if (compact.length <= maxLength) {
+    return compact;
+  }
+  const sliced = compact.slice(0, maxLength);
+  const lastSpace = sliced.lastIndexOf(' ');
+  return `${sliced.slice(0, Math.max(80, lastSpace)).trim()}...`;
+}
+
+function getPlotSummaryLines(plots: PlotRecord[]): string[] {
+  return sortPlots(plots)
+    .map((plot) => {
+      const summary = plot.summary.trim();
+      if (!summary) {
+        return null;
+      }
+      return `${normalizePlotLabel(plot.number, plot.label)}: ${summary}`;
+    })
+    .filter((summary): summary is string => Boolean(summary));
+}
+
+function buildMemorySummaryContext(plots: PlotRecord[]): string {
+  const lines = getPlotSummaryLines(plots);
+  return lines.length > 0 ? lines.join('\n') : 'Nessuna sinossi trama disponibile.';
+}
+
+function buildMemorySummaryKey(project: ProjectRecord | null, plots: PlotRecord[]): string {
+  const plotKey = sortPlots(plots)
+    .map((plot) => `${plot.id}:${plot.updatedAt}:${plot.label}:${plot.summary}`)
+    .join('|');
+  return `${project?.id ?? 'no-project'}::${plotKey}`;
+}
+
+function getMemorySummaryStorageKey(project: ProjectRecord): string {
+  return `${MEMORY_SUMMARY_STORAGE_PREFIX}.${project?.id || project?.rootPath || 'default'}`;
+}
+
+function readStoredMemorySummary(project: ProjectRecord): { key: string; summary: string } | null {
+  try {
+    const raw = window.localStorage.getItem(getMemorySummaryStorageKey(project));
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as { key?: unknown; summary?: unknown };
+    if (typeof parsed.key !== 'string' || typeof parsed.summary !== 'string') {
+      return null;
+    }
+    return {
+      key: parsed.key,
+      summary: parsed.summary,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredMemorySummary(project: ProjectRecord, key: string, summary: string): void {
+  try {
+    window.localStorage.setItem(
+      getMemorySummaryStorageKey(project),
+      JSON.stringify({
+        key,
+        summary,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    // The summary is an optimization; the view can fall back to regenerating it.
+  }
+}
+
+function normalizeMemorySummaryOutput(output: string, fallback: string): string {
+  const lines = output
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/^[-*\d.\s]+/u, '').trim())
+    .map((line) => truncateSummaryLine(line, 190))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (lines.length >= 2) {
+    return lines.join('\n');
+  }
+
+  const sentences = output
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/u)
+    .map((sentence) => sentence.trim())
+    .map((sentence) => truncateSummaryLine(sentence, 190))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  return sentences.length > 0 ? sentences.join('\n') : fallback;
+}
+
 function sortPlots(records: PlotRecord[]): PlotRecord[] {
   return [...records].sort((left, right) => left.number - right.number);
 }
@@ -545,7 +1071,15 @@ export default function App() {
   const [currentProject, setCurrentProject] = useState<ProjectRecord>(null);
   const [createProjectRoot, setCreateProjectRoot] = useState<string>('');
   const [createProjectName, setCreateProjectName] = useState<string>(DEFAULT_PROJECT_NAME);
+  const [createProjectTargetWords, setCreateProjectTargetWords] = useState<string>('');
+  const [createProjectTargetChapterWords, setCreateProjectTargetChapterWords] =
+    useState<string>('');
+  const [createProjectCompletionDate, setCreateProjectCompletionDate] = useState<string>('');
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState<boolean>(false);
+  const [editProjectTargetWords, setEditProjectTargetWords] = useState<string>('');
+  const [editProjectTargetChapterWords, setEditProjectTargetChapterWords] = useState<string>('');
+  const [editProjectCompletionDate, setEditProjectCompletionDate] = useState<string>('');
+  const [isProjectTargetsModalOpen, setIsProjectTargetsModalOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('dashboard');
   const [appPreferences, setAppPreferences] = useState<AppPreferences | null>(null);
   const [appPreferencesBusy, setAppPreferencesBusy] = useState<boolean>(false);
@@ -560,8 +1094,12 @@ export default function App() {
   const [wikiSearchQuery, setWikiSearchQuery] = useState<string>('');
   const [wikiSearchResults, setWikiSearchResults] = useState<WikiSearchResult[]>([]);
   const [lastAiMemorySources, setLastAiMemorySources] = useState<CodexMemorySource[]>([]);
+  const [memoryStorySummary, setMemoryStorySummary] = useState<string>('');
+  const [memoryStorySummaryBusy, setMemoryStorySummaryBusy] = useState<boolean>(false);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<DashboardState>(() => createEmptyDashboardState());
+  const [outline, setOutline] = useState<OutlineState>(() => createEmptyOutlineState());
+  const [draggedOutlineChapterId, setDraggedOutlineChapterId] = useState<string | null>(null);
 
   const [plots, setPlots] = useState<PlotRecord[]>([]);
   const [plotNodes, setPlotNodes] = useState<PlotCanvasNode[]>([]);
@@ -613,6 +1151,7 @@ export default function App() {
   const previousStoryProjectRootRef = useRef<string | null>(null);
   const previousPlotTabRef = useRef<WorkspaceTab>('dashboard');
   const previousPlotCountRef = useRef<number>(0);
+  const memoryStorySummaryKeyRef = useRef<string>('');
   const storyAutosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyAutosaveInFlightRef = useRef<boolean>(false);
 
@@ -625,6 +1164,10 @@ export default function App() {
   const selectedNode = useMemo(
     () => (selectedNodeId ? (nodesById.get(selectedNodeId) ?? null) : null),
     [nodesById, selectedNodeId],
+  );
+  const dashboardGoalMetrics = useMemo(
+    () => (currentProject ? buildDashboardGoalMetrics(currentProject, dashboard) : null),
+    [currentProject, dashboard],
   );
   const existingPlotForNewNumber = useMemo(
     () => plots.find((plot) => plot.number === newPlotNumber) ?? null,
@@ -641,6 +1184,15 @@ export default function App() {
   const currentEditPlot = useMemo(
     () => (editPlotId ? (plotsById.get(editPlotId) ?? null) : null),
     [editPlotId, plotsById],
+  );
+  const outlineChapterTitleById = useMemo(
+    () => new Map(outline.chapters.map((chapter) => [chapter.node.id, chapter.node.title])),
+    [outline.chapters],
+  );
+  const memoryStorySummaryFallback = useMemo(() => buildMemoryStorySummary(plots), [plots]);
+  const memoryStorySummaryKey = useMemo(
+    () => buildMemorySummaryKey(currentProject, plots),
+    [currentProject, plots],
   );
   const isStoryEditDirty = useMemo(() => {
     if (!currentEditNode) {
@@ -659,12 +1211,22 @@ export default function App() {
     !busy &&
     Boolean(createProjectRoot.trim()) &&
     Boolean(createProjectName.trim());
+  const canSaveProjectTargets = Boolean(currentProject) && !busy;
   const canOpenProject = !currentProject && !busy;
   const canSaveProject = Boolean(currentProject) && !busy;
   const canCloseProject = Boolean(currentProject) && !busy;
   const canCreatePlot =
     Boolean(currentProject) && !busy && newPlotNumber >= 1 && !existingPlotForNewNumber;
   const canCreatePlotStructure = canCreatePlot && Boolean(newPlotSummary.trim());
+
+  useEffect(() => {
+    if (plots.length === 0) {
+      return;
+    }
+    if (!plots.some((plot) => plot.number === newNodePlotNumber)) {
+      setNewNodePlotNumber(plots[0]?.number ?? 1);
+    }
+  }, [newNodePlotNumber, plots]);
   const canOpenStoryCreationTools = Boolean(currentProject) && !busy;
   const hasUnsavedChanges =
     isStoryEditDirty ||
@@ -886,13 +1448,19 @@ export default function App() {
     }));
 
     try {
-      const [state, characterCards, locationCards, sceneCards, snapshots] = await Promise.all([
-        window.novelistApi.getStoryState(),
-        window.novelistApi.listCharacterCards(),
-        window.novelistApi.listLocationCards(),
-        window.novelistApi.listSceneCards(),
-        window.novelistApi.listSnapshots(),
-      ]);
+      const listWritingSessions =
+        typeof window.novelistApi.listWritingSessions === 'function'
+          ? window.novelistApi.listWritingSessions
+          : null;
+      const [state, characterCards, locationCards, sceneCards, snapshots, writingSessions] =
+        await Promise.all([
+          window.novelistApi.getStoryState(),
+          window.novelistApi.listCharacterCards(),
+          window.novelistApi.listLocationCards(),
+          window.novelistApi.listSceneCards(),
+          window.novelistApi.listSnapshots(),
+          listWritingSessions ? listWritingSessions() : Promise.resolve([]),
+        ]);
 
       const [chapterDocuments, characterChapterLinks, locationChapterLinks] = await Promise.all([
         Promise.all(
@@ -1044,6 +1612,7 @@ export default function App() {
           (chapter) => !connectedChapterIds.has(chapter.id),
         ),
         latestSnapshot,
+        writingSessions,
         characterCount: characterCards.length,
         locationCount: locationCards.length,
         sceneCount: sceneCards.length,
@@ -1060,16 +1629,228 @@ export default function App() {
     }
   }, []);
 
+  const refreshOutlineData = useCallback(async (): Promise<void> => {
+    if (!currentProject) {
+      setOutline(createEmptyOutlineState());
+      return;
+    }
+
+    setOutline((previous) => ({
+      ...previous,
+      loading: true,
+      error: null,
+    }));
+
+    try {
+      const [state, characterCards, locationCards, sceneCards] = await Promise.all([
+        window.novelistApi.getStoryState(),
+        window.novelistApi.listCharacterCards(),
+        window.novelistApi.listLocationCards(),
+        window.novelistApi.listSceneCards(),
+      ]);
+      const [characterChapterLinks, locationChapterLinks] = await Promise.all([
+        Promise.all(
+          characterCards.map(async (card) => ({
+            card,
+            chapterNodeIds: await window.novelistApi.listCharacterChapterLinks({
+              characterCardId: card.id,
+            }),
+          })),
+        ),
+        Promise.all(
+          locationCards.map(async (card) => ({
+            card,
+            chapterNodeIds: await window.novelistApi.listLocationChapterLinks({
+              locationCardId: card.id,
+            }),
+          })),
+        ),
+      ]);
+
+      const { orderedChapters, incomingById, outgoingById, cycleIds } = buildOutlineChapterOrder(
+        state.nodes,
+        state.edges,
+      );
+      const plotsByNumber = new Map(state.plots.map((plot) => [plot.number, plot]));
+      const scenesByChapterId = new Map<string, DashboardSceneCard[]>();
+      const charactersByChapterId = new Map<string, DashboardCharacterCard[]>();
+      const locationsByChapterId = new Map<string, DashboardLocationCard[]>();
+
+      for (const scene of sceneCards) {
+        const current = scenesByChapterId.get(scene.chapterNodeId) ?? [];
+        current.push(scene);
+        scenesByChapterId.set(scene.chapterNodeId, current);
+      }
+      for (const link of characterChapterLinks) {
+        for (const chapterNodeId of link.chapterNodeIds) {
+          const current = charactersByChapterId.get(chapterNodeId) ?? [];
+          current.push(link.card);
+          charactersByChapterId.set(chapterNodeId, current);
+        }
+      }
+      for (const link of locationChapterLinks) {
+        for (const chapterNodeId of link.chapterNodeIds) {
+          const current = locationsByChapterId.get(chapterNodeId) ?? [];
+          current.push(link.card);
+          locationsByChapterId.set(chapterNodeId, current);
+        }
+      }
+
+      const outlineChapters = orderedChapters.map<OutlineChapter>((node) => {
+        const incomingIds = incomingById.get(node.id) ?? [];
+        const outgoingIds = outgoingById.get(node.id) ?? [];
+        const issues: string[] = [];
+        if (incomingIds.length === 0 && outgoingIds.length === 0) {
+          issues.push('Isolato');
+        }
+        if (incomingIds.length > 1) {
+          issues.push('Entrate multiple');
+        }
+        if (outgoingIds.length > 1) {
+          issues.push('Uscite multiple');
+        }
+        if (cycleIds.has(node.id)) {
+          issues.push('Ciclo');
+        }
+
+        return {
+          node,
+          plot: plotsByNumber.get(node.plotNumber) ?? null,
+          scenes: [...(scenesByChapterId.get(node.id) ?? [])].sort((left, right) =>
+            formatSceneName(left).localeCompare(formatSceneName(right), 'it'),
+          ),
+          characters: [...(charactersByChapterId.get(node.id) ?? [])].sort((left, right) =>
+            formatCharacterName(left).localeCompare(formatCharacterName(right), 'it'),
+          ),
+          locations: [...(locationsByChapterId.get(node.id) ?? [])].sort((left, right) =>
+            formatLocationName(left).localeCompare(formatLocationName(right), 'it'),
+          ),
+          incomingIds,
+          outgoingIds,
+          issues,
+        };
+      });
+
+      setPlots(state.plots);
+      setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
+      setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
+      setOutline({
+        loading: false,
+        saving: false,
+        error: null,
+        chapters: outlineChapters,
+        isolatedCount: outlineChapters.filter((chapter) => chapter.issues.includes('Isolato'))
+          .length,
+        ambiguousCount: outlineChapters.filter((chapter) =>
+          chapter.issues.some((issue) => issue !== 'Isolato'),
+        ).length,
+      });
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setOutline((previous) => ({
+        ...previous,
+        loading: false,
+        saving: false,
+        error: message,
+      }));
+      setError(message);
+      setStatus('Errore aggiornamento scaletta');
+    }
+  }, [currentProject]);
+
+  const syncOutlineOrder = useCallback(
+    async (nextChapters: OutlineChapter[]): Promise<void> => {
+      if (!currentProject || nextChapters.length === 0) {
+        return;
+      }
+
+      setOutline((previous) => ({
+        ...previous,
+        saving: true,
+        error: null,
+        chapters: nextChapters,
+      }));
+      setBusy(true);
+      setError(null);
+
+      try {
+        const state = await window.novelistApi.getStoryState();
+        const chapterIds = new Set(state.nodes.map((node) => node.id));
+        const chapterEdges = state.edges.filter(
+          (edge) => chapterIds.has(edge.sourceId) && chapterIds.has(edge.targetId),
+        );
+
+        await Promise.all(
+          chapterEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
+        );
+        for (let index = 1; index < nextChapters.length; index += 1) {
+          await window.novelistApi.createStoryEdge({
+            sourceId: nextChapters[index - 1]!.node.id,
+            targetId: nextChapters[index]!.node.id,
+          });
+        }
+
+        await refreshOutlineData();
+        await syncProjectWikiAfterWorkspaceChange();
+        setStatus('Scaletta sincronizzata con il canvas Capitoli');
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        setOutline((previous) => ({
+          ...previous,
+          saving: false,
+          error: message,
+        }));
+        setError(message);
+        setStatus('Errore sincronizzazione scaletta');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [currentProject, refreshOutlineData, syncProjectWikiAfterWorkspaceChange],
+  );
+
+  function handleOutlineDrop(targetChapterId: string): void {
+    if (!draggedOutlineChapterId || draggedOutlineChapterId === targetChapterId || outline.saving) {
+      setDraggedOutlineChapterId(null);
+      return;
+    }
+
+    const draggedIndex = outline.chapters.findIndex(
+      (chapter) => chapter.node.id === draggedOutlineChapterId,
+    );
+    const targetIndex = outline.chapters.findIndex(
+      (chapter) => chapter.node.id === targetChapterId,
+    );
+    if (draggedIndex < 0 || targetIndex < 0) {
+      setDraggedOutlineChapterId(null);
+      return;
+    }
+
+    const nextChapters = [...outline.chapters];
+    const [draggedChapter] = nextChapters.splice(draggedIndex, 1);
+    if (!draggedChapter) {
+      setDraggedOutlineChapterId(null);
+      return;
+    }
+    nextChapters.splice(targetIndex, 0, draggedChapter);
+    setDraggedOutlineChapterId(null);
+    void syncOutlineOrder(nextChapters);
+  }
+
   useEffect(() => {
     if (!currentProject) {
       setDashboard(createEmptyDashboardState());
+      setOutline(createEmptyOutlineState());
       return;
     }
 
     if (activeTab === 'dashboard') {
       void refreshDashboardData();
     }
-  }, [activeTab, currentProject, refreshDashboardData]);
+    if (activeTab === 'outline') {
+      void refreshOutlineData();
+    }
+  }, [activeTab, currentProject, refreshDashboardData, refreshOutlineData]);
 
   async function refreshWikiStatus(): Promise<void> {
     if (!currentProject) {
@@ -1150,11 +1931,148 @@ export default function App() {
     }
   }
 
+  const refreshMemoryStorySummary = useCallback(
+    async (options?: { force?: boolean }): Promise<void> => {
+      if (!currentProject) {
+        setMemoryStorySummary('');
+        memoryStorySummaryKeyRef.current = '';
+        return;
+      }
+
+      const fallback = memoryStorySummaryFallback;
+      const cachedSummary = readStoredMemorySummary(currentProject);
+      if (!options?.force && cachedSummary?.key === memoryStorySummaryKey) {
+        memoryStorySummaryKeyRef.current = memoryStorySummaryKey;
+        setMemoryStorySummary(cachedSummary.summary);
+        return;
+      }
+
+      if (!options?.force && memoryStorySummaryKeyRef.current === memoryStorySummaryKey) {
+        if (!memoryStorySummary.trim()) {
+          setMemoryStorySummary(fallback);
+        }
+        return;
+      }
+
+      memoryStorySummaryKeyRef.current = memoryStorySummaryKey;
+      setMemoryStorySummary(fallback);
+
+      if (!aiSettings?.enabled) {
+        return;
+      }
+
+      setMemoryStorySummaryBusy(true);
+      try {
+        const response = await window.novelistApi.codexAssist({
+          projectName: currentProject.name,
+          message:
+            'Scrivi una sintesi editoriale della storia in italiano. Deve essere composta da 4 o 5 righe brevi, senza elenco puntato, senza titoli e senza spiegare il tuo lavoro. Concentrati su protagonista, conflitto, posta in gioco e trame principali.',
+          context: buildMemorySummaryContext(plots),
+        });
+        const summary = normalizeMemorySummaryOutput(response.output, fallback);
+        setMemoryStorySummary(summary);
+        writeStoredMemorySummary(currentProject, memoryStorySummaryKey, summary);
+      } catch {
+        setMemoryStorySummary(fallback);
+      } finally {
+        setMemoryStorySummaryBusy(false);
+      }
+    },
+    [
+      aiSettings?.enabled,
+      currentProject,
+      memoryStorySummary,
+      memoryStorySummaryFallback,
+      memoryStorySummaryKey,
+      plots,
+    ],
+  );
+
+  useEffect(() => {
+    if (activeTab !== 'memory') {
+      return;
+    }
+    void refreshMemoryStorySummary();
+  }, [activeTab, refreshMemoryStorySummary]);
+
   function openMemoryTab(): void {
     setWikiSearchQuery('');
     setWikiSearchResults([]);
     setActiveTab('memory');
     void refreshWikiStatus();
+    void refreshMemoryStorySummary();
+  }
+
+  function openProjectTargetsModal(): void {
+    if (!currentProject) {
+      return;
+    }
+
+    setEditProjectTargetWords(
+      currentProject.targetWordCount === null ? '' : String(currentProject.targetWordCount),
+    );
+    setEditProjectTargetChapterWords(
+      currentProject.targetChapterWordCount === null
+        ? ''
+        : String(currentProject.targetChapterWordCount),
+    );
+    setEditProjectCompletionDate(currentProject.plannedCompletionDate ?? '');
+    setIsProjectTargetsModalOpen(true);
+  }
+
+  async function handleSaveProjectTargets(): Promise<void> {
+    if (!currentProject) {
+      return;
+    }
+
+    const targetWordCount = toOptionalPositiveInteger(editProjectTargetWords);
+    const targetChapterWordCount = toOptionalPositiveInteger(editProjectTargetChapterWords);
+    const plannedCompletionDate = editProjectCompletionDate.trim() || null;
+    const updateProjectPlanning = (
+      window.novelistApi as typeof window.novelistApi & {
+        updateProjectPlanning?: (payload: {
+          targetWordCount: number | null;
+          targetChapterWordCount: number | null;
+          plannedCompletionDate: string | null;
+        }) => Promise<NonNullable<ProjectRecord>>;
+      }
+    ).updateProjectPlanning;
+
+    if (typeof updateProjectPlanning !== 'function') {
+      const message =
+        "La sessione dell'app non ha ancora caricato il salvataggio obiettivi. Riavvia The Novelist e riprova.";
+      setError(message);
+      setStatus('Riavvia l’app per salvare gli obiettivi progetto');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const planningInput = {
+        targetWordCount,
+        targetChapterWordCount,
+        plannedCompletionDate,
+      };
+      const project = await updateProjectPlanning(planningInput);
+      if (!projectPlanningMatches(project, planningInput)) {
+        const message =
+          'Gli obiettivi non sono stati confermati dal processo principale. Riavvia The Novelist e riprova.';
+        setError(message);
+        setStatus('Obiettivi progetto non salvati');
+        return;
+      }
+      setCurrentProject(project);
+      setIsProjectTargetsModalOpen(false);
+      setStatus('Obiettivi progetto aggiornati');
+      void refreshDashboardData();
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      setStatus('Errore aggiornamento obiettivi progetto');
+    } finally {
+      setBusy(false);
+    }
   }
 
   const syncOpenedProject = useCallback(
@@ -1186,6 +2104,9 @@ export default function App() {
   async function handleCreateProject(): Promise<void> {
     const rootPath = createProjectRoot.trim();
     const name = createProjectName.trim();
+    const targetWordCount = toOptionalPositiveInteger(createProjectTargetWords);
+    const targetChapterWordCount = toOptionalPositiveInteger(createProjectTargetChapterWords);
+    const plannedCompletionDate = createProjectCompletionDate.trim() || null;
     if (!rootPath || !name) {
       setStatus('Seleziona una cartella e inserisci un nome progetto.');
       return;
@@ -1195,14 +2116,38 @@ export default function App() {
     setError(null);
 
     try {
+      const planningInput = {
+        targetWordCount,
+        targetChapterWordCount,
+        plannedCompletionDate,
+      };
       const project = await window.novelistApi.createProject({
         rootPath,
         name,
+        ...planningInput,
       });
+      const shouldPersistPlanning =
+        targetWordCount !== null ||
+        targetChapterWordCount !== null ||
+        plannedCompletionDate !== null;
+      const planningPersisted = projectPlanningMatches(project, planningInput);
+      if (shouldPersistPlanning && !planningPersisted) {
+        setError(
+          'Il progetto e stato creato, ma gli obiettivi non sono stati confermati dal processo principale. Riavvia The Novelist e reinseriscili dal cruscotto.',
+        );
+      }
       setCreateProjectRoot(project.rootPath);
       setCreateProjectName(project.name);
+      setCreateProjectTargetWords('');
+      setCreateProjectTargetChapterWords('');
+      setCreateProjectCompletionDate('');
       setIsCreateProjectModalOpen(false);
-      await syncOpenedProject(project, `Progetto creato: ${project.name}`);
+      await syncOpenedProject(
+        project,
+        shouldPersistPlanning && !planningPersisted
+          ? 'Progetto creato senza obiettivi salvati'
+          : `Progetto creato: ${project.name}`,
+      );
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
@@ -1268,7 +2213,14 @@ export default function App() {
       setCurrentProject(null);
       setCreateProjectRoot('');
       setCreateProjectName(DEFAULT_PROJECT_NAME);
+      setCreateProjectTargetWords('');
+      setCreateProjectTargetChapterWords('');
+      setCreateProjectCompletionDate('');
       setIsCreateProjectModalOpen(false);
+      setEditProjectTargetWords('');
+      setEditProjectTargetChapterWords('');
+      setEditProjectCompletionDate('');
+      setIsProjectTargetsModalOpen(false);
       setAiSettings(null);
       setAiApiKeyInput('');
       setClearStoredApiKey(false);
@@ -1800,12 +2752,8 @@ export default function App() {
     }
   };
 
-  const handleNodeDoubleClick: NodeMouseHandler<ChapterCanvasNode> = (_event, node) => {
-    setEditNodeId(node.id);
-    setEditTitle(node.data.title);
-    setEditDescription(node.data.description);
-    setEditPlotNumber(node.data.plotNumber);
-    setEditBlockNumber(node.data.blockNumber);
+  const handleNodeClick: NodeMouseHandler<ChapterCanvasNode> = (_event, node) => {
+    openEditorForNode(node.id);
   };
 
   function openEditorForNode(nodeId: string): void {
@@ -2252,6 +3200,22 @@ export default function App() {
           </button>
           <button
             type="button"
+            className={activeTab === 'outline' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('outline')}
+            disabled={!currentProject}
+          >
+            Scaletta
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'timeline' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('timeline')}
+            disabled={!currentProject}
+          >
+            Timeline
+          </button>
+          <button
+            type="button"
             className={activeTab === 'plots' ? 'tab-active' : ''}
             onClick={() => setActiveTab('plots')}
             disabled={!currentProject}
@@ -2300,6 +3264,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            className={activeTab === 'analysis' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('analysis')}
+            disabled={!currentProject}
+          >
+            Analisi
+          </button>
+          <button
+            type="button"
             className={activeTab === 'memory' ? 'tab-active' : ''}
             onClick={openMemoryTab}
             disabled={!currentProject}
@@ -2338,6 +3310,9 @@ export default function App() {
                 onClick={() => {
                   setCreateProjectRoot('');
                   setCreateProjectName(DEFAULT_PROJECT_NAME);
+                  setCreateProjectTargetWords('');
+                  setCreateProjectTargetChapterWords('');
+                  setCreateProjectCompletionDate('');
                   setIsCreateProjectModalOpen(true);
                 }}
                 disabled={Boolean(currentProject) || busy}
@@ -2438,6 +3413,99 @@ export default function App() {
                 </article>
               </section>
 
+              {dashboardGoalMetrics ? (
+                <section className="panel dashboard-goals-panel">
+                  <header>
+                    <div>
+                      <h2>Obiettivi</h2>
+                      <p className="muted">
+                        Target e proiezioni calcolati sui salvataggi del manoscritto.
+                      </p>
+                    </div>
+                    <div className="dashboard-goals-actions">
+                      <button
+                        type="button"
+                        className={`dashboard-delivery-status ${dashboardGoalMetrics.deliveryTone}`}
+                        onClick={openProjectTargetsModal}
+                        disabled={!currentProject || busy}
+                      >
+                        {dashboardGoalMetrics.deliveryStatus}
+                      </button>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => void refreshDashboardData()}
+                        disabled={dashboard.loading || busy}
+                      >
+                        {dashboard.loading ? 'Aggiorno...' : 'Aggiorna Cruscotto'}
+                      </button>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => void handleWikiSync()}
+                        disabled={!wikiStatus?.derivedPending || wikiBusy || busy}
+                      >
+                        {wikiBusy ? 'Aggiorno Memoria...' : 'Aggiorna Memoria'}
+                      </button>
+                    </div>
+                  </header>
+
+                  <div className="dashboard-goals-grid">
+                    <article className="dashboard-goal-metric">
+                      <span>Target progetto</span>
+                      <strong>{formatInteger(dashboardGoalMetrics.targetWordCount)}</strong>
+                      <small>parole</small>
+                    </article>
+                    <article className="dashboard-goal-metric">
+                      <span>Target capitolo</span>
+                      <strong>{formatInteger(dashboardGoalMetrics.targetChapterWordCount)}</strong>
+                      <small>parole</small>
+                    </article>
+                    <article className="dashboard-goal-metric">
+                      <span>Completamento</span>
+                      <strong>{formatDate(dashboardGoalMetrics.plannedCompletionDate)}</strong>
+                      <small>data prevista</small>
+                    </article>
+                    <article className="dashboard-goal-metric">
+                      <span>Cartelle editoriali</span>
+                      <strong>{formatInteger(dashboardGoalMetrics.editorialFolders)}</strong>
+                      <small>stima 1.800 battute</small>
+                    </article>
+                    <article className="dashboard-goal-metric">
+                      <span>Ritmo richiesto</span>
+                      <strong>{formatInteger(dashboardGoalMetrics.requiredWordsPerDay)}</strong>
+                      <small>parole/giorno</small>
+                    </article>
+                    <article className="dashboard-goal-metric">
+                      <span>Restanti</span>
+                      <strong>{formatInteger(dashboardGoalMetrics.remainingWords)}</strong>
+                      <small>parole</small>
+                    </article>
+                  </div>
+
+                  <div className="dashboard-chart-grid">
+                    <article className="dashboard-chart-card">
+                      <h3>Avanzamento</h3>
+                      <ProgressPie percent={dashboardGoalMetrics.progressPercent} />
+                    </article>
+                    <article className="dashboard-chart-card">
+                      <h3>Parole per sessione</h3>
+                      <SessionBars sessions={dashboard.writingSessions} />
+                    </article>
+                    <article className="dashboard-chart-card">
+                      <h3>Consegna</h3>
+                      <DeliveryBars metrics={dashboardGoalMetrics} />
+                      <p className="muted">
+                        Stima:{' '}
+                        {dashboardGoalMetrics.estimatedCompletionDate
+                          ? formatDate(dashboardGoalMetrics.estimatedCompletionDate)
+                          : '-'}
+                      </p>
+                    </article>
+                  </div>
+                </section>
+              ) : null}
+
               <section className="dashboard-grid">
                 <article className="panel dashboard-section dashboard-section-wide">
                   <h2>Riepilogo</h2>
@@ -2498,13 +3566,6 @@ export default function App() {
                       </dd>
                     </div>
                   </dl>
-                  <button
-                    type="button"
-                    onClick={() => void refreshDashboardData()}
-                    disabled={dashboard.loading || busy}
-                  >
-                    {dashboard.loading ? 'Aggiorno...' : 'Aggiorna Cruscotto'}
-                  </button>
                   {dashboard.error ? <p className="error">{dashboard.error}</p> : null}
                 </article>
 
@@ -2654,6 +3715,222 @@ export default function App() {
         </section>
       ) : null}
 
+      {activeTab === 'outline' ? (
+        currentProject ? (
+          <section className="outline-workspace">
+            <section className="panel outline-header-panel">
+              <div>
+                <h2>Scaletta</h2>
+                <p className="muted">
+                  Vista editoriale lineare ricostruita dai collegamenti del canvas Capitoli.
+                </p>
+              </div>
+              <div className="outline-header-actions">
+                <span className="outline-summary-pill">{outline.chapters.length} capitoli</span>
+                <span className="outline-summary-pill warning">
+                  {outline.isolatedCount} isolati
+                </span>
+                <span className="outline-summary-pill warning">
+                  {outline.ambiguousCount} ambigui
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void refreshOutlineData()}
+                  disabled={outline.loading || outline.saving || busy}
+                >
+                  {outline.loading ? 'Aggiorno...' : 'Aggiorna Scaletta'}
+                </button>
+              </div>
+            </section>
+
+            <section className="outline-layout">
+              <div className="outline-list">
+                {outline.chapters.length > 0 ? (
+                  outline.chapters.map((chapter, index) => {
+                    const plotColor = getPlotColor(chapter.node.plotNumber, plots);
+                    const incomingTitles = chapter.incomingIds
+                      .map((id) => outlineChapterTitleById.get(id))
+                      .filter(Boolean);
+                    const outgoingTitles = chapter.outgoingIds
+                      .map((id) => outlineChapterTitleById.get(id))
+                      .filter(Boolean);
+
+                    return (
+                      <article
+                        key={chapter.node.id}
+                        className={
+                          draggedOutlineChapterId === chapter.node.id
+                            ? 'panel outline-chapter-card is-dragging'
+                            : 'panel outline-chapter-card'
+                        }
+                        style={{ borderLeftColor: plotColor }}
+                        draggable={!outline.saving && !busy}
+                        onDragStart={() => setDraggedOutlineChapterId(chapter.node.id)}
+                        onDragEnd={() => setDraggedOutlineChapterId(null)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => handleOutlineDrop(chapter.node.id)}
+                      >
+                        <div className="outline-chapter-marker">{index + 1}</div>
+                        <div className="outline-chapter-body">
+                          <header className="outline-chapter-header">
+                            <div>
+                              <p className="outline-plot-label" style={{ color: plotColor }}>
+                                {chapter.plot
+                                  ? normalizePlotLabel(chapter.plot.number, chapter.plot.label)
+                                  : `Trama ${chapter.node.plotNumber}`}
+                              </p>
+                              <h3>{chapter.node.title}</h3>
+                            </div>
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              onClick={() => openEditorForNode(chapter.node.id)}
+                              disabled={outline.saving || busy}
+                            >
+                              Apri
+                            </button>
+                          </header>
+
+                          <p className="outline-description">
+                            {chapter.node.description.trim() || 'Nessun riassunto disponibile.'}
+                          </p>
+
+                          <div className="outline-connection-row">
+                            <span>
+                              Da:{' '}
+                              <strong>
+                                {incomingTitles.length > 0 ? incomingTitles.join(', ') : '-'}
+                              </strong>
+                            </span>
+                            <span>
+                              A:{' '}
+                              <strong>
+                                {outgoingTitles.length > 0 ? outgoingTitles.join(', ') : '-'}
+                              </strong>
+                            </span>
+                          </div>
+
+                          <div className="outline-reference-grid">
+                            <div>
+                              <span>Scene</span>
+                              <div className="outline-chip-list">
+                                {chapter.scenes.length > 0 ? (
+                                  chapter.scenes.map((scene) => (
+                                    <span key={scene.id} className="outline-chip">
+                                      #{formatSceneName(scene)}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="muted">-</span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <span>Personaggi</span>
+                              <div className="outline-chip-list">
+                                {chapter.characters.length > 0 ? (
+                                  chapter.characters.map((character) => (
+                                    <span key={character.id} className="outline-chip">
+                                      @{formatCharacterName(character)}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="muted">-</span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <span>Location</span>
+                              <div className="outline-chip-list">
+                                {chapter.locations.length > 0 ? (
+                                  chapter.locations.map((location) => (
+                                    <span key={location.id} className="outline-chip">
+                                      @{formatLocationName(location)}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="muted">-</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {chapter.issues.length > 0 ? (
+                            <div className="outline-issue-list">
+                              {chapter.issues.map((issue) => (
+                                <span key={issue}>{issue}</span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <section className="panel">
+                    <p className="muted">Nessun capitolo presente nella scaletta.</p>
+                  </section>
+                )}
+              </div>
+
+              <aside className="panel outline-side-panel">
+                <h2>Trame</h2>
+                <div className="outline-plot-list">
+                  {plots.map((plot) => (
+                    <div key={plot.id}>
+                      <span
+                        className="outline-plot-swatch"
+                        style={{ backgroundColor: getPlotColor(plot.number, plots) }}
+                      />
+                      <strong>{normalizePlotLabel(plot.number, plot.label)}</strong>
+                    </div>
+                  ))}
+                </div>
+                <h2>Segnalazioni</h2>
+                {outline.chapters.some((chapter) => chapter.issues.length > 0) ? (
+                  <ul className="dashboard-check-list">
+                    {outline.chapters
+                      .filter((chapter) => chapter.issues.length > 0)
+                      .map((chapter) => (
+                        <li key={chapter.node.id}>
+                          <strong>{chapter.node.title}</strong>: {chapter.issues.join(', ')}
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="muted">Nessuna criticita strutturale rilevata.</p>
+                )}
+                {outline.error ? <p className="error">{outline.error}</p> : null}
+              </aside>
+            </section>
+
+            <section className="panel status-panel">
+              <p className={`status status-${statusTone}`}>
+                <span>{outline.saving ? 'Sincronizzazione scaletta...' : status}</span>
+                {workspaceNotice ? (
+                  <span className="status-inline-notice">{workspaceNotice}</span>
+                ) : null}
+              </p>
+              {error ? <p className="error">{error}</p> : null}
+            </section>
+          </section>
+        ) : (
+          <section className="panel">
+            <p>Apri o crea un progetto per visualizzare la scaletta.</p>
+          </section>
+        )
+      ) : null}
+
+      {activeTab === 'timeline' ? (
+        currentProject ? (
+          <TimelineBoard onStatus={setStatus} />
+        ) : (
+          <section className="workspace empty-workspace">
+            <p>Apri o crea un progetto per usare la timeline.</p>
+          </section>
+        )
+      ) : null}
+
       {activeTab === 'story' ? (
         <section className="workspace">
           <aside className="sidebar">
@@ -2722,7 +3999,7 @@ export default function App() {
               onNodesDelete={onNodesDelete}
               onEdgesDelete={onEdgesDelete}
               onNodeDragStop={handleNodeDragStop}
-              onNodeDoubleClick={handleNodeDoubleClick}
+              onNodeClick={handleNodeClick}
               onConnect={(connection) => void handleConnect(connection)}
               onSelectionChange={onSelectionChange}
               onEdgeClick={onEdgeClick}
@@ -2903,16 +4180,27 @@ export default function App() {
         )
       ) : null}
 
+      {activeTab === 'analysis' ? (
+        currentProject ? (
+          <AnalysisBoard currentProject={currentProject} onStatus={handleWorkspaceStatus} />
+        ) : (
+          <section className="panel">
+            <p>Apri o crea un progetto per usare gli strumenti di analisi.</p>
+          </section>
+        )
+      ) : null}
+
       {activeTab === 'memory' ? (
         currentProject ? (
           <section className="memory-workspace">
             <div className="panel memory-hero">
               <div>
                 <p className="eyebrow">Memoria progetto</p>
-                <h2>Wiki locale del romanzo</h2>
-                <p className="muted">
-                  Le fonti vengono esportate dal database in modo deterministico. La AI usa questa
-                  memoria come contesto citabile quando risponde alle domande sul romanzo.
+                <h2>Riassunto storia</h2>
+                <p className="muted memory-story-summary">
+                  {memoryStorySummaryBusy
+                    ? 'Sintesi AI in corso...'
+                    : memoryStorySummary || memoryStorySummaryFallback}
                 </p>
               </div>
               <div className="memory-status-card">
@@ -2933,6 +4221,19 @@ export default function App() {
                       ? `Ultimo sync: ${new Date(wikiStatus.updatedAt).toLocaleString()}`
                       : 'Nessun sync registrato'}
                   </small>
+                  <div className="memory-status-actions">
+                    <button type="button" onClick={() => void handleWikiSync()} disabled={wikiBusy}>
+                      Aggiorna
+                    </button>
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => void refreshWikiStatus()}
+                      disabled={wikiBusy}
+                    >
+                      Rileggi stato
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2944,52 +4245,30 @@ export default function App() {
               </section>
             ) : null}
 
-            <div className="memory-grid">
-              <section className="panel">
-                <h2>Azioni</h2>
-                <p className="muted">
-                  Aggiorna l'export deterministic-first e verifica lo stato della memoria locale.
-                </p>
-                <div className="memory-actions">
-                  <button type="button" onClick={() => void handleWikiSync()} disabled={wikiBusy}>
-                    Aggiorna memoria progetto
-                  </button>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={() => void refreshWikiStatus()}
+            <section className="panel memory-search-panel">
+              <h2>Ricerca</h2>
+              <form
+                className="memory-search-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleWikiSearch();
+                }}
+              >
+                <label>
+                  Cerca nella wiki locale
+                  <input
+                    type="search"
+                    value={wikiSearchQuery}
+                    onChange={(event) => setWikiSearchQuery(event.target.value)}
+                    placeholder="es. magazzino, patto, Tizio..."
                     disabled={wikiBusy}
-                  >
-                    Rileggi stato
-                  </button>
-                </div>
-              </section>
-
-              <section className="panel">
-                <h2>Ricerca</h2>
-                <form
-                  className="memory-search-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleWikiSearch();
-                  }}
-                >
-                  <label>
-                    Cerca nella wiki locale
-                    <input
-                      type="search"
-                      value={wikiSearchQuery}
-                      onChange={(event) => setWikiSearchQuery(event.target.value)}
-                      placeholder="es. magazzino, patto, Tizio..."
-                      disabled={wikiBusy}
-                    />
-                  </label>
-                  <button type="submit" disabled={wikiBusy || !wikiSearchQuery.trim()}>
-                    Cerca
-                  </button>
-                </form>
-              </section>
-            </div>
+                  />
+                </label>
+                <button type="submit" disabled={wikiBusy || !wikiSearchQuery.trim()}>
+                  Cerca
+                </button>
+              </form>
+            </section>
 
             <details className="panel memory-results-panel memory-collapsible-panel" open>
               <summary>Risultati</summary>
@@ -3428,6 +4707,36 @@ export default function App() {
                 placeholder="Titolo progetto"
               />
             </label>
+            <div className="grid-two">
+              <label>
+                Target parole progetto
+                <input
+                  type="number"
+                  min={1}
+                  value={createProjectTargetWords}
+                  onChange={(event) => setCreateProjectTargetWords(event.target.value)}
+                  placeholder="Es. 80000"
+                />
+              </label>
+              <label>
+                Target parole capitolo
+                <input
+                  type="number"
+                  min={1}
+                  value={createProjectTargetChapterWords}
+                  onChange={(event) => setCreateProjectTargetChapterWords(event.target.value)}
+                  placeholder="Es. 3000"
+                />
+              </label>
+            </div>
+            <label>
+              Data prevista di completamento
+              <input
+                type="date"
+                value={createProjectCompletionDate}
+                onChange={(event) => setCreateProjectCompletionDate(event.target.value)}
+              />
+            </label>
             <p className="muted">
               The Novelist creera una sottocartella con il nome del progetto e salvera li database,
               asset, snapshot e memoria.
@@ -3447,6 +4756,64 @@ export default function App() {
                 disabled={!canCreateProject}
               >
                 Crea e Apri
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === 'dashboard' && isProjectTargetsModalOpen ? (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Obiettivi progetto</h3>
+            <div className="grid-two">
+              <label>
+                Target parole progetto
+                <input
+                  type="number"
+                  min={1}
+                  value={editProjectTargetWords}
+                  onChange={(event) => setEditProjectTargetWords(event.target.value)}
+                  placeholder="Es. 80000"
+                />
+              </label>
+              <label>
+                Target parole capitolo
+                <input
+                  type="number"
+                  min={1}
+                  value={editProjectTargetChapterWords}
+                  onChange={(event) => setEditProjectTargetChapterWords(event.target.value)}
+                  placeholder="Es. 3000"
+                />
+              </label>
+            </div>
+            <label>
+              Data prevista di completamento
+              <input
+                type="date"
+                value={editProjectCompletionDate}
+                onChange={(event) => setEditProjectCompletionDate(event.target.value)}
+              />
+            </label>
+            <p className="muted">
+              Lascia un campo vuoto per rimuovere il relativo obiettivo dal cruscotto.
+            </p>
+            <div className="row-buttons modal-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setIsProjectTargetsModalOpen(false)}
+                disabled={busy}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveProjectTargets()}
+                disabled={!canSaveProjectTargets}
+              >
+                Salva obiettivi
               </button>
             </div>
           </div>
@@ -3588,15 +4955,23 @@ export default function App() {
               />
             </label>
             <label>
-              Numero trama
-              <input
-                type="number"
-                min={1}
+              Trama
+              <select
                 value={newNodePlotNumber}
                 onChange={(event) =>
                   setNewNodePlotNumber(Math.max(1, Number(event.target.value) || 1))
                 }
-              />
+              >
+                {plots.length > 0 ? (
+                  plots.map((plot) => (
+                    <option key={plot.id} value={plot.number}>
+                      {normalizePlotLabel(plot.number, plot.label)}
+                    </option>
+                  ))
+                ) : (
+                  <option value={newNodePlotNumber}>{`Trama ${newNodePlotNumber}`}</option>
+                )}
+              </select>
             </label>
             <label>
               Numero blocco (opzionale)

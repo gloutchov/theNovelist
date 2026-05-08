@@ -38,13 +38,9 @@ Nota aggiornata: il renderer gira con `sandbox: true`, `contextIsolation: true` 
 - Introduzione
 - Come iniziare
 - L'interfaccia
-- Come funziona
-  - Creazione/Apertura di un progetto
-  - Trame
-  - Capitoli
-  - Editor di Testo
-  - Selezione
-  - Canvas Personaggi/Location
+- Canvas Capitoli/Scene: Come funziona l'editor di testo
+- Canvas Trame/Personaggi/Location
+- Memoria
 - Impostazioni
 
 
@@ -53,11 +49,17 @@ The Novelist è un progetto sperimentale pensato per gli scrittori. L'applicazio
 Attualmente il progetto viene mantenuto e distribuito con pacchetti verificati localmente su macOS e Windows.
 
 Funzionalità principali:
+- Cruscotto con tutte le informazioni sul romanzo/racconto.
+- Timeline Grafica della storia.
 - Struttura a Nodi per definire la traccia del romanzo/racconto.
+- Schede trama.
 - Schede personaggio.
 - Schede Location.
-- Ogni blocco narrativo (capitolo) è dotato di un editor assistito da AI.
+- Ogni blocco narrativo (scena/capitolo) è dotato di un editor assistito da AI.
 - Ogni Scheda Personaggio, e Scheda Location, è dotata di un assistente AI.
+- Strumento per la gestione delle revisioni di ogni scena/capitolo/personaggio/location.
+- Strumento per l'analisi del romanzo/racconto con l'assistenza della AI.
+- Strumento di consultazione della 'memoria' del romanzo/racconto.
 - Possibilità di stampare il singolo blocco narrativo (capitolo).
 - Possibilità di stampare l'intero romanzo.   
 - Possibilità di export in formato Docx e PDF.
@@ -71,59 +73,65 @@ Funzionalità secondarie:
 ### Avvio di The Novelist
 Sia su macOS. sia su Windows, è sufficiente fare doppioclick sull'icona del programma.
 
+### Creazione di un romanzo/racconto
+Cliccare su Crea.
+Inserire il direttorio dove posizionare il progetto.
+Indicare il titolo del progetto.
+Inserire un target di parole per l'intero romanzo/racconto, e per i singoli capitoli (opzionale, ma utile).
+Inserire una data prevista di conclusione del progetto (opzionale, ma utile).
+
+### Definire una o più trame
+Cliccare su Trame.
+Cliccare su Nuova Trama.
+Definire il numero di trama. Il programma può gestire più trame parallele. Ad esempio si può creare una trama principale, più altre trame secondarie legate a singoli personaggi. Scegliere il numero subito successivo all'ultimo usato. Nel caso della trama principale, usare 1.
+Definire un nome della trama (Trama Principale, Storia del personaggio, etc).
+Scrivere una bozza, un idea, una struttura, o un breve riassunto della trama che si vuole definire.
+Cliccare su Crea Trama. 
+Verrà creato un 'box' relativo alla trama. La trama sarà definita per titolo, numero, e colore. Cliccando sul box è possibile rivedere quanto scritto, ed eventualmente modificarlo.
+In alternativa si può cliccare su Crea Capitoli. In questo caso, oltre alla generazione del box legato alla trama, vengono prodotti dalla AI un certo numero di capitoli, con una indicazione del tema di cui dovranno parlare, per completare l'opera. Questa generazione è solamente propositiva, e l'autore può modificarla in ogni momento, e anche cancellarla.
+
+### Iniziare a scrivere
+A seconda di come intenda lavorare l'autore, è possibile partire direttamente scrivendo un capitolo del libro, o semplicemente scrivendo una delle scene che saranno incluse nei capitoli.
+La scelta è puramente personale. Dalla stesura dei capitoli è possibile definire successivamente le varie scene. Oppure, dopo aver scritto le singole scene, è possibile aprire un capitolo vuoto e richiamare le scene nell'ordine che si preferisce.
+L'editor è semplice ma possiede tutto ciò che serve, ovvero:
+- Giustificazione del Testo.
+- Formattazione del testo e del font.
+- Sistema di ricerca.
+- Sistema di ricerca e sostituzione.
+- Sistemi di correzione di un testo selezionato (tramite AI).
+- Chatbot AI per la consultazione/ricerca.
+L'editor riconosce il '<<', e il '>>' come 'baffi' per i dialoghi e li converte nei simboli tipografici corretti.
+Sia che si scriva una scena, sia che si scriva un capitolo, è possibile selezionare un testo e definirlo come descrizione di un personaggio, o di una location. Con la definizione, l'app genererà in automatico una scheda personaggio (volendo anche compresa di foto), o una scheda location (volendo anche compresa di foto).
+Per avere una correlazione tra personaggi/paesaggi e i capitoli/scene, è sufficiente richiamarli con la @. Questo permetterà all'autore di sapere sempre dove è presente un personaggio o quali capitoli si svolgono in una determinata location.
+Tutte le informazioni saranno utilizzate per creare una 'memoria' del progetto, e per compilare sia il cruscotto, sia la timeline. Le informazioni saranno anche fondamentali affinché la AI sappia su cosa si sta lavorando.
+
+### Timeline
+La timeline viene utile per dare ordine cronologico agli eventi raccontati. La sua costruzione è manuale, ma ogni volta che si entra nella vista timeline, questa mostrerà gli elementi già posizionati, e quelli nuovi ancora da posizionare. 
+L'autore può anche indicare date precise, sia di inizio, sia di fine, della timeline. E definire anche date specifiche per ogni singolo elemento connesso ad essa.
+
+### Scaletta
+La scaletta è uno strumento di drag and drop verticale in cui l'autore può disporre i capitoli come meglio preferisce. La stampa, o l'export del romanzo/racconto avverrà in base all'ordinamento scelto in questa vista.
+
+### Revisioni
+Il programma tiene memoria di ogni modifica fatta nei capitoli e nelle scene, così come nelle schede personaggio e location. Nel caso si voglia tornare indietro, è possibile andare sulla vista Revisioni, cercare quella desiderata, e ripristinarla. 
+Attenzione però: una volta ripristinata una vecchia stesura, non sarà più possibile tornare all'ultima generata.
+
+### Analisi
+Il programma offre una serie di strumenti, che grazie alla AI, sono in grado di valutare il tasto scritto e individuarne i potenziali difetti, o le eventuali mancanze.
+
 ## L'interfaccia
-L'interfaccia principale è divisa in due aree distinte.
+L'interfaccia principale è divisa in tre aree distinte.
+
+### Centro di controllo
+Sotto al logo, sono presenti diversi tasti che permettono di spostarsi tra le varie viste.
 
 ### Area Comandi (sinistra)
-Il lato sinistro dell'applicazione ha una serie di sezioni così ordinate:
-- Creazione/Apertura di un progetto.
-- Creazione di una Trama.
-- Creazione di un Capitolo.
-- Pulsanti di Stampa ed Export del documento intero.
-- Area oggetto selezionato.
-- Area di stato.
+Il lato sinistro dell'applicazione, solitamente, ha una serie di opzioni utili per la vista scelta. Solitamente tasti per creare nuovi elementi, per avere informazioni su quelli selezionati, ed eventualmente cancellarli.
 
 ### Canvas (destra)
-Il lato destro è il foglio di lavoro. Si tratta di una lavagna su cui appoggiare i blocchi (ogni blocco rappresenta un capitolo), e decidere come connettere l'uno all'altro.
+Il lato destro è il foglio di lavoro. Si tratta di una lavagna su cui appoggiare i blocchi (ogni blocco rappresenta un elemento relativo alla vista scelta), e decidere come connettere l'uno all'altro. Nelle pagine di analisi, così come nel cruscotto e nella memoria, saranno mostrate le informazioni relative alle specificità della vista scelta.
 
-### Menù 
-Nell'intestazione del programma c'è un piccolo menù composto da quattro tasti.
-- Struttura Storia: che è l'area principale di lavoro.
-- Trame: è l'area di lavoro per creare trame (principale e secondarie).
-- Personaggi: è l'area di lavoro per creare personaggi.
-- Location: è l'area di lavoro per creare le location.
-- Memoria: è l'area dedicata alla 'memoria del progetto' a cui la AI può accedere per avere informazioni.
-- Impostazioni: Qui viene scelto che tipo di interazione con la AI sarà usato.
-
-## Come Funziona
-Il programma, di per sé è molto semplice da usare.
-E' sufficiente:
-- Creare un progetto.
-- Creare una Trama.
-- Caricare i capitoli sul canvas.
-- Collegare i capitoli tra loro.
-- Creare le schede personaggio.
-- Creare le schede location.
-- Scrivere i singoli capitoli.
-
-### Creazione/Apertura di un progetto
-Per creare un progetto è sufficiente scegliere una cartella sul vostro computer. Tenete conto che non è un classico documento word, per cui l'intera cartella dovrà essere dedicata a quel solo progetto. Conviene chiamare la cartella col nome del vostro progetto.
-Una volta inserito anche il nome del progetto, è sufficiente cliccare su Crea e puntare a quella cartella. Il programma farà tutto da solo e vi aprirà il progetto.
-Se il progetto già esiste, per accedervi, sarà necessario cliccare su Apri.
-Il tasto chiudi servirà per chiudere un progetto quando si è finito di lavorare.
-
-### Trame
-Il programma può gestire più filoni narrativi, qui chiamati semplicemente 'trame'.
-Per creare una trama è sufficiente dargli una etichetta ('Trama Principale', 'Storia del personaggio x', etc), e cliccare su Crea Trama.
-Ogni trama ha assegnato un numero. E i capitoli assegnati alla trama scelta, avranno un colore che li distinguerà dagl'altri.
-E' presente anche un'area di testo in cui è possibile abbozzare la storia nelle sue parti. Grazie a questo testo, se invece di cliccare su Crea Trama, si clicca su Crea Struttura, la AI ipotizzerà una struttura divisa in blocchi (capitoli) collegati tra loro, con tanto di riassunto, da cui si può partire con la stesura della storia vera e propria.
-
-### Capitoli
-Il programma vede i capitoli come dei blocchi da caricare sul canvas. E' sufficiente inserire il titolo e una breve descrizione. Poi si clicca su 'Crea Blocco', e il capitolo apparirà sul canvas.
-Tutti i blocchi sono dotati di maniglie, così che ogni capitolo possa essere collegato con il successivo, così da andare a comporre la struttura della storia. Tale struttura verrà rispettata sia in fase di stampa, sia di export. In ogni momento è possibile cambiare l'ordine dei capitoli cancellando le connessioni e ricreandole come più si desidera.
-Con un doppioclick sul blocco che rappresenta il capitolo si aprirà una finestra riassuntiva, e cliccando su 'Apri Editor di Testo' si potrà iniziare a scrivere.
-
-#### Editor di Testo
+## Canvas Capitoli/Scene: Come Funziona l'editor di testo
 L'editor di testo è molto semplice. Anche in questo caso è diviso in due aree distinte:
 
 - Sul lato sinistro è presente l'editor di scrittura. E' possibile scegliere lo stile, il tipo di font, la giustificazione e la dimensione del font. La scrittura è snella. Riconosce il '-' e i baffi '<<' '>>' per i dialoghi. Mentre se vi serve un elenco puntato (sul serio?) vi basta usare l'asterisco. L'editor mostrerà anche la location associata, e i personaggi. Se si seleziona un testo, è possibile ritoccarlo direttamente tramite la AI.
@@ -134,6 +142,7 @@ Quando si esce dall'editor, la AI farà un riassunto di quanto scritto e lo mett
 Per richiamare un personaggio, o una location, è sufficiente digitare '@' e scegliere dall'elenco. Il richiamo non sarà visibile in fase di export, ma permetterà di avere una correlazione tra gli elementi, visibile sia nell'editor, sia nelle schede personaggio e nelle schede paesaggio. 
 Se si vuole creare un nuovo personaggio, o una nuova location, senza passare ai Canvas Personaggi/Location (vedi capitoli successivi), è sufficiente scrivere nell'editor la descrizione, selezionare il testo, e cliccarci sopra col tasto destro. Si aprirà un menù ad hoc per generare direttamente ciò che si desidera. Una volta confermato, il programma creerà direttamente la scheda al posto dell'utente, andando a compilare gli attributi grazie alla AI, che cercherà nel testo evidenziato i dati, e li riporterà al posto giusto. Nel caso poi siano attive le API, verrà anche generata una immagine in automatico, sempre basata sulla descrizione.
 Nell'editor di testo, ovviamente, il testo selezionato rimarrà presente, ed apparirà il badge relativo al personaggio, o alla location, appena creata.
+Allo stesso modo è possibile creare una scena. In questo caso la scena verrà evidenziata con il '#'.
 
 Scorciatoie da tastiera nell'editor:
 
@@ -154,10 +163,7 @@ Scorciatoie da tastiera nell'editor:
 | Annulla                          | `Ctrl+Z`                           | `Cmd+Z`                           |
 | Ripristina                       | `Ctrl+Shift+Z`                     | `Cmd+Shift+Z`                     | 
 
-### Selezione
-Quando si seleziona un oggetto sul canvas, in quest'area vengono attivati dei tasti con le possibili azioni che si possono fare. Per cancellare un oggetto è possibile anche usare la scorciatoia, e una volta selezionato, basta premere 'Canc'.
-
-### Canvas Trame/Personaggi/Location
+## Canvas Trame/Personaggi/Location
 Le due aree non sono molto differenti da quelle già viste. Sia il blocco personaggio, sia il blocco paesaggio permette di inserire delle caratteristiche specifiche, ed eventualmente generare una immagine del personaggio/paesaggio.
 Sia i blocchi personaggio, sia i blocchi location, sono dotati di 'maniglie', esattamente come avviene nel Canvas dells Struttura Progetto. Ciò permette di collegare tra loro personaggi che hanno un legame, o location legate tra loro. 
 Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, alla pressione del tasto Nuove Trame.
@@ -166,6 +172,15 @@ Nota: Nel caso si usino le API KEY, sarà possibile generare e associare diretta
 
 ## Memoria
 Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, e dalle Location. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
+
+## Analisi
+Il programma è dotato di una serie di servizi, svolti tramite AI, capaci di identificare potenziali problemi in questi ambiti:
+- Coerenza Narrativa: Tempi, personaggi e location descritti in modo contradditorio, etc.
+- Eventi non risolti: Vicende, promesse narrative e trame lasciate aperte.
+- Stile: Tono, punteggiatura, ricorrenze, ripetizioni, e leggibilità del testo.
+- Ritmo narrativo: Capitoli deboli, scene ridondanti, personaggi superficiali o assenti nella narrazione.
+- Nomi e convenzioni: Nomi propri, terminologie, convenzioni, e coerenza interna.
+Il report fornito è solamente indicativo, ma utile all'autore durante la fase di revisione del testo.
 
 ## Impostazioni
 Il menù impostazioni serve principalmente per:

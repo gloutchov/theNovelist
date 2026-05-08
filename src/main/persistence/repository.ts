@@ -15,6 +15,7 @@ import type {
   CreateCharacterCardInput,
   CreateCharacterImageInput,
   CreateEntityRevisionInput,
+  CreateWritingSessionInput,
   CreateStoryEdgeInput,
   CreateChapterNodeInput,
   CreateLocationCardInput,
@@ -30,6 +31,9 @@ import type {
   PlotRecord,
   ProjectRecord,
   SceneCardRecord,
+  TimelineItemRecord,
+  TimelineItemType,
+  TimelineSettingsRecord,
   UpdateChapterNodeInput,
   UpdateCharacterCardInput,
   UpdatePlotInput,
@@ -37,6 +41,9 @@ import type {
   UpdateSceneCardInput,
   UpsertChapterDocumentInput,
   UpsertCodexSettingsInput,
+  UpsertTimelineItemInput,
+  UpsertTimelineSettingsInput,
+  WritingSessionRecord,
 } from './types';
 
 function nowIso(): string {
@@ -48,8 +55,31 @@ function toProjectRecord(row: Record<string, unknown>): ProjectRecord {
     id: String(row.id),
     name: String(row.name),
     rootPath: String(row.root_path),
+    targetWordCount:
+      row.target_word_count === null || row.target_word_count === undefined
+        ? null
+        : Number(row.target_word_count),
+    targetChapterWordCount:
+      row.target_chapter_word_count === null || row.target_chapter_word_count === undefined
+        ? null
+        : Number(row.target_chapter_word_count),
+    plannedCompletionDate:
+      row.planned_completion_date === null || row.planned_completion_date === undefined
+        ? null
+        : String(row.planned_completion_date),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+  };
+}
+
+function toWritingSessionRecord(row: Record<string, unknown>): WritingSessionRecord {
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    chapterNodeId: String(row.chapter_node_id),
+    wordDelta: Number(row.word_delta),
+    wordCount: Number(row.word_count),
+    createdAt: String(row.created_at),
   };
 }
 
@@ -232,6 +262,31 @@ function toSceneCardRecord(row: Record<string, unknown>): SceneCardRecord {
   };
 }
 
+function toTimelineSettingsRecord(row: Record<string, unknown>): TimelineSettingsRecord {
+  return {
+    projectId: String(row.project_id),
+    startLabel: String(row.start_label ?? ''),
+    endLabel: String(row.end_label ?? ''),
+    timelineEndX: Number(row.timeline_end_x ?? 1148),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+function toTimelineItemRecord(row: Record<string, unknown>): TimelineItemRecord {
+  const itemType = String(row.item_type);
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    itemType: (itemType === 'scene' ? 'scene' : 'chapter') as TimelineItemType,
+    entityId: String(row.entity_id),
+    positionX: Number(row.position_x),
+    positionY: Number(row.position_y),
+    dateLabel: String(row.date_label ?? ''),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
 function toEntityRevisionRecord(row: Record<string, unknown>): EntityRevisionRecord {
   const entityType = String(row.entity_type);
   const reason = String(row.reason);
@@ -270,21 +325,49 @@ function toLocationChapterLinkRecord(row: Record<string, unknown>): LocationChap
 export class NovelistRepository {
   constructor(private readonly db: Database.Database) {}
 
-  createProject(params: { id?: string; name: string; rootPath: string }): ProjectRecord {
+  createProject(params: {
+    id?: string;
+    name: string;
+    rootPath: string;
+    targetWordCount?: number | null;
+    targetChapterWordCount?: number | null;
+    plannedCompletionDate?: string | null;
+  }): ProjectRecord {
     const id = params.id ?? randomUUID();
     const timestamp = nowIso();
 
     this.db
       .prepare(
         `
-        INSERT INTO projects(id, name, root_path, created_at, updated_at)
-        VALUES (@id, @name, @rootPath, @createdAt, @updatedAt)
+        INSERT INTO projects(
+          id,
+          name,
+          root_path,
+          target_word_count,
+          target_chapter_word_count,
+          planned_completion_date,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          @id,
+          @name,
+          @rootPath,
+          @targetWordCount,
+          @targetChapterWordCount,
+          @plannedCompletionDate,
+          @createdAt,
+          @updatedAt
+        )
         `,
       )
       .run({
         id,
         name: params.name,
         rootPath: params.rootPath,
+        targetWordCount: params.targetWordCount ?? null,
+        targetChapterWordCount: params.targetChapterWordCount ?? null,
+        plannedCompletionDate: params.plannedCompletionDate ?? null,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -317,6 +400,41 @@ export class NovelistRepository {
     this.db
       .prepare('UPDATE projects SET name = ?, updated_at = ? WHERE id = ?')
       .run(name, nowIso(), id);
+  }
+
+  updateProjectPlanning(
+    id: string,
+    input: {
+      targetWordCount?: number | null;
+      targetChapterWordCount?: number | null;
+      plannedCompletionDate?: string | null;
+    },
+  ): ProjectRecord {
+    this.db
+      .prepare(
+        `
+        UPDATE projects
+        SET
+          target_word_count = @targetWordCount,
+          target_chapter_word_count = @targetChapterWordCount,
+          planned_completion_date = @plannedCompletionDate,
+          updated_at = @updatedAt
+        WHERE id = @id
+        `,
+      )
+      .run({
+        id,
+        targetWordCount: input.targetWordCount ?? null,
+        targetChapterWordCount: input.targetChapterWordCount ?? null,
+        plannedCompletionDate: input.plannedCompletionDate ?? null,
+        updatedAt: nowIso(),
+      });
+
+    const project = this.getProjectById(id);
+    if (!project) {
+      throw new Error('Project planning update failed');
+    }
+    return project;
   }
 
   repairProjectAssetReferences(id: string, rootPath: string): void {
@@ -495,9 +613,31 @@ export class NovelistRepository {
     const deleteLocationCards = this.db.prepare(
       'DELETE FROM location_cards WHERE project_id = ? AND plot_number = ?',
     );
+    const deleteTimelineItems = this.db.prepare(
+      `
+      DELETE FROM timeline_items
+      WHERE project_id = ?
+      AND (
+        (item_type = 'chapter' AND entity_id IN (
+          SELECT id FROM chapter_nodes WHERE project_id = ? AND plot_number = ?
+        ))
+        OR
+        (item_type = 'scene' AND entity_id IN (
+          SELECT id FROM scene_cards WHERE project_id = ? AND plot_number = ?
+        ))
+      )
+      `,
+    );
     const deletePlotRecord = this.db.prepare('DELETE FROM plots WHERE id = ?');
 
     this.db.transaction(() => {
+      deleteTimelineItems.run(
+        plot.projectId,
+        plot.projectId,
+        plot.number,
+        plot.projectId,
+        plot.number,
+      );
       deleteChapterNodes.run(plot.projectId, plot.number);
       deleteCharacterCards.run(plot.projectId, plot.number);
       deleteLocationCards.run(plot.projectId, plot.number);
@@ -624,7 +764,22 @@ export class NovelistRepository {
   }
 
   deleteChapterNode(nodeId: string): void {
-    this.db.prepare('DELETE FROM chapter_nodes WHERE id = ?').run(nodeId);
+    this.db.transaction(() => {
+      this.db
+        .prepare(
+          `
+          DELETE FROM timeline_items
+          WHERE
+            (item_type = 'chapter' AND entity_id = ?)
+            OR
+            (item_type = 'scene' AND entity_id IN (
+              SELECT id FROM scene_cards WHERE chapter_node_id = ?
+            ))
+          `,
+        )
+        .run(nodeId, nodeId);
+      this.db.prepare('DELETE FROM chapter_nodes WHERE id = ?').run(nodeId);
+    })();
   }
 
   setChapterNodeRichTextDocId(nodeId: string, documentId: string | null): void {
@@ -772,6 +927,66 @@ export class NovelistRepository {
       .get(chapterNodeId) as Record<string, unknown> | undefined;
 
     return row ? toChapterDocumentRecord(row) : null;
+  }
+
+  recordWritingSession(projectId: string, input: CreateWritingSessionInput): WritingSessionRecord {
+    const id = randomUUID();
+    const timestamp = nowIso();
+
+    this.db
+      .prepare(
+        `
+        INSERT INTO writing_sessions(
+          id,
+          project_id,
+          chapter_node_id,
+          word_delta,
+          word_count,
+          created_at
+        )
+        VALUES (
+          @id,
+          @projectId,
+          @chapterNodeId,
+          @wordDelta,
+          @wordCount,
+          @createdAt
+        )
+        `,
+      )
+      .run({
+        id,
+        projectId,
+        chapterNodeId: input.chapterNodeId,
+        wordDelta: input.wordDelta,
+        wordCount: input.wordCount,
+        createdAt: timestamp,
+      });
+
+    const row = this.db.prepare('SELECT * FROM writing_sessions WHERE id = ?').get(id) as
+      | Record<string, unknown>
+      | undefined;
+    if (!row) {
+      throw new Error('Writing session creation failed');
+    }
+    return toWritingSessionRecord(row);
+  }
+
+  listWritingSessions(projectId: string, limit = 12): WritingSessionRecord[] {
+    const normalizedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM writing_sessions
+        WHERE project_id = ?
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT ?
+        `,
+      )
+      .all(projectId, normalizedLimit) as Record<string, unknown>[];
+
+    return rows.map(toWritingSessionRecord).reverse();
   }
 
   getOrCreateCodexSettings(projectId: string): CodexSettingsRecord {
@@ -1543,7 +1758,142 @@ export class NovelistRepository {
   }
 
   deleteSceneCard(sceneId: string): void {
-    this.db.prepare('DELETE FROM scene_cards WHERE id = ?').run(sceneId);
+    this.db.transaction(() => {
+      this.db
+        .prepare("DELETE FROM timeline_items WHERE item_type = 'scene' AND entity_id = ?")
+        .run(sceneId);
+      this.db.prepare('DELETE FROM scene_cards WHERE id = ?').run(sceneId);
+    })();
+  }
+
+  getTimelineSettings(projectId: string): TimelineSettingsRecord {
+    const row = this.db
+      .prepare('SELECT * FROM timeline_settings WHERE project_id = ?')
+      .get(projectId) as Record<string, unknown> | undefined;
+
+    if (row) {
+      return toTimelineSettingsRecord(row);
+    }
+
+    return {
+      projectId,
+      startLabel: '',
+      endLabel: '',
+      timelineEndX: 1148,
+      updatedAt: nowIso(),
+    };
+  }
+
+  upsertTimelineSettings(
+    projectId: string,
+    input: UpsertTimelineSettingsInput,
+  ): TimelineSettingsRecord {
+    const timestamp = nowIso();
+    this.db
+      .prepare(
+        `
+        INSERT INTO timeline_settings(project_id, start_label, end_label, timeline_end_x, updated_at)
+        VALUES (@projectId, @startLabel, @endLabel, @timelineEndX, @updatedAt)
+        ON CONFLICT(project_id) DO UPDATE SET
+          start_label = excluded.start_label,
+          end_label = excluded.end_label,
+          timeline_end_x = excluded.timeline_end_x,
+          updated_at = excluded.updated_at
+        `,
+      )
+      .run({
+        projectId,
+        startLabel: input.startLabel,
+        endLabel: input.endLabel,
+        timelineEndX: input.timelineEndX,
+        updatedAt: timestamp,
+      });
+
+    return this.getTimelineSettings(projectId);
+  }
+
+  listTimelineItems(projectId: string): TimelineItemRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT *
+        FROM timeline_items
+        WHERE project_id = ?
+        ORDER BY position_x ASC, position_y ASC, created_at ASC
+        `,
+      )
+      .all(projectId) as Record<string, unknown>[];
+
+    return rows.map(toTimelineItemRecord);
+  }
+
+  upsertTimelineItem(projectId: string, input: UpsertTimelineItemInput): TimelineItemRecord {
+    const existing = this.db
+      .prepare(
+        `
+        SELECT id, created_at
+        FROM timeline_items
+        WHERE project_id = ? AND item_type = ? AND entity_id = ?
+        `,
+      )
+      .get(projectId, input.itemType, input.entityId) as
+      | { id: string; created_at: string }
+      | undefined;
+    const timestamp = nowIso();
+    const id = existing?.id ?? randomUUID();
+    const createdAt = existing?.created_at ?? timestamp;
+
+    this.db
+      .prepare(
+        `
+        INSERT INTO timeline_items(
+          id,
+          project_id,
+          item_type,
+          entity_id,
+          position_x,
+          position_y,
+          date_label,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          @id,
+          @projectId,
+          @itemType,
+          @entityId,
+          @positionX,
+          @positionY,
+          @dateLabel,
+          @createdAt,
+          @updatedAt
+        )
+        ON CONFLICT(project_id, item_type, entity_id) DO UPDATE SET
+          position_x = excluded.position_x,
+          position_y = excluded.position_y,
+          date_label = excluded.date_label,
+          updated_at = excluded.updated_at
+        `,
+      )
+      .run({
+        id,
+        projectId,
+        itemType: input.itemType,
+        entityId: input.entityId,
+        positionX: input.positionX,
+        positionY: input.positionY,
+        dateLabel: input.dateLabel,
+        createdAt,
+        updatedAt: timestamp,
+      });
+
+    const row = this.db.prepare('SELECT * FROM timeline_items WHERE id = ?').get(id) as
+      | Record<string, unknown>
+      | undefined;
+    if (!row) {
+      throw new Error('Timeline item upsert failed');
+    }
+    return toTimelineItemRecord(row);
   }
 
   createEntityRevision(projectId: string, input: CreateEntityRevisionInput): EntityRevisionRecord {

@@ -23,9 +23,13 @@ import type {
   SceneCardResponse,
   SnapshotResponse,
   StoryStateResponse,
+  TimelineItemResponse,
+  TimelineSettingsResponse,
+  TimelineStateResponse,
   WikiStatusResponse,
   WikiSyncResponse,
   WikiSearchResultResponse,
+  WritingSessionResponse,
 } from '../main/ipc';
 
 const novelistApi = {
@@ -38,8 +42,18 @@ const novelistApi = {
     autosaveIntervalMinutes?: number;
   }): Promise<AppPreferencesResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.appUpdatePreferences, payload),
-  createProject: (payload: { rootPath: string; name: string }): Promise<ProjectResponse> =>
-    ipcRenderer.invoke(IPC_CHANNELS.projectCreate, payload),
+  createProject: (payload: {
+    rootPath: string;
+    name: string;
+    targetWordCount?: number | null;
+    targetChapterWordCount?: number | null;
+    plannedCompletionDate?: string | null;
+  }): Promise<ProjectResponse> => ipcRenderer.invoke(IPC_CHANNELS.projectCreate, payload),
+  updateProjectPlanning: (payload: {
+    targetWordCount: number | null;
+    targetChapterWordCount: number | null;
+    plannedCompletionDate: string | null;
+  }): Promise<ProjectResponse> => ipcRenderer.invoke(IPC_CHANNELS.projectUpdatePlanning, payload),
   openProject: (payload: { rootPath: string }): Promise<ProjectResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectOpen, payload),
   closeProject: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC_CHANNELS.projectClose),
@@ -57,6 +71,8 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.projectSaveSnapshot, payload ?? {}),
   listSnapshots: (): Promise<SnapshotResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectListSnapshots),
+  listWritingSessions: (): Promise<WritingSessionResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectListWritingSessions),
   recoverLatestSnapshot: (): Promise<SnapshotResponse | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRecoverLatestSnapshot),
   wikiGetStatus: (): Promise<WikiStatusResponse> => ipcRenderer.invoke(IPC_CHANNELS.wikiGetStatus),
@@ -274,6 +290,21 @@ const novelistApi = {
   }): Promise<SceneCardResponse> => ipcRenderer.invoke(IPC_CHANNELS.sceneUpdateCard, payload),
   deleteSceneCard: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.sceneDeleteCard, payload),
+  getTimelineState: (): Promise<TimelineStateResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.timelineGetState),
+  updateTimelineSettings: (payload: {
+    startLabel: string;
+    endLabel: string;
+    timelineEndX: number;
+  }): Promise<TimelineSettingsResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.timelineUpdateSettings, payload),
+  updateTimelineItem: (payload: {
+    itemType: 'chapter' | 'scene';
+    entityId: string;
+    positionX: number;
+    positionY: number;
+    dateLabel: string;
+  }): Promise<TimelineItemResponse> => ipcRenderer.invoke(IPC_CHANNELS.timelineUpdateItem, payload),
   getRevisionCurrent: (payload: {
     entityType: 'chapter' | 'scene' | 'character' | 'location';
     entityId: string;
@@ -309,6 +340,7 @@ const novelistApi = {
     message: string;
     context?: string;
     projectName?: string;
+    timeoutMs?: number;
   }): Promise<CodexResultResponse> => ipcRenderer.invoke(IPC_CHANNELS.codexAssist, payload),
   codexTransformSelection: (payload: {
     action: 'correggi' | 'riscrivi' | 'espandi' | 'riduci';

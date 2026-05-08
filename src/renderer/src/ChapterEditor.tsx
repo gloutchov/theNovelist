@@ -316,6 +316,8 @@ interface ChapterEditorProps {
   onClose: () => void | Promise<void>;
   onStatus: (message: string) => void;
   onChapterSaved?: () => void | Promise<void>;
+  sceneCard?: SceneCard;
+  onSceneSaved?: (scene: SceneCard) => void | Promise<void>;
   projectName?: string;
   autosaveSettings?: AppPreferences | null;
   onDirtyChange?: (dirty: boolean) => void;
@@ -494,6 +496,64 @@ function richTextDocumentFromSelectionContent(content: RichTextNodeJson[]): Rich
   return normalizeSceneContentDocument({ type: 'doc', content });
 }
 
+function createSceneBoundaryMention(card: SceneCard, boundary: 'start' | 'end'): RichTextNodeJson {
+  return {
+    type: 'referenceMention',
+    attrs: {
+      refId: card.id,
+      refType: 'scene',
+      label: card.name,
+      boundary,
+    },
+  };
+}
+
+function createEmptyRichTextDocument(): RichTextDocumentJson {
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [] }],
+  };
+}
+
+function richTextDocumentFromPlainText(text: string): RichTextDocumentJson {
+  const paragraphs = text.split(/\n{2,}/u);
+  return {
+    type: 'doc',
+    content: paragraphs.map((paragraph) => ({
+      type: 'paragraph',
+      content: paragraph
+        .split(/\n/u)
+        .flatMap((line, index) =>
+          index === 0
+            ? line
+              ? [{ type: 'text', text: line }]
+              : []
+            : [{ type: 'hardBreak' }, ...(line ? [{ type: 'text', text: line }] : [])],
+        ),
+    })),
+  };
+}
+
+function parseStoredRichTextDocument(
+  contentJson: string | null | undefined,
+  fallbackText: string,
+): RichTextDocumentJson {
+  if (contentJson?.trim()) {
+    try {
+      const parsed = JSON.parse(contentJson) as RichTextDocumentJson;
+      if (parsed && typeof parsed === 'object') {
+        return normalizeSceneContentDocument(parsed);
+      }
+    } catch {
+      return richTextDocumentFromPlainText(fallbackText);
+    }
+  }
+
+  return fallbackText.trim()
+    ? richTextDocumentFromPlainText(fallbackText)
+    : createEmptyRichTextDocument();
+}
+
 interface SceneBoundaryLocation {
   blockIndex: number;
   inlineIndex: number;
@@ -570,6 +630,116 @@ function extractSceneContentDocument(
     type: 'doc',
     content: compactSceneContentBlocks(contentBlocks),
   });
+}
+
+function getSceneContentBlocks(document: RichTextDocumentJson): RichTextNodeJson[] {
+  const blocks = document.content?.length
+    ? document.content
+    : createEmptyRichTextDocument().content;
+  return (blocks ?? [{ type: 'paragraph', content: [] }]).map(cloneRichTextNode);
+}
+
+function buildSceneInsertionBlocks(card: SceneCard): RichTextNodeJson[] {
+  const blocks = getSceneContentBlocks(parseStoredRichTextDocument(card.contentJson, card.text));
+  const firstBlock = cloneRichTextNode(blocks[0] ?? { type: 'paragraph', content: [] });
+  const lastBlock = cloneRichTextNode(blocks[blocks.length - 1] ?? firstBlock);
+
+  if (blocks.length <= 1) {
+    return [
+      {
+        ...firstBlock,
+        content: [
+          createSceneBoundaryMention(card, 'start'),
+          { type: 'text', text: ' ' },
+          ...(firstBlock.content ?? []).map(cloneRichTextNode),
+          { type: 'text', text: ' ' },
+          createSceneBoundaryMention(card, 'end'),
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      ...firstBlock,
+      content: [
+        createSceneBoundaryMention(card, 'start'),
+        { type: 'text', text: ' ' },
+        ...(firstBlock.content ?? []).map(cloneRichTextNode),
+      ],
+    },
+    ...blocks.slice(1, -1).map(cloneRichTextNode),
+    {
+      ...lastBlock,
+      content: [
+        ...(lastBlock.content ?? []).map(cloneRichTextNode),
+        { type: 'text', text: ' ' },
+        createSceneBoundaryMention(card, 'end'),
+      ],
+    },
+  ];
+}
+
+function replaceSceneContentAcrossTopLevelBlocks(
+  document: RichTextDocumentJson,
+  sceneId: string,
+  sceneContentDocument: RichTextDocumentJson,
+): boolean {
+  const blocks = document.content ?? [];
+  const start = findTopLevelSceneBoundary(document, sceneId, 'start');
+  const end = findTopLevelSceneBoundary(document, sceneId, 'end');
+  if (!start || !end) {
+    return false;
+  }
+  if (
+    start.blockIndex > end.blockIndex ||
+    (start.blockIndex === end.blockIndex && start.inlineIndex >= end.inlineIndex)
+  ) {
+    return false;
+  }
+
+  const startBlock = blocks[start.blockIndex];
+  const endBlock = blocks[end.blockIndex];
+  const startContent = startBlock?.content;
+  const endContent = endBlock?.content;
+  if (!startBlock || !endBlock || !Array.isArray(startContent) || !Array.isArray(endContent)) {
+    return false;
+  }
+
+  const sceneBlocks = getSceneContentBlocks(sceneContentDocument);
+  const firstSceneBlock = sceneBlocks[0] ?? { type: 'paragraph', content: [] };
+  const lastSceneBlock = sceneBlocks[sceneBlocks.length - 1] ?? firstSceneBlock;
+  if (sceneBlocks.length === 1) {
+    blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, {
+      ...firstSceneBlock,
+      content: [
+        ...startContent.slice(0, start.inlineIndex + 1).map(cloneRichTextNode),
+        ...(firstSceneBlock.content ?? []).map(cloneRichTextNode),
+        ...endContent.slice(end.inlineIndex).map(cloneRichTextNode),
+      ],
+    });
+    return true;
+  }
+
+  const replacementBlocks: RichTextNodeJson[] = [
+    {
+      ...firstSceneBlock,
+      content: [
+        ...startContent.slice(0, start.inlineIndex + 1).map(cloneRichTextNode),
+        ...(firstSceneBlock.content ?? []).map(cloneRichTextNode),
+      ],
+    },
+    ...sceneBlocks.slice(1, -1).map(cloneRichTextNode),
+    {
+      ...lastSceneBlock,
+      content: [
+        ...(lastSceneBlock.content ?? []).map(cloneRichTextNode),
+        ...endContent.slice(end.inlineIndex).map(cloneRichTextNode),
+      ],
+    },
+  ];
+  blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, ...replacementBlocks);
+  return true;
 }
 
 function appendTextToActiveScenes(
@@ -887,17 +1057,23 @@ export default function ChapterEditor({
   onClose,
   onStatus,
   onChapterSaved,
+  sceneCard,
+  onSceneSaved,
   projectName,
   autosaveSettings,
   onDirtyChange,
   onRegisterFlush,
   onMemorySources,
 }: ChapterEditorProps) {
+  const isSceneEditor = Boolean(sceneCard);
+  const referenceChapterNodeId = sceneCard?.chapterNodeId ?? chapterNodeId;
+  const allowSceneReferenceCreation = !isSceneEditor;
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [documentRecord, setDocumentRecord] = useState<ChapterDocumentRecord | null>(null);
+  const [sceneRecord, setSceneRecord] = useState<SceneCard | null>(sceneCard ?? null);
   const [wordCount, setWordCount] = useState<number>(0);
 
   const [selectedText, setSelectedText] = useState<string>('');
@@ -907,7 +1083,6 @@ export default function ChapterEditor({
   const [codexStatus, setCodexStatus] = useState<CodexStatus | null>(null);
   const [codexSettings, setCodexSettings] = useState<CodexSettings | null>(null);
   const [codexBusy, setCodexBusy] = useState<boolean>(false);
-  const [codexSettingsBusy, setCodexSettingsBusy] = useState<boolean>(false);
   const [pendingSelectionDiff, setPendingSelectionDiff] = useState<PendingSelectionDiff | null>(
     null,
   );
@@ -946,8 +1121,10 @@ export default function ChapterEditor({
   const selectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef<boolean>(false);
   const editorRef = useRef<NonNullable<ReturnType<typeof useEditor>> | null>(null);
+  const hydratingDocumentRef = useRef<boolean>(false);
   const mentionMenuRef = useRef<MentionMenuState | null>(null);
   const referenceOptionsRef = useRef<ReferenceOption[]>([]);
+  const sceneMapRef = useRef<Map<string, SceneCard>>(new Map());
 
   const scheduleWordCountUpdate = useCallback((nextWordCount: number): void => {
     if (wordCountTimeoutRef.current) {
@@ -996,6 +1173,7 @@ export default function ChapterEditor({
           }))
           .filter((item) => item.label),
         ...availableScenes
+          .filter((card) => allowSceneReferenceCreation && card.text.trim())
           .map((card) => ({
             id: card.id,
             type: 'scene' as const,
@@ -1005,7 +1183,7 @@ export default function ChapterEditor({
           }))
           .filter((item) => item.label),
       ].sort((left, right) => left.label.localeCompare(right.label, 'it')),
-    [availableCharacters, availableLocations, availableScenes],
+    [allowSceneReferenceCreation, availableCharacters, availableLocations, availableScenes],
   );
   const displayedCharacters = useMemo(() => {
     const ordered = new Map<string, CharacterCard>();
@@ -1034,6 +1212,9 @@ export default function ChapterEditor({
     return [...ordered.values()];
   }, [linkedLocations, locationMap, mentionedIds.locationIds]);
   const displayedScenes = useMemo(() => {
+    if (!allowSceneReferenceCreation) {
+      return [];
+    }
     const ordered = new Map<string, SceneCard>();
     for (const card of linkedScenes) {
       ordered.set(card.id, card);
@@ -1045,7 +1226,7 @@ export default function ChapterEditor({
       }
     }
     return [...ordered.values()];
-  }, [linkedScenes, mentionedIds.sceneIds, sceneMap]);
+  }, [allowSceneReferenceCreation, linkedScenes, mentionedIds.sceneIds, sceneMap]);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -1121,6 +1302,25 @@ export default function ChapterEditor({
           if (!activeEditor) {
             return true;
           }
+
+          if (selected.type === 'scene') {
+            const scene = sceneMapRef.current.get(selected.id);
+            if (!scene) {
+              setMentionMenu(null);
+              return true;
+            }
+            activeEditor
+              .chain()
+              .focus()
+              .insertContentAt(
+                { from: activeMenu.from, to: activeMenu.to },
+                buildSceneInsertionBlocks(scene),
+              )
+              .run();
+            setMentionMenu(null);
+            return true;
+          }
+
           activeEditor
             .chain()
             .focus()
@@ -1160,7 +1360,12 @@ export default function ChapterEditor({
 
   useEffect(() => {
     editorRef.current = editor ?? null;
+    editor?.setEditable(true);
   }, [editor]);
+
+  useEffect(() => {
+    setSceneRecord(sceneCard ?? null);
+  }, [sceneCard]);
 
   useEffect(() => {
     mentionMenuRef.current = mentionMenu;
@@ -1169,6 +1374,10 @@ export default function ChapterEditor({
   useEffect(() => {
     referenceOptionsRef.current = referenceOptions;
   }, [referenceOptions]);
+
+  useEffect(() => {
+    sceneMapRef.current = sceneMap;
+  }, [sceneMap]);
 
   useEffect(() => {
     if (!editor) {
@@ -1233,7 +1442,7 @@ export default function ChapterEditor({
     }) => {
       syncDocumentStateFromEditor(activeEditor);
       setDocumentVersion((previous) => previous + 1);
-      if (!loading) {
+      if (!hydratingDocumentRef.current) {
         setIsDirty(true);
       }
     };
@@ -1243,7 +1452,7 @@ export default function ChapterEditor({
     return () => {
       editor.off('update', handleEditorUpdate);
     };
-  }, [editor, loading, scheduleWordCountUpdate]);
+  }, [editor, scheduleWordCountUpdate]);
 
   useEffect(() => {
     if (!editor) {
@@ -1257,8 +1466,90 @@ export default function ChapterEditor({
       setError(null);
 
       try {
+        if (sceneCard) {
+          const content = parseStoredRichTextDocument(sceneCard.contentJson, sceneCard.text);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setDocumentRecord(null);
+          setSceneRecord(sceneCard);
+          hydratingDocumentRef.current = true;
+          editor.setEditable(true);
+          editor.commands.setContent(content);
+          editor.setEditable(true);
+          editor.commands.focus('end');
+          hydratingDocumentRef.current = false;
+          setMentionedIds(extractMentionIds(content));
+          setWordCount(getWordCountFromDocument(content));
+          setMentionMenu(null);
+          setIsDirty(false);
+          onStatus(`Editor aperto: ${sceneCard.name}`);
+          setLoading(false);
+
+          const [
+            codex,
+            settings,
+            history,
+            chapterCharacters,
+            chapterLocations,
+            allCharacters,
+            allLocations,
+            storyState,
+          ] = await Promise.all([
+            window.novelistApi.codexStatus(),
+            window.novelistApi.codexGetSettings(),
+            window.novelistApi.codexGetChatHistory({ chapterNodeId: sceneCard.chapterNodeId }),
+            window.novelistApi.listChapterCharacters({ chapterNodeId: sceneCard.chapterNodeId }),
+            window.novelistApi.listChapterLocations({ chapterNodeId: sceneCard.chapterNodeId }),
+            window.novelistApi.listCharacterCards(),
+            window.novelistApi.listLocationCards(),
+            window.novelistApi.getStoryState(),
+          ]);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setCodexStatus(codex);
+          setCodexSettings(settings);
+          setChatMessages(history.map(mapHistoryMessageToChatMessage));
+          setLinkedCharacters(chapterCharacters);
+          setLinkedLocations(chapterLocations);
+          setLinkedScenes([]);
+          setAvailableCharacters(allCharacters);
+          setAvailableLocations(allLocations);
+          setAvailableScenes([]);
+          setChapterRecord(
+            storyState.nodes.find((node) => node.id === sceneCard.chapterNodeId) ?? null,
+          );
+          return;
+        }
+
+        const record = await window.novelistApi.getChapterDocument({ chapterNodeId });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setDocumentRecord(record);
+        const content = JSON.parse(record.contentJson) as Record<string, unknown>;
+        hydratingDocumentRef.current = true;
+        editor.setEditable(true);
+        editor.commands.setContent(content);
+        editor.setEditable(true);
+        editor.commands.focus('end');
+        hydratingDocumentRef.current = false;
+        const document = content as RichTextDocumentJson;
+        setMentionedIds(extractMentionIds(document));
+        setWordCount(getWordCountFromDocument(document));
+        setMentionMenu(null);
+        setIsDirty(false);
+        onStatus(`Editor aperto: ${chapterTitle}`);
+        setLoading(false);
+
         const [
-          record,
           codex,
           settings,
           history,
@@ -1270,7 +1561,6 @@ export default function ChapterEditor({
           allScenes,
           storyState,
         ] = await Promise.all([
-          window.novelistApi.getChapterDocument({ chapterNodeId }),
           window.novelistApi.codexStatus(),
           window.novelistApi.codexGetSettings(),
           window.novelistApi.codexGetChatHistory({ chapterNodeId }),
@@ -1297,16 +1587,8 @@ export default function ChapterEditor({
         setAvailableLocations(allLocations);
         setAvailableScenes(allScenes);
         setChapterRecord(storyState.nodes.find((node) => node.id === chapterNodeId) ?? null);
-        setDocumentRecord(record);
-        const content = JSON.parse(record.contentJson) as Record<string, unknown>;
-        editor.commands.setContent(content);
-        const document = content as RichTextDocumentJson;
-        setMentionedIds(extractMentionIds(document));
-        setWordCount(getWordCountFromDocument(document));
-        setMentionMenu(null);
-        setIsDirty(false);
-        onStatus(`Editor aperto: ${chapterTitle}`);
       } catch (caughtError) {
+        hydratingDocumentRef.current = false;
         const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
         if (isMounted) {
           setError(message);
@@ -1321,7 +1603,7 @@ export default function ChapterEditor({
     return () => {
       isMounted = false;
     };
-  }, [chapterNodeId, chapterTitle, editor, onStatus]);
+  }, [chapterNodeId, chapterTitle, editor, onStatus, sceneCard]);
 
   useEffect(() => {
     if (!editor) {
@@ -1496,7 +1778,9 @@ export default function ChapterEditor({
   }, [selectionContextMenu]);
 
   async function refreshCodexHistory(): Promise<void> {
-    const history = await window.novelistApi.codexGetChatHistory({ chapterNodeId });
+    const history = await window.novelistApi.codexGetChatHistory({
+      chapterNodeId: referenceChapterNodeId,
+    });
     setChatMessages(history.map(mapHistoryMessageToChatMessage));
   }
 
@@ -1582,12 +1866,14 @@ export default function ChapterEditor({
       allLocations,
       allScenes,
     ] = await Promise.all([
-      window.novelistApi.listChapterCharacters({ chapterNodeId }),
-      window.novelistApi.listChapterLocations({ chapterNodeId }),
-      window.novelistApi.listChapterScenes({ chapterNodeId }),
+      window.novelistApi.listChapterCharacters({ chapterNodeId: referenceChapterNodeId }),
+      window.novelistApi.listChapterLocations({ chapterNodeId: referenceChapterNodeId }),
+      allowSceneReferenceCreation
+        ? window.novelistApi.listChapterScenes({ chapterNodeId: referenceChapterNodeId })
+        : Promise.resolve([]),
       window.novelistApi.listCharacterCards(),
       window.novelistApi.listLocationCards(),
-      window.novelistApi.listSceneCards(),
+      allowSceneReferenceCreation ? window.novelistApi.listSceneCards() : Promise.resolve([]),
     ]);
     setLinkedCharacters(chapterCharacters);
     setLinkedLocations(chapterLocations);
@@ -1595,7 +1881,7 @@ export default function ChapterEditor({
     setAvailableCharacters(allCharacters);
     setAvailableLocations(allLocations);
     setAvailableScenes(allScenes);
-  }, [chapterNodeId]);
+  }, [allowSceneReferenceCreation, referenceChapterNodeId]);
 
   const syncChapterReferences = useCallback(
     async (document: RichTextDocumentJson): Promise<void> => {
@@ -1647,6 +1933,70 @@ export default function ChapterEditor({
     [chapterNodeId],
   );
 
+  const syncSceneReferencesToParentChapter = useCallback(
+    async (document: RichTextDocumentJson): Promise<void> => {
+      const references = extractMentionIds(document);
+      const mentionedCharacterIds = new Set(references.characterIds);
+      const mentionedLocationIds = new Set(references.locationIds);
+      const [allCharacters, allLocations] = await Promise.all([
+        window.novelistApi.listCharacterCards(),
+        window.novelistApi.listLocationCards(),
+      ]);
+
+      await Promise.all([
+        ...allCharacters
+          .filter((character) => mentionedCharacterIds.has(character.id))
+          .map(async (character) => {
+            const currentLinks = await window.novelistApi.listCharacterChapterLinks({
+              characterCardId: character.id,
+            });
+            if (currentLinks.includes(referenceChapterNodeId)) {
+              return;
+            }
+            await window.novelistApi.setCharacterChapterLinks({
+              characterCardId: character.id,
+              chapterNodeIds: [...currentLinks, referenceChapterNodeId],
+            });
+          }),
+        ...allLocations
+          .filter((location) => mentionedLocationIds.has(location.id))
+          .map(async (location) => {
+            const currentLinks = await window.novelistApi.listLocationChapterLinks({
+              locationCardId: location.id,
+            });
+            if (currentLinks.includes(referenceChapterNodeId)) {
+              return;
+            }
+            await window.novelistApi.setLocationChapterLinks({
+              locationCardId: location.id,
+              chapterNodeIds: [...currentLinks, referenceChapterNodeId],
+            });
+          }),
+      ]);
+    },
+    [referenceChapterNodeId],
+  );
+
+  const syncSceneEditorContentToChapter = useCallback(
+    async (sceneId: string, document: RichTextDocumentJson): Promise<boolean> => {
+      const chapterDocument = await window.novelistApi.getChapterDocument({
+        chapterNodeId: referenceChapterNodeId,
+      });
+      const chapterContent = JSON.parse(chapterDocument.contentJson) as RichTextDocumentJson;
+      const replaced = replaceSceneContentAcrossTopLevelBlocks(chapterContent, sceneId, document);
+      if (!replaced) {
+        return false;
+      }
+
+      await window.novelistApi.saveChapterDocument({
+        chapterNodeId: referenceChapterNodeId,
+        contentJson: JSON.stringify(chapterContent),
+      });
+      return true;
+    },
+    [referenceChapterNodeId],
+  );
+
   const syncSceneCardsFromDocument = useCallback(
     async (document: RichTextDocumentJson): Promise<void> => {
       const sceneTextById = extractSceneTexts(document);
@@ -1691,23 +2041,6 @@ export default function ChapterEditor({
     [chapterNodeId, chapterRecord?.plotNumber],
   );
 
-  async function handleToggleCodexConsent(enabled: boolean): Promise<void> {
-    setCodexSettingsBusy(true);
-    setError(null);
-
-    try {
-      const updated = await window.novelistApi.codexUpdateSettings({ enabled });
-      setCodexSettings(updated);
-      onStatus(enabled ? 'Consenso AI abilitato' : 'Consenso AI disabilitato');
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-      setError(message);
-      onStatus('Errore aggiornamento consenso AI');
-    } finally {
-      setCodexSettingsBusy(false);
-    }
-  }
-
   async function handleCancelCodexRequest(): Promise<void> {
     try {
       const response = await window.novelistApi.codexCancelActiveRequest();
@@ -1743,6 +2076,53 @@ export default function ChapterEditor({
 
       try {
         const contentJson = JSON.stringify(document);
+        if (isSceneEditor) {
+          const activeScene = sceneRecord ?? sceneCard;
+          if (!activeScene) {
+            throw new Error('Scene card not found');
+          }
+
+          const updated = await window.novelistApi.updateSceneCard({
+            id: activeScene.id,
+            chapterNodeId: activeScene.chapterNodeId,
+            name: activeScene.name,
+            text: getPlainTextFromDocument(document).trim(),
+            contentJson,
+            notes: activeScene.notes,
+            plotNumber: activeScene.plotNumber,
+            positionX: activeScene.positionX,
+            positionY: activeScene.positionY,
+          });
+
+          setSceneRecord(updated);
+          setDocumentRecord(null);
+          setIsDirty(false);
+          let referenceSyncFailed = false;
+          let chapterTextReplaced = true;
+          try {
+            chapterTextReplaced = await syncSceneEditorContentToChapter(updated.id, document);
+            await syncSceneReferencesToParentChapter(document);
+            await refreshChapterReferences();
+          } catch (caughtReferenceError) {
+            referenceSyncFailed = true;
+            const message =
+              caughtReferenceError instanceof Error
+                ? caughtReferenceError.message
+                : 'Errore sincronizzazione riferimenti';
+            setError(`Scena salvata, ma sincronizzazione riferimenti fallita: ${message}`);
+            onStatus('Scena salvata, ma sincronizzazione riferimenti fallita');
+          }
+          await onSceneSaved?.(updated);
+          if (!referenceSyncFailed && !options?.silent) {
+            onStatus(
+              chapterTextReplaced
+                ? (options?.successStatus ?? `Scena salvata (${currentWordCount} parole)`)
+                : 'Scena salvata, ma i badge nel capitolo non sono stati trovati.',
+            );
+          }
+          return true;
+        }
+
         const saved = await window.novelistApi.saveChapterDocument({
           chapterNodeId,
           contentJson,
@@ -1773,7 +2153,7 @@ export default function ChapterEditor({
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
         setError(message);
-        onStatus('Errore salvataggio capitolo');
+        onStatus(isSceneEditor ? 'Errore salvataggio scena' : 'Errore salvataggio capitolo');
         return false;
       } finally {
         setSaving(false);
@@ -1782,11 +2162,17 @@ export default function ChapterEditor({
     [
       chapterNodeId,
       editor,
+      isSceneEditor,
       onChapterSaved,
+      onSceneSaved,
       onStatus,
       refreshChapterReferences,
+      sceneCard,
+      sceneRecord,
       syncChapterReferences,
+      syncSceneEditorContentToChapter,
       syncSceneCardsFromDocument,
+      syncSceneReferencesToParentChapter,
     ],
   );
 
@@ -1807,23 +2193,34 @@ export default function ChapterEditor({
     }
 
     const saved = isDirty
-      ? await handleSave({ successStatus: 'Capitolo salvato prima della versione' })
+      ? await handleSave({
+          successStatus: isSceneEditor
+            ? 'Scena salvata prima della versione'
+            : 'Capitolo salvato prima della versione',
+        })
       : true;
     if (!saved) {
       return;
     }
 
     try {
+      const activeScene = sceneRecord ?? sceneCard;
       const revision = await window.novelistApi.createRevision({
-        entityType: 'chapter',
-        entityId: chapterNodeId,
+        entityType: isSceneEditor ? 'scene' : 'chapter',
+        entityId: isSceneEditor && activeScene ? activeScene.id : chapterNodeId,
         label: 'Versione manuale',
       });
-      onStatus(`Versione capitolo creata: ${new Date(revision.createdAt).toLocaleString()}`);
+      onStatus(
+        `${isSceneEditor ? 'Versione scena' : 'Versione capitolo'} creata: ${new Date(
+          revision.createdAt,
+        ).toLocaleString()}`,
+      );
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore creazione versione capitolo');
+      onStatus(
+        isSceneEditor ? 'Errore creazione versione scena' : 'Errore creazione versione capitolo',
+      );
     }
   }
 
@@ -1940,7 +2337,7 @@ export default function ChapterEditor({
       const result = await window.novelistApi.codexTransformSelection({
         action,
         selectedText: selectedTextSnapshot,
-        chapterTitle,
+        chapterTitle: currentDocumentTitle,
         projectName,
         chapterText: getPlainTextFromDocument(editor.getJSON() as RichTextDocumentJson).slice(
           0,
@@ -2023,7 +2420,7 @@ export default function ChapterEditor({
   }
 
   async function handlePrint(): Promise<void> {
-    if (!editor) {
+    if (!editor || isSceneEditor) {
       return;
     }
 
@@ -2044,6 +2441,10 @@ export default function ChapterEditor({
   }
 
   async function handleExportDocx(): Promise<void> {
+    if (isSceneEditor) {
+      return;
+    }
+
     setError(null);
     try {
       await handleSave();
@@ -2082,8 +2483,8 @@ export default function ChapterEditor({
     try {
       const result = await window.novelistApi.codexChat({
         message,
-        chapterNodeId,
-        chapterTitle,
+        chapterNodeId: referenceChapterNodeId,
+        chapterTitle: currentDocumentTitle,
         projectName,
         chapterText: getPlainTextFromDocument(editor.getJSON() as RichTextDocumentJson).slice(
           0,
@@ -2127,6 +2528,14 @@ export default function ChapterEditor({
       return;
     }
 
+    if (item.type === 'scene' && !options?.preserveSelectedContent && !options?.sceneBoundary) {
+      const scene = sceneMapRef.current.get(item.id);
+      if (scene) {
+        insertSceneContent(scene, range);
+        return;
+      }
+    }
+
     const insertionRange = range ?? {
       from: editor.state.selection.from,
       to: editor.state.selection.to,
@@ -2157,6 +2566,21 @@ export default function ChapterEditor({
         ...preservedContent,
       ])
       .run();
+    setMentionMenu(null);
+    setSelectionContextMenu(null);
+  }
+
+  function insertSceneContent(card: SceneCard, range?: { from: number; to: number }): void {
+    if (!editor) {
+      return;
+    }
+
+    const insertionRange = range ?? {
+      from: editor.state.selection.from,
+      to: editor.state.selection.to,
+    };
+
+    editor.chain().focus().insertContentAt(insertionRange, buildSceneInsertionBlocks(card)).run();
     setMentionMenu(null);
     setSelectionContextMenu(null);
   }
@@ -2198,16 +2622,7 @@ export default function ChapterEditor({
   }
 
   function insertSceneReference(card: SceneCard, range?: { from: number; to: number }): void {
-    insertReference(
-      {
-        id: card.id,
-        type: 'scene',
-        label: card.name,
-        searchText: normalizeReferenceSearch(card.name),
-        trigger: '#',
-      },
-      range,
-    );
+    insertSceneContent(card, range);
   }
 
   function wrapSelectionWithSceneReference(
@@ -2285,7 +2700,7 @@ export default function ChapterEditor({
         message:
           'Analizza questa descrizione di personaggio e restituisci solo JSON valido con le chiavi sex, age, sexualOrientation, species, hairColor, eyeColor, skinColor, bald, beard, physique, job. Usa stringhe concise in italiano, null per age se ignota e true per bald solo se esplicito.',
         context: JSON.stringify({
-          chapterTitle,
+          chapterTitle: currentDocumentTitle,
           characterName: name,
           description,
         }),
@@ -2315,7 +2730,7 @@ export default function ChapterEditor({
         message:
           'Analizza questa descrizione di location e restituisci solo JSON valido con le chiavi locationType e description. locationType deve essere breve; description deve essere una sintesi narrativa di una o due frasi in italiano.',
         context: JSON.stringify({
-          chapterTitle,
+          chapterTitle: currentDocumentTitle,
           locationName: name,
           description,
         }),
@@ -2337,6 +2752,11 @@ export default function ChapterEditor({
     }
 
     const name = createReferenceModal.name.trim();
+    if (createReferenceModal.type === 'scene' && !allowSceneReferenceCreation) {
+      onStatus('La creazione di scene da selezione non e disponibile nell’editor scena.');
+      setCreateReferenceModal(null);
+      return;
+    }
     if (!name) {
       onStatus(
         createReferenceModal.type === 'character'
@@ -2394,7 +2814,7 @@ export default function ChapterEditor({
 
         await window.novelistApi.setCharacterChapterLinks({
           characterCardId: created.id,
-          chapterNodeIds: [chapterNodeId],
+          chapterNodeIds: [referenceChapterNodeId],
         });
 
         if (imageGenerationReady) {
@@ -2445,7 +2865,7 @@ export default function ChapterEditor({
 
         await window.novelistApi.setLocationChapterLinks({
           locationCardId: created.id,
-          chapterNodeIds: [chapterNodeId],
+          chapterNodeIds: [referenceChapterNodeId],
         });
 
         if (imageGenerationReady) {
@@ -2494,7 +2914,7 @@ export default function ChapterEditor({
         );
 
         const created = await window.novelistApi.createSceneCard({
-          chapterNodeId,
+          chapterNodeId: referenceChapterNodeId,
           name,
           text: createReferenceModal.text,
           contentJson: sceneContentJson,
@@ -2541,6 +2961,10 @@ export default function ChapterEditor({
     }
   }
 
+  const activeSceneCard = sceneRecord ?? sceneCard ?? null;
+  const editorHeading = isSceneEditor ? 'Editor Scena' : 'Editor Capitolo';
+  const currentDocumentTitle = activeSceneCard?.name ?? chapterTitle;
+  const referencePanelTitle = isSceneEditor ? 'Riferimenti Scena' : 'Riferimenti Capitolo';
   const activeStyle = editor ? styleFromEditor(editor) : 'paragraph';
   const activeFontFamily = editor?.getAttributes('textStyle')['fontFamily'] as string | undefined;
   const activeFontSize = editor?.getAttributes('textStyle')['fontSize'] as string | undefined;
@@ -2555,8 +2979,8 @@ export default function ChapterEditor({
       <div className="editor-shell">
         <header className="editor-header">
           <div>
-            <h3>Editor Capitolo</h3>
-            <p>{chapterTitle}</p>
+            <h3>{editorHeading}</h3>
+            <p>{currentDocumentTitle}</p>
           </div>
           <button type="button" onClick={() => void onClose()}>
             Chiudi
@@ -2750,10 +3174,22 @@ export default function ChapterEditor({
 
         <section className="editor-main">
           <div className="editor-body">
-            {loading ? <p>Caricamento capitolo...</p> : null}
-            <div className="chapter-reference-panel">
-              <h4>Riferimenti Capitolo</h4>
-              <div className="chapter-reference-columns">
+            {loading ? <p>{`Caricamento ${isSceneEditor ? 'scena' : 'capitolo'}...`}</p> : null}
+            <div
+              className={
+                isSceneEditor
+                  ? 'chapter-reference-panel scene-reference-panel'
+                  : 'chapter-reference-panel'
+              }
+            >
+              <h4>{referencePanelTitle}</h4>
+              <div
+                className={
+                  isSceneEditor
+                    ? 'chapter-reference-columns scene-reference-columns'
+                    : 'chapter-reference-columns'
+                }
+              >
                 <div>
                   <p className="muted">Personaggi collegati o citati</p>
                   {displayedCharacters.length === 0 ? (
@@ -2792,25 +3228,27 @@ export default function ChapterEditor({
                     ))}
                   </div>
                 </div>
-                <div>
-                  <p className="muted">Scene collegate o citate</p>
-                  {displayedScenes.length === 0 ? (
-                    <p className="muted">Nessuna scena collegata.</p>
-                  ) : null}
-                  <div className="reference-chip-list">
-                    {displayedScenes.map((card) => (
-                      <button
-                        key={card.id}
-                        type="button"
-                        className="reference-chip"
-                        onClick={() => insertSceneReference(card)}
-                        disabled={!editor}
-                      >
-                        #{card.name}
-                      </button>
-                    ))}
+                {allowSceneReferenceCreation ? (
+                  <div>
+                    <p className="muted">Scene collegate o citate</p>
+                    {displayedScenes.length === 0 ? (
+                      <p className="muted">Nessuna scena collegata.</p>
+                    ) : null}
+                    <div className="reference-chip-list">
+                      {displayedScenes.map((card) => (
+                        <button
+                          key={card.id}
+                          type="button"
+                          className="reference-chip"
+                          onClick={() => insertSceneReference(card)}
+                          disabled={!editor}
+                        >
+                          #{card.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
               <div className="row-buttons">
                 <button type="button" onClick={() => void refreshChapterReferences()}>
@@ -2899,21 +3337,23 @@ export default function ChapterEditor({
                 >
                   Crea location
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectionContextMenu(null);
-                    setCreateReferenceModal({
-                      type: 'scene',
-                      text: selectionContextMenu.text,
-                      range: selectionContextMenu.range,
-                      name: '',
-                      submitting: false,
-                    });
-                  }}
-                >
-                  Crea scena
-                </button>
+                {allowSceneReferenceCreation ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectionContextMenu(null);
+                      setCreateReferenceModal({
+                        type: 'scene',
+                        text: selectionContextMenu.text,
+                        range: selectionContextMenu.range,
+                        name: '',
+                        submitting: false,
+                      });
+                    }}
+                  >
+                    Crea scena
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -2926,40 +3366,11 @@ export default function ChapterEditor({
                 <strong>
                   {codexStatus
                     ? codexStatus.available
-                      ? `Disponibile (${codexStatus.command})`
-                      : `Fallback (${codexStatus.command})`
+                      ? 'Disponibile'
+                      : 'Fallback'
                     : 'Verifica...'}
                 </strong>
               </p>
-              {codexStatus ? (
-                <p className="muted">
-                  Coda: {codexStatus.queuedRequests} | Attiva:{' '}
-                  {codexStatus.activeRequest ? 'si' : 'no'}
-                </p>
-              ) : null}
-              {codexStatus?.reason ? <p className="muted">{codexStatus.reason}</p> : null}
-              <label className="codex-consent">
-                <input
-                  type="checkbox"
-                  checked={codexEnabled}
-                  disabled={codexSettingsBusy}
-                  onChange={(event) => void handleToggleCodexConsent(event.target.checked)}
-                />
-                <span>{`Invia testo a ${aiAssistantLabel} per assistenza AI`}</span>
-              </label>
-              <p className="muted">
-                Disattiva il consenso per bloccare ogni invio di testo allo strumento AI.
-              </p>
-              <div className="row-buttons">
-                <button
-                  type="button"
-                  onClick={() => void handleCancelCodexRequest()}
-                  disabled={!codexBusy}
-                  className={codexBusy ? 'ai-working' : undefined}
-                >
-                  Annulla richiesta
-                </button>
-              </div>
             </div>
 
             <div className="codex-chat" ref={chatScrollRef}>
@@ -2989,14 +3400,24 @@ export default function ChapterEditor({
                 }}
                 placeholder={`Chiedi a ${aiAssistantLabel}: brainstorming, revisioni, idee di trama...`}
               />
-              <button
-                type="button"
-                onClick={() => void handleSendChat()}
-                disabled={codexBusy || !chatInput.trim() || !codexEnabled}
-                className={codexBusy ? 'ai-working' : undefined}
-              >
-                Invia
-              </button>
+              <div className="codex-chat-actions">
+                <button
+                  type="button"
+                  onClick={() => void handleSendChat()}
+                  disabled={codexBusy || !chatInput.trim() || !codexEnabled}
+                  className={codexBusy ? 'ai-working' : undefined}
+                >
+                  Invia
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => void handleCancelCodexRequest()}
+                  disabled={!codexBusy}
+                >
+                  Annulla richiesta
+                </button>
+              </div>
             </div>
           </aside>
         </section>
@@ -3004,8 +3425,10 @@ export default function ChapterEditor({
         <footer className="editor-footer">
           <p>
             Parole: <strong>{wordCount}</strong>
-            {documentRecord
-              ? ` | Ultimo salvataggio: ${new Date(documentRecord.updatedAt).toLocaleString()}`
+            {documentRecord || activeSceneCard
+              ? ` | Ultimo salvataggio: ${new Date(
+                  (documentRecord ?? activeSceneCard)?.updatedAt ?? '',
+                ).toLocaleString()}`
               : ''}
           </p>
           <div className="row-buttons">
@@ -3019,16 +3442,20 @@ export default function ChapterEditor({
             <button type="button" onClick={() => void handleSave()} disabled={saving || !editor}>
               Salva
             </button>
-            <button
-              type="button"
-              onClick={() => void handleExportDocx()}
-              disabled={saving || !editor}
-            >
-              Esporta DOCX
-            </button>
-            <button type="button" onClick={() => void handlePrint()} disabled={!editor}>
-              Stampa
-            </button>
+            {!isSceneEditor ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleExportDocx()}
+                  disabled={saving || !editor}
+                >
+                  Esporta DOCX
+                </button>
+                <button type="button" onClick={() => void handlePrint()} disabled={!editor}>
+                  Stampa
+                </button>
+              </>
+            ) : null}
           </div>
           {error ? <p className="error">{error}</p> : null}
         </footer>

@@ -34,6 +34,9 @@ describe('project-files', () => {
     const created = await createProjectOnDisk({
       rootPath: workspacePath,
       name: 'Il mio romanzo',
+      targetWordCount: 90_000,
+      targetChapterWordCount: 3_500,
+      plannedCompletionDate: '2026-10-15',
     });
 
     const rootPath = path.join(workspacePath, 'Il mio romanzo');
@@ -46,6 +49,9 @@ describe('project-files', () => {
     await access(path.join(rootPath, PROJECT_WIKI_DIRNAME, 'maintenance', 'last-sync.json'));
 
     expect(created.project.name).toBe('Il mio romanzo');
+    expect(created.project.targetWordCount).toBe(90_000);
+    expect(created.project.targetChapterWordCount).toBe(3_500);
+    expect(created.project.plannedCompletionDate).toBe('2026-10-15');
     expect(await projectExists(workspacePath)).toBe(false);
     expect(await projectExists(rootPath)).toBe(true);
 
