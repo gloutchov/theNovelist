@@ -25,8 +25,17 @@ describe('NovelistRepository', () => {
     const repo = new NovelistRepository(db);
 
     try {
-      const project = repo.createProject({ name: 'Romanzo Test', rootPath: dir });
+      const project = repo.createProject({
+        name: 'Romanzo Test',
+        rootPath: dir,
+        targetWordCount: 80_000,
+        targetChapterWordCount: 3_000,
+        plannedCompletionDate: '2026-12-31',
+      });
       expect(repo.getProjectById(project.id)?.name).toBe('Romanzo Test');
+      expect(project.targetWordCount).toBe(80_000);
+      expect(project.targetChapterWordCount).toBe(3_000);
+      expect(project.plannedCompletionDate).toBe('2026-12-31');
 
       const plot = repo.createPlot(project.id, {
         number: 1,
@@ -96,6 +105,14 @@ describe('NovelistRepository', () => {
         wordCount: 0,
       });
       expect(document.chapterNodeId).toBe(chapterNode.id);
+
+      const session = repo.recordWritingSession(project.id, {
+        chapterNodeId: chapterNode.id,
+        wordDelta: 450,
+        wordCount: 450,
+      });
+      expect(session.wordDelta).toBe(450);
+      expect(repo.listWritingSessions(project.id)).toHaveLength(1);
 
       const codexSettings = repo.getOrCreateCodexSettings(project.id);
       expect(codexSettings.enabled).toBe(false);

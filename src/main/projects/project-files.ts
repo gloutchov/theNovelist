@@ -91,6 +91,9 @@ async function ensureProjectDirectories(paths: ProjectPaths): Promise<void> {
 export async function createProjectOnDisk(params: {
   rootPath: string;
   name: string;
+  targetWordCount?: number | null;
+  targetChapterWordCount?: number | null;
+  plannedCompletionDate?: string | null;
 }): Promise<ProjectContext> {
   const projectRootPath = resolveNewProjectRootPath(params.rootPath, params.name);
   const paths = resolveProjectPaths(projectRootPath);
@@ -106,10 +109,21 @@ export async function createProjectOnDisk(params: {
       repository.createProject({
         name: params.name,
         rootPath: paths.rootPath,
+        targetWordCount: params.targetWordCount ?? null,
+        targetChapterWordCount: params.targetChapterWordCount ?? null,
+        plannedCompletionDate: params.plannedCompletionDate ?? null,
       });
 
     if (existing && existing.name !== params.name) {
       repository.updateProjectName(existing.id, params.name);
+    }
+
+    if (existing) {
+      repository.updateProjectPlanning(existing.id, {
+        targetWordCount: params.targetWordCount ?? existing.targetWordCount,
+        targetChapterWordCount: params.targetChapterWordCount ?? existing.targetChapterWordCount,
+        plannedCompletionDate: params.plannedCompletionDate ?? existing.plannedCompletionDate,
+      });
     }
 
     const refreshedProject = repository.getPrimaryProject() ?? project;

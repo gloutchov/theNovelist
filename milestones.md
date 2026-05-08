@@ -8,6 +8,7 @@ The Novelist non dovrebbe diventare solo un editor con AI, ma un sistema editori
 
 Le milestone sono ordinate per impatto pratico e coerenza con l'architettura attuale.
 
+///////////////////////////////////////////////////////////////////
 ## Milestone 1 - Cruscotto progetto
 
 Obiettivo: dare all'utente una vista immediata dello stato del romanzo.
@@ -27,8 +28,10 @@ Valore:
 - rende piu chiaro dove riprendere il lavoro;
 - trasforma l'app da lavagna narrativa a ambiente di lavoro quotidiano;
 - sfrutta dati gia presenti nel database.
+/////////////////////////////////////////////////////////////////// FATTO
 
-## Milestone 2 - Vista scaletta ordinata
+///////////////////////////////////////////////////////////////////
+## Milestone 2 - Vista scaletta ordinata 
 
 Obiettivo: affiancare al canvas una vista lineare piu editoriale.
 
@@ -45,7 +48,9 @@ Valore:
 - il canvas resta utile per progettare;
 - la scaletta diventa utile per revisionare e compilare;
 - facilita romanzi lunghi e trame parallele.
+/////////////////////////////////////////////////////////////////// FATTO
 
+///////////////////////////////////////////////////////////////////
 ## Milestone 3 - Scene dentro i capitoli
 
 Obiettivo: introdurre un livello narrativo piu fine del capitolo.
@@ -68,7 +73,9 @@ Valore:
 - aiuta a progettare romanzi complessi;
 - migliora la qualita del contesto dato alla AI;
 - rende piu semplice analizzare ritmo e struttura.
+/////////////////////////////////////////////////////////////////// FATTO
 
+/////////////////////////////////////////////////////////////////// 
 ## Milestone 4 - Cronologia narrativa
 
 Obiettivo: distinguere l'ordine di lettura dall'ordine degli eventi.
@@ -84,25 +91,9 @@ Funzionalita:
 Valore:
 - supporta flashback, trame parallele e intrecci complessi;
 - prepara il terreno per controlli AI sulla continuita.
+///////////////////////////////////////////////////////////////////  FATTO
 
-## Milestone 5 - Controllo continuita
-
-Obiettivo: usare la memoria Wiki e le schede strutturate per trovare incoerenze.
-
-Funzionalita:
-- controllo nomi e alias personaggi;
-- controllo eta, aspetto, lavoro, relazioni e dettagli ricorrenti;
-- controllo location e oggetti narrativi;
-- controllo presenza personaggi nei capitoli;
-- controllo eventi non risolti;
-- risultati citabili con riferimento a capitoli, schede o fonti Wiki;
-- lista problemi con stato: aperto, ignorato, risolto.
-
-Valore:
-- e una delle funzioni AI piu utili per uno scrittore;
-- valorizza la memoria locale gia implementata;
-- riduce errori tipici nelle revisioni lunghe.
-
+///////////////////////////////////////////////////////////////////
 ## Milestone 6 - Versioni e revisioni capitolo
 
 Obiettivo: permettere revisioni reali senza paura di perdere testo.
@@ -119,6 +110,7 @@ Valore:
 - rende piu sicure le operazioni AI;
 - aiuta nel processo editoriale;
 - si integra naturalmente con snapshot e salvataggi esistenti.
+/////////////////////////////////////////////////////////////////// FATTO
 
 ## Milestone 7 - Modalita revisione
 
@@ -137,6 +129,27 @@ Valore:
 - rende l'app piu adatta a progetti lunghi;
 - introduce un flusso editoriale chiaro;
 - prepara collaborazione futura senza richiederla subito.
+
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+## Milestone 5 - Controllo continuita
+
+Obiettivo: usare la memoria Wiki e le schede strutturate per trovare incoerenze.
+
+Funzionalita:
+- controllo nomi e alias personaggi;
+- controllo eta, aspetto, lavoro, relazioni e dettagli ricorrenti;
+- controllo location e oggetti narrativi;
+- controllo presenza personaggi nei capitoli;
+- controllo eventi non risolti;
+- risultati citabili con riferimento a capitoli, schede o fonti Wiki;
+- lista problemi con stato: aperto, ignorato, risolto.
+
+Valore:
+- e una delle funzioni AI piu utili per uno scrittore;
+- valorizza la memoria locale gia implementata;
+- riduce errori tipici nelle revisioni lunghe.
 
 ## Milestone 8 - Style Bible
 
@@ -178,24 +191,6 @@ Valore:
 - riduce l'effetto chatbot generico;
 - usa in modo concreto Wiki, capitoli, schede e trame.
 
-## Milestone 10 - Schede automatiche da manoscritto
-
-Obiettivo: estrarre struttura narrativa dal testo gia scritto.
-
-Funzionalita:
-- scansione capitolo;
-- proposta nuovi personaggi;
-- proposta nuove location;
-- proposta aggiornamenti a schede esistenti;
-- individuazione alias o nomi alternativi;
-- conferma manuale prima di scrivere nel database;
-- collegamento automatico dei riferimenti approvati.
-
-Valore:
-- riduce lavoro manuale;
-- rende utile l'app anche a chi importa un romanzo gia iniziato;
-- prosegue il flusso gia presente di creazione schede da selezione.
-
 ## Milestone 11 - Azioni AI batch
 
 Obiettivo: applicare operazioni AI controllate su piu capitoli o schede.
@@ -214,7 +209,29 @@ Valore:
 - utile per revisioni su romanzi lunghi;
 - mantiene controllo umano;
 - sfrutta il provider AI gia configurato.
+/////////////////////////////////////////////////////////////////// ON WORKING
 
+///////////////////////////////////////////////////////////////////
+## Milestone 10 - Schede automatiche da manoscritto
+
+Obiettivo: estrarre struttura narrativa dal testo gia scritto.
+
+Funzionalita:
+- scansione capitolo;
+- proposta nuovi personaggi;
+- proposta nuove location;
+- proposta aggiornamenti a schede esistenti;
+- individuazione alias o nomi alternativi;
+- conferma manuale prima di scrivere nel database;
+- collegamento automatico dei riferimenti approvati.
+
+Valore:
+- riduce lavoro manuale;
+- rende utile l'app anche a chi importa un romanzo gia iniziato;
+- prosegue il flusso gia presente di creazione schede da selezione.
+/////////////////////////////////////////////////////////////////// NO
+
+/////////////////////////////////////////////////////////////////// 
 ## Milestone 12 - Obiettivi di scrittura e statistiche
 
 Obiettivo: dare strumenti leggeri di avanzamento.
@@ -233,6 +250,8 @@ Valore:
 - motiva senza trasformare l'app in un tracker invasivo;
 - usa word count gia disponibile;
 - rende il cruscotto piu utile.
+/////////////////////////////////////////////////////////////////// FATTO
+
 
 ## Milestone 13 - Export editoriale avanzato
 

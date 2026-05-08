@@ -2,8 +2,20 @@ export interface ProjectRecord {
   id: string;
   name: string;
   rootPath: string;
+  targetWordCount: number | null;
+  targetChapterWordCount: number | null;
+  plannedCompletionDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface WritingSessionRecord {
+  id: string;
+  projectId: string;
+  chapterNodeId: string;
+  wordDelta: number;
+  wordCount: number;
+  createdAt: string;
 }
 
 export interface PlotRecord {
@@ -144,6 +156,28 @@ export interface SceneCardRecord {
   plotNumber: number;
   positionX: number;
   positionY: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TimelineItemType = 'chapter' | 'scene';
+
+export interface TimelineSettingsRecord {
+  projectId: string;
+  startLabel: string;
+  endLabel: string;
+  timelineEndX: number;
+  updatedAt: string;
+}
+
+export interface TimelineItemRecord {
+  id: string;
+  projectId: string;
+  itemType: TimelineItemType;
+  entityId: string;
+  positionX: number;
+  positionY: number;
+  dateLabel: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -305,6 +339,20 @@ export interface CreateSceneCardInput {
 
 export type UpdateSceneCardInput = CreateSceneCardInput;
 
+export interface UpsertTimelineSettingsInput {
+  startLabel: string;
+  endLabel: string;
+  timelineEndX: number;
+}
+
+export interface UpsertTimelineItemInput {
+  itemType: TimelineItemType;
+  entityId: string;
+  positionX: number;
+  positionY: number;
+  dateLabel: string;
+}
+
 export interface CreateEntityRevisionInput {
   entityType: EntityRevisionType;
   entityId: string;
@@ -322,4 +370,10 @@ export interface SetCharacterChapterLinksInput {
 export interface SetLocationChapterLinksInput {
   locationCardId: string;
   chapterNodeIds: string[];
+}
+
+export interface CreateWritingSessionInput {
+  chapterNodeId: string;
+  wordDelta: number;
+  wordCount: number;
 }

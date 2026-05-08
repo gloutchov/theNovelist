@@ -191,6 +191,13 @@ describe('project wiki', () => {
       expect(aiChatSource).toContain('Il patto avviene nel magazzino.');
       expect(aiChatSource).toContain('non come fonte canonica del manoscritto');
 
+      const timelineSource = await readFile(
+        path.join(projectContext.wikiPath, 'sources', 'cards', 'timeline.md'),
+        'utf8',
+      );
+      expect(timelineSource).toContain('# Timeline Sources');
+      expect(timelineSource).toContain('Ordine cronologico di lavoro definito dall’autore');
+
       const state = JSON.parse(
         await readFile(path.join(projectContext.wikiPath, 'maintenance', 'last-sync.json'), 'utf8'),
       ) as { derivedPending: boolean; sources: Record<string, unknown> };
@@ -203,6 +210,7 @@ describe('project wiki', () => {
           'cards/characters.md',
           'cards/locations.md',
           'cards/plot.md',
+          'cards/timeline.md',
           'ai/chat.md',
         ]),
       );

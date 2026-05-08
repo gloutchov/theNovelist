@@ -3,6 +3,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
   Background,
+  ConnectionMode,
   Controls,
   MarkerType,
   MiniMap,
@@ -15,52 +16,18 @@ import {
   type OnNodesChange,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
-import { EditorContent, useEditor } from '@tiptap/react';
-import { Node as TiptapNode, mergeAttributes } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import { TextStyle } from '@tiptap/extension-text-style';
-import FontFamily from '@tiptap/extension-font-family';
-import TextAlign from '@tiptap/extension-text-align';
+import { getNearbyCanvasPosition } from './canvas-position';
+import ChapterEditor from './ChapterEditor';
 import SceneFlowNode, { type SceneFlowNodeData } from './SceneFlowNode';
 import { getStatusTone } from './status-tone';
 
 type SceneCard = Awaited<ReturnType<(typeof window.novelistApi)['listSceneCards']>>[number];
-type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
-type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
 type StoryState = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>;
 type StoryChapterNode = StoryState['nodes'][number];
 type StoryPlot = StoryState['plots'][number];
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
 type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 type SceneCanvasNode = Node<SceneFlowNodeData, 'scene'>;
-const SCENE_AUTOSAVE_IDLE_MS = 4_000;
-
-interface SceneDraft {
-  chapterNodeId: string;
-  name: string;
-  text: string;
-  contentJson: string;
-  notes: string;
-  plotNumber: number;
-}
-
-interface RichTextNodeJson {
-  type?: string;
-  text?: string;
-  attrs?: Record<string, unknown>;
-  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
-  content?: RichTextNodeJson[];
-}
-
-interface RichTextDocumentJson {
-  type?: string;
-  content?: RichTextNodeJson[];
-}
-
-interface SceneBoundaryLocation {
-  blockIndex: number;
-  inlineIndex: number;
-}
 
 interface SceneBoardProps {
   currentProject: ProjectRecord;
@@ -73,271 +40,36 @@ interface SceneBoardProps {
   onWikiSync?: () => Promise<void>;
 }
 
-const SceneReferenceMention = TiptapNode.create({
-  name: 'referenceMention',
-  group: 'inline',
-  inline: true,
-  atom: true,
-  selectable: false,
-
-  addAttributes() {
-    return {
-      refId: { default: '' },
-      refType: { default: 'character' },
-      label: { default: '' },
-      boundary: { default: 'start' },
-    };
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    const label = typeof HTMLAttributes['label'] === 'string' ? HTMLAttributes['label'] : '';
-    const refType =
-      typeof HTMLAttributes['refType'] === 'string' ? HTMLAttributes['refType'] : 'character';
-    const prefix = refType === 'scene' ? '#' : '@';
-    return [
-      'span',
-      mergeAttributes(HTMLAttributes, {
-        class:
-          refType === 'scene' ? 'reference-mention scene-reference-mention' : 'reference-mention',
-        contenteditable: 'false',
-        'data-reference-mention': '',
-        'data-ref-id': HTMLAttributes['refId'] ?? '',
-        'data-ref-type': refType,
-        'data-label': label,
-        'data-boundary': HTMLAttributes['boundary'] ?? 'start',
-        'data-reference-prefix': prefix,
-      }),
-    ];
-  },
-
-  renderText() {
-    return '';
-  },
-});
-
 function formatPlotLabel(plot: StoryPlot | null | undefined, plotNumber: number): string {
   return plot?.label?.trim() || `Trama ${plotNumber}`;
 }
 
-function createEmptyRichTextDocument(): RichTextDocumentJson {
-  return {
+function colorFromPlotNumber(plotNumber: number): string {
+  const palette = [
+    '#2563eb',
+    '#16a34a',
+    '#dc2626',
+    '#9333ea',
+    '#ea580c',
+    '#0d9488',
+    '#4f46e5',
+    '#ca8a04',
+    '#0891b2',
+    '#be123c',
+  ];
+
+  return palette[(plotNumber - 1) % palette.length] ?? '#6b7280';
+}
+
+function getPlotColor(plot: StoryPlot | null | undefined, plotNumber: number): string {
+  return plot?.color ?? colorFromPlotNumber(plotNumber);
+}
+
+function createEmptyRichTextDocumentJson(): string {
+  return JSON.stringify({
     type: 'doc',
     content: [{ type: 'paragraph', content: [] }],
-  };
-}
-
-function richTextDocumentFromPlainText(text: string): RichTextDocumentJson {
-  const paragraphs = text.split(/\n{2,}/u);
-  return {
-    type: 'doc',
-    content: paragraphs.map((paragraph) => ({
-      type: 'paragraph',
-      content: paragraph
-        .split(/\n/u)
-        .flatMap((line, index) =>
-          index === 0
-            ? line
-              ? [{ type: 'text', text: line }]
-              : []
-            : [{ type: 'hardBreak' }, ...(line ? [{ type: 'text', text: line }] : [])],
-        ),
-    })),
-  };
-}
-
-function parseRichTextDocument(
-  contentJson: string | null | undefined,
-  fallbackText: string,
-): RichTextDocumentJson {
-  if (contentJson?.trim()) {
-    try {
-      const parsed = JSON.parse(contentJson) as RichTextDocumentJson;
-      if (parsed && typeof parsed === 'object') {
-        return parsed;
-      }
-    } catch {
-      return richTextDocumentFromPlainText(fallbackText);
-    }
-  }
-  return fallbackText.trim()
-    ? richTextDocumentFromPlainText(fallbackText)
-    : createEmptyRichTextDocument();
-}
-
-function collectPlainTextFromNode(node: RichTextNodeJson | undefined): string {
-  if (!node || node.type === 'referenceMention') {
-    return '';
-  }
-  if (node.type === 'hardBreak') {
-    return '\n';
-  }
-  if (typeof node.text === 'string') {
-    return node.text;
-  }
-  return (node.content ?? []).map(collectPlainTextFromNode).join('');
-}
-
-function getPlainTextFromDocument(document: RichTextDocumentJson): string {
-  return (document.content ?? []).map(collectPlainTextFromNode).join('\n').trim();
-}
-
-function sceneToDraft(scene: SceneCard): SceneDraft {
-  const contentDocument = parseRichTextDocument(scene.contentJson, scene.text);
-  return {
-    chapterNodeId: scene.chapterNodeId,
-    name: scene.name,
-    text: getPlainTextFromDocument(contentDocument),
-    contentJson: JSON.stringify(contentDocument),
-    notes: scene.notes,
-    plotNumber: scene.plotNumber,
-  };
-}
-
-function areSceneDraftsEqual(left: SceneDraft, right: SceneDraft): boolean {
-  return (
-    left.chapterNodeId === right.chapterNodeId &&
-    left.name === right.name &&
-    left.text === right.text &&
-    left.contentJson === right.contentJson &&
-    left.notes === right.notes &&
-    left.plotNumber === right.plotNumber
-  );
-}
-
-function includesText(source: string, value: string): boolean {
-  const normalizedSource = source.toLocaleLowerCase('it');
-  const normalizedValue = value.trim().toLocaleLowerCase('it');
-  return Boolean(normalizedValue) && normalizedSource.includes(normalizedValue);
-}
-
-function getCharacterLabel(card: CharacterCard): string {
-  return `${card.firstName} ${card.lastName}`.trim();
-}
-
-function cloneMarks(
-  marks: RichTextNodeJson['marks'] | undefined,
-): RichTextNodeJson['marks'] | undefined {
-  return marks?.map((mark) => ({
-    type: mark.type,
-    attrs: mark.attrs ? { ...mark.attrs } : undefined,
-  }));
-}
-
-function cloneRichTextNode(node: RichTextNodeJson): RichTextNodeJson {
-  return {
-    ...node,
-    attrs: node.attrs ? { ...node.attrs } : undefined,
-    marks: cloneMarks(node.marks),
-    content: node.content?.map(cloneRichTextNode),
-  };
-}
-
-function getSceneContentBlocks(document: RichTextDocumentJson): RichTextNodeJson[] {
-  const blocks = document.content?.length
-    ? document.content
-    : createEmptyRichTextDocument().content;
-  return (blocks ?? [{ type: 'paragraph', content: [] }]).map(cloneRichTextNode);
-}
-
-function replaceSceneContentAcrossTopLevelBlocks(
-  document: RichTextDocumentJson,
-  sceneId: string,
-  sceneContentDocument: RichTextDocumentJson,
-): boolean {
-  const blocks = document.content ?? [];
-  const start = findTopLevelSceneBoundary(document, sceneId, 'start');
-  const end = findTopLevelSceneBoundary(document, sceneId, 'end');
-  if (!start || !end) {
-    return false;
-  }
-  if (
-    start.blockIndex > end.blockIndex ||
-    (start.blockIndex === end.blockIndex && start.inlineIndex >= end.inlineIndex)
-  ) {
-    return false;
-  }
-
-  const startBlock = blocks[start.blockIndex];
-  const endBlock = blocks[end.blockIndex];
-  const startContent = startBlock?.content;
-  const endContent = endBlock?.content;
-  if (!startBlock || !endBlock || !Array.isArray(startContent) || !Array.isArray(endContent)) {
-    return false;
-  }
-
-  const sceneBlocks = getSceneContentBlocks(sceneContentDocument);
-  const firstSceneBlock = sceneBlocks[0] ?? { type: 'paragraph', content: [] };
-  const lastSceneBlock = sceneBlocks[sceneBlocks.length - 1] ?? firstSceneBlock;
-  if (sceneBlocks.length === 1) {
-    blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, {
-      ...firstSceneBlock,
-      content: [
-        ...startContent.slice(0, start.inlineIndex + 1).map(cloneRichTextNode),
-        ...(firstSceneBlock.content ?? []).map(cloneRichTextNode),
-        ...endContent.slice(end.inlineIndex).map(cloneRichTextNode),
-      ],
-    });
-    return true;
-  }
-
-  const replacementBlocks: RichTextNodeJson[] = [
-    {
-      ...firstSceneBlock,
-      content: [
-        ...startContent.slice(0, start.inlineIndex + 1).map(cloneRichTextNode),
-        ...(firstSceneBlock.content ?? []).map(cloneRichTextNode),
-      ],
-    },
-    ...sceneBlocks.slice(1, -1).map(cloneRichTextNode),
-    {
-      ...lastSceneBlock,
-      content: [
-        ...(lastSceneBlock.content ?? []).map(cloneRichTextNode),
-        ...endContent.slice(end.inlineIndex).map(cloneRichTextNode),
-      ],
-    },
-  ];
-  blocks.splice(start.blockIndex, end.blockIndex - start.blockIndex + 1, ...replacementBlocks);
-  return true;
-}
-
-function replaceSceneContentInDocument(
-  document: RichTextDocumentJson,
-  sceneId: string,
-  sceneContentDocument: RichTextDocumentJson,
-): { document: RichTextDocumentJson; replaced: boolean } {
-  return {
-    document,
-    replaced: replaceSceneContentAcrossTopLevelBlocks(document, sceneId, sceneContentDocument),
-  };
-}
-
-function findTopLevelSceneBoundary(
-  document: RichTextDocumentJson,
-  sceneId: string,
-  boundary: 'start' | 'end',
-): SceneBoundaryLocation | null {
-  const blocks = document.content ?? [];
-  for (const [blockIndex, block] of blocks.entries()) {
-    const inlineContent = block.content;
-    if (!Array.isArray(inlineContent)) {
-      continue;
-    }
-
-    const inlineIndex = inlineContent.findIndex(
-      (node) =>
-        node.type === 'referenceMention' &&
-        node.attrs?.['refType'] === 'scene' &&
-        node.attrs?.['refId'] === sceneId &&
-        (boundary === 'end'
-          ? node.attrs?.['boundary'] === 'end'
-          : node.attrs?.['boundary'] !== 'end'),
-    );
-    if (inlineIndex >= 0) {
-      return { blockIndex, inlineIndex };
-    }
-  }
-  return null;
+  });
 }
 
 function mapSceneToNode(
@@ -348,6 +80,7 @@ function mapSceneToNode(
 ): SceneCanvasNode {
   const chapter = chaptersById.get(scene.chapterNodeId);
   const plot = plotsByNumber.get(scene.plotNumber);
+  const plotColor = getPlotColor(plot, scene.plotNumber);
 
   return {
     id: scene.id,
@@ -364,7 +97,7 @@ function mapSceneToNode(
       subtitle: scene.text.trim(),
     },
     style: {
-      border: '2px solid #0891b2',
+      border: `2px solid ${plotColor}`,
       borderRadius: '12px',
       width: 320,
       background: 'var(--surface-primary)',
@@ -375,6 +108,7 @@ function mapSceneToNode(
 }
 
 export default function SceneBoard({
+  currentProject,
   autosaveSettings,
   statusMessage,
   workspaceNotice,
@@ -387,25 +121,15 @@ export default function SceneBoard({
   const [nodes, setNodes] = useState<SceneCanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [storyState, setStoryState] = useState<StoryState | null>(null);
-  const [characters, setCharacters] = useState<CharacterCard[]>([]);
-  const [locations, setLocations] = useState<LocationCard[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [editSceneId, setEditSceneId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<SceneDraft>({
-    chapterNodeId: '',
-    name: '',
-    text: '',
-    contentJson: JSON.stringify(createEmptyRichTextDocument()),
-    notes: '',
-    plotNumber: 1,
-  });
+  const [isCreateSceneModalOpen, setIsCreateSceneModalOpen] = useState<boolean>(false);
+  const [newSceneTitle, setNewSceneTitle] = useState<string>('Nuova scena');
+  const [newScenePlotNumber, setNewScenePlotNumber] = useState<number>(1);
+  const [sceneEditorDirty, setSceneEditorDirty] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autosaveInFlightRef = useRef<boolean>(false);
-  const lastDraftEditAtRef = useRef<number>(0);
-  const loadedEditorSceneIdRef = useRef<string | null>(null);
-  const applyingSceneEditorContentRef = useRef<boolean>(false);
+  const sceneEditorFlushRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const nodeTypes = useMemo(() => ({ scene: SceneFlowNode }), []);
   const scenesById = useMemo(() => new Map(scenes.map((scene) => [scene.id, scene])), [scenes]);
@@ -421,59 +145,22 @@ export default function SceneBoard({
   const selectedChapter = selectedScene ? chaptersById.get(selectedScene.chapterNodeId) : null;
   const selectedPlot = selectedScene ? plotsByNumber.get(selectedScene.plotNumber) : null;
   const currentEditScene = editSceneId ? (scenesById.get(editSceneId) ?? null) : null;
-  const editDirty = currentEditScene
-    ? !areSceneDraftsEqual(editDraft, sceneToDraft(currentEditScene))
-    : false;
-  const citedCharacters = useMemo(
-    () => characters.filter((card) => includesText(editDraft.text, getCharacterLabel(card))),
-    [characters, editDraft.text],
-  );
-  const citedLocations = useMemo(
-    () => locations.filter((card) => includesText(editDraft.text, card.name)),
-    [locations, editDraft.text],
-  );
   const statusTone = getStatusTone(statusMessage);
-  const sceneEditor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit,
-      TextStyle,
-      FontFamily,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      SceneReferenceMention,
-    ],
-    content: createEmptyRichTextDocument(),
-    onUpdate({ editor: activeEditor }) {
-      if (applyingSceneEditorContentRef.current) {
-        return;
-      }
-
-      const document = activeEditor.getJSON() as RichTextDocumentJson;
-      const contentJson = JSON.stringify(document);
-      updateEditDraft((previous) => ({
-        ...previous,
-        text: getPlainTextFromDocument(document),
-        contentJson,
-      }));
-    },
-  });
+  const chaptersForNewScenePlot = useMemo(
+    () => (storyState?.nodes ?? []).filter((chapter) => chapter.plotNumber === newScenePlotNumber),
+    [newScenePlotNumber, storyState?.nodes],
+  );
 
   const refreshScenes = useCallback(async (): Promise<void> => {
-    const [nextScenes, nextStoryState, nextCharacters, nextLocations] = await Promise.all([
+    const [nextScenes, nextStoryState] = await Promise.all([
       window.novelistApi.listSceneCards(),
       window.novelistApi.getStoryState(),
-      window.novelistApi.listCharacterCards(),
-      window.novelistApi.listLocationCards(),
     ]);
     const nextChaptersById = new Map(nextStoryState.nodes.map((chapter) => [chapter.id, chapter]));
     const nextPlotsByNumber = new Map(nextStoryState.plots.map((plot) => [plot.number, plot]));
     const sceneIds = new Set(nextScenes.map((scene) => scene.id));
     setScenes(nextScenes);
     setStoryState(nextStoryState);
-    setCharacters(nextCharacters);
-    setLocations(nextLocations);
     setEdges(
       nextStoryState.edges
         .filter((edge) => sceneIds.has(edge.sourceId) && sceneIds.has(edge.targetId))
@@ -502,152 +189,51 @@ export default function SceneBoard({
   }, [refreshScenes]);
 
   useEffect(() => {
-    if (!editSceneId) {
-      loadedEditorSceneIdRef.current = null;
+    if (!storyState || storyState.plots.length === 0) {
       return;
     }
-    if (!sceneEditor || loadedEditorSceneIdRef.current === editSceneId) {
-      return;
+    if (!storyState.plots.some((plot) => plot.number === newScenePlotNumber)) {
+      setNewScenePlotNumber(storyState.plots[0]?.number ?? 1);
     }
-
-    applyingSceneEditorContentRef.current = true;
-    sceneEditor.commands.setContent(parseRichTextDocument(editDraft.contentJson, editDraft.text));
-    applyingSceneEditorContentRef.current = false;
-    loadedEditorSceneIdRef.current = editSceneId;
-  }, [editDraft.contentJson, editDraft.text, editSceneId, sceneEditor]);
+  }, [newScenePlotNumber, storyState]);
 
   useEffect(() => {
-    onDirtyChange?.(editDirty);
-    return () => onDirtyChange?.(false);
-  }, [editDirty, onDirtyChange]);
+    if (editSceneId) {
+      return;
+    }
+    setSceneEditorDirty(false);
+    sceneEditorFlushRef.current = null;
+    onDirtyChange?.(false);
+    onRegisterFlush?.(null);
+  }, [editSceneId, onDirtyChange, onRegisterFlush]);
 
-  const persistEdit = useCallback(
-    async (options?: { closeAfterSave?: boolean; silent?: boolean }): Promise<boolean> => {
-      if (!editSceneId || !currentEditScene) {
-        return false;
-      }
-      if (!editDirty) {
-        if (options?.closeAfterSave) {
-          setEditSceneId(null);
-        }
-        return false;
-      }
-
-      setBusy(true);
-      setError(null);
-      const draftSnapshot = editDraft;
-      const sceneSnapshot = currentEditScene;
-      try {
-        let chapterTextReplaced = true;
-        const updated = await window.novelistApi.updateSceneCard({
-          id: editSceneId,
-          chapterNodeId: draftSnapshot.chapterNodeId,
-          name: draftSnapshot.name.trim(),
-          text: draftSnapshot.text,
-          contentJson: draftSnapshot.contentJson,
-          notes: draftSnapshot.notes,
-          plotNumber: draftSnapshot.plotNumber,
-          positionX: sceneSnapshot.positionX,
-          positionY: sceneSnapshot.positionY,
-        });
-
-        if (
-          draftSnapshot.text !== sceneSnapshot.text ||
-          draftSnapshot.contentJson !== sceneSnapshot.contentJson
-        ) {
-          const document = await window.novelistApi.getChapterDocument({
-            chapterNodeId: draftSnapshot.chapterNodeId,
-          });
-          const content = JSON.parse(document.contentJson) as RichTextDocumentJson;
-          const { document: nextContent, replaced } = replaceSceneContentInDocument(
-            content,
-            updated.id,
-            parseRichTextDocument(updated.contentJson, updated.text),
-          );
-          await window.novelistApi.saveChapterDocument({
-            chapterNodeId: draftSnapshot.chapterNodeId,
-            contentJson: JSON.stringify(nextContent),
-          });
-          chapterTextReplaced = replaced;
-        }
-
-        setScenes((previous) =>
-          previous.map((scene) => (scene.id === updated.id ? updated : scene)),
-        );
-        setEditDraft((currentDraft) =>
-          areSceneDraftsEqual(currentDraft, draftSnapshot) ? sceneToDraft(updated) : currentDraft,
-        );
-        await refreshScenes();
-        void onWikiSync?.();
-        if (!options?.silent) {
-          onStatus(
-            chapterTextReplaced
-              ? `Scena salvata: ${updated.name}`
-              : 'Scena salvata, ma i badge nel capitolo non sono stati trovati.',
-          );
-        }
-        if (options?.closeAfterSave) {
-          setEditSceneId(null);
-        }
-        return true;
-      } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-        setError(message);
-        onStatus('Errore salvataggio scena');
-        return false;
-      } finally {
-        setBusy(false);
-      }
+  const handleSceneEditorDirtyChange = useCallback(
+    (dirty: boolean): void => {
+      setSceneEditorDirty(dirty);
+      onDirtyChange?.(dirty);
     },
-    [currentEditScene, editDirty, editDraft, editSceneId, onStatus, onWikiSync, refreshScenes],
+    [onDirtyChange],
   );
 
-  useEffect(() => {
-    onRegisterFlush?.(() => persistEdit({ silent: true }));
-    return () => onRegisterFlush?.(null);
-  }, [onRegisterFlush, persistEdit]);
+  const handleRegisterSceneEditorFlush = useCallback(
+    (handler: (() => Promise<boolean>) | null): void => {
+      sceneEditorFlushRef.current = handler;
+      onRegisterFlush?.(handler);
+    },
+    [onRegisterFlush],
+  );
 
-  useEffect(() => {
-    if (autosaveTimeoutRef.current) {
-      clearTimeout(autosaveTimeoutRef.current);
-      autosaveTimeoutRef.current = null;
-    }
-    if (autosaveSettings?.autosaveMode !== 'auto' || !editDirty || busy) {
-      return;
-    }
-    autosaveTimeoutRef.current = setTimeout(() => {
-      if (autosaveInFlightRef.current) {
+  const handleCloseSceneEditor = useCallback(async (): Promise<void> => {
+    const wasDirty = sceneEditorDirty;
+    if (sceneEditorFlushRef.current) {
+      const ok = await sceneEditorFlushRef.current();
+      if (!ok && wasDirty) {
         return;
       }
-      autosaveInFlightRef.current = true;
-      void persistEdit({ silent: true }).finally(() => {
-        autosaveInFlightRef.current = false;
-      });
-    }, SCENE_AUTOSAVE_IDLE_MS);
-  }, [autosaveSettings?.autosaveMode, busy, editDirty, persistEdit]);
-
-  useEffect(() => {
-    if (autosaveSettings?.autosaveMode !== 'interval') {
-      return;
     }
-    const intervalId = setInterval(() => {
-      const hasRecentTyping = Date.now() - lastDraftEditAtRef.current < SCENE_AUTOSAVE_IDLE_MS;
-      if (!editDirty || busy || autosaveInFlightRef.current || hasRecentTyping) {
-        return;
-      }
-      autosaveInFlightRef.current = true;
-      void persistEdit({ silent: true }).finally(() => {
-        autosaveInFlightRef.current = false;
-      });
-    }, autosaveSettings.autosaveIntervalMinutes * 60_000);
-    return () => clearInterval(intervalId);
-  }, [
-    autosaveSettings?.autosaveIntervalMinutes,
-    autosaveSettings?.autosaveMode,
-    busy,
-    editDirty,
-    persistEdit,
-  ]);
+    setEditSceneId(null);
+    await refreshScenes();
+  }, [refreshScenes, sceneEditorDirty]);
 
   const onNodesChange: OnNodesChange<SceneCanvasNode> = useCallback(
     (changes) => setNodes((currentNodes) => applyNodeChanges(changes, currentNodes)),
@@ -749,10 +335,71 @@ export default function SceneBoard({
   }
 
   function openEditScene(scene: SceneCard): void {
-    const draft = sceneToDraft(scene);
-    setEditDraft(draft);
-    loadedEditorSceneIdRef.current = null;
     setEditSceneId(scene.id);
+  }
+
+  function openCreateSceneModal(): void {
+    setNewSceneTitle('Nuova scena');
+    setNewScenePlotNumber(selectedScene?.plotNumber ?? storyState?.plots[0]?.number ?? 1);
+    setIsCreateSceneModalOpen(true);
+  }
+
+  async function handleCreateScene(): Promise<void> {
+    if (!storyState) {
+      return;
+    }
+
+    const title = newSceneTitle.trim();
+    if (!title) {
+      onStatus('Inserisci il titolo della scena');
+      return;
+    }
+
+    const chapter = chaptersForNewScenePlot[0];
+    if (!chapter) {
+      onStatus('Crea prima un capitolo nella trama scelta');
+      setError('Per creare una scena serve almeno un capitolo nella trama selezionata.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const nextPosition = getNearbyCanvasPosition(
+        scenes.map((scene) => ({
+          x: scene.positionX,
+          y: scene.positionY,
+        })),
+        {
+          emptyPosition: { x: 120, y: 120 },
+          minDistance: 225,
+          radiusStep: 155,
+        },
+      );
+      const created = await window.novelistApi.createSceneCard({
+        chapterNodeId: chapter.id,
+        name: title,
+        text: '',
+        contentJson: createEmptyRichTextDocumentJson(),
+        notes: '',
+        plotNumber: newScenePlotNumber,
+        positionX: nextPosition.x,
+        positionY: nextPosition.y,
+      });
+
+      setSelectedSceneId(created.id);
+      setIsCreateSceneModalOpen(false);
+      setNewSceneTitle('Nuova scena');
+      await refreshScenes();
+      await onWikiSync?.();
+      onStatus(`Scena creata: ${created.name}`);
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      onStatus('Errore creazione scena');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleDeleteSelectedScene(): Promise<void> {
@@ -775,23 +422,20 @@ export default function SceneBoard({
     }
   }
 
-  function updateEditDraft(updater: (previous: SceneDraft) => SceneDraft): void {
-    lastDraftEditAtRef.current = Date.now();
-    setEditDraft(updater);
-  }
-
-  function handleChapterChange(chapterNodeId: string): void {
-    const chapter = chaptersById.get(chapterNodeId);
-    updateEditDraft((previous) => ({
-      ...previous,
-      chapterNodeId,
-      plotNumber: chapter?.plotNumber ?? previous.plotNumber,
-    }));
-  }
-
   return (
     <section className="workspace">
       <aside className="sidebar">
+        <div className="sidebar-action-group">
+          <button
+            type="button"
+            className="sidebar-action-button"
+            onClick={openCreateSceneModal}
+            disabled={!storyState || busy}
+          >
+            Crea Scena
+          </button>
+        </div>
+
         <div className="panel">
           <h2>Selezione</h2>
           <p>
@@ -848,6 +492,7 @@ export default function SceneBoard({
             }
           }}
           onSelectionChange={onSelectionChange}
+          connectionMode={ConnectionMode.Loose}
           elevateNodesOnSelect
           fitView
           deleteKeyCode={null}
@@ -858,106 +503,78 @@ export default function SceneBoard({
         </ReactFlow>
       </section>
 
-      {editSceneId ? (
+      {isCreateSceneModalOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card large-modal-card">
-            <h3>Modifica Scena</h3>
-            <div className="grid-two">
-              <label>
-                Nome Scena
-                <input
-                  value={editDraft.name}
-                  onChange={(event) =>
-                    updateEditDraft((previous) => ({ ...previous, name: event.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                Nome Capitolo
-                <select
-                  value={editDraft.chapterNodeId}
-                  onChange={(event) => handleChapterChange(event.target.value)}
-                >
-                  {(storyState?.nodes ?? []).map((chapter) => (
-                    <option key={chapter.id} value={chapter.id}>
-                      {chapter.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Nome Trama
-                <input
-                  value={formatPlotLabel(
-                    plotsByNumber.get(editDraft.plotNumber),
-                    editDraft.plotNumber,
-                  )}
-                  readOnly
-                />
-              </label>
-            </div>
+          <div className="modal-card">
+            <h3>Crea Scena</h3>
             <label>
-              Testo Scena
-              <div className="scene-rich-editor-shell">
-                <EditorContent editor={sceneEditor} className="novelist-editor-content" />
-              </div>
-            </label>
-            <label>
-              Note
-              <textarea
-                rows={4}
-                value={editDraft.notes}
-                onChange={(event) =>
-                  updateEditDraft((previous) => ({ ...previous, notes: event.target.value }))
-                }
+              Titolo
+              <input
+                value={newSceneTitle}
+                onChange={(event) => setNewSceneTitle(event.target.value)}
+                placeholder="Titolo scena"
               />
             </label>
-
-            <div className="panel panel-subsection">
-              <h4>Personaggi e Location citate</h4>
-              <div className="dashboard-unused-grid">
-                <div>
-                  <h3>Personaggi</h3>
-                  {citedCharacters.length > 0 ? (
-                    <ul>
-                      {citedCharacters.map((card) => (
-                        <li key={card.id}>{getCharacterLabel(card)}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="muted">Nessun personaggio riconosciuto nel testo.</p>
-                  )}
-                </div>
-                <div>
-                  <h3>Location</h3>
-                  {citedLocations.length > 0 ? (
-                    <ul>
-                      {citedLocations.map((card) => (
-                        <li key={card.id}>{card.name}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="muted">Nessuna location riconosciuta nel testo.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="row-buttons">
-              <button type="button" onClick={() => void persistEdit({ closeAfterSave: true })}>
-                Salva Scheda
-              </button>
+            <label>
+              Trama
+              <select
+                value={newScenePlotNumber}
+                onChange={(event) =>
+                  setNewScenePlotNumber(Math.max(1, Number(event.target.value) || 1))
+                }
+              >
+                {(storyState?.plots ?? []).length > 0 ? (
+                  (storyState?.plots ?? []).map((plot) => (
+                    <option key={plot.id} value={plot.number}>
+                      {formatPlotLabel(plot, plot.number)}
+                    </option>
+                  ))
+                ) : (
+                  <option value={newScenePlotNumber}>{`Trama ${newScenePlotNumber}`}</option>
+                )}
+              </select>
+            </label>
+            {chaptersForNewScenePlot.length === 0 ? (
+              <p className="error">La trama scelta non contiene capitoli.</p>
+            ) : null}
+            <div className="row-buttons modal-actions">
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => setEditSceneId(null)}
+                onClick={() => setIsCreateSceneModalOpen(false)}
                 disabled={busy}
               >
-                Chiudi
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateScene()}
+                disabled={busy || !newSceneTitle.trim() || chaptersForNewScenePlot.length === 0}
+              >
+                Crea Scena
               </button>
             </div>
           </div>
         </div>
+      ) : null}
+
+      {currentEditScene ? (
+        <ChapterEditor
+          chapterNodeId={currentEditScene.chapterNodeId}
+          chapterTitle={
+            chaptersById.get(currentEditScene.chapterNodeId)?.title ?? currentEditScene.name
+          }
+          sceneCard={currentEditScene}
+          projectName={currentProject?.name}
+          autosaveSettings={autosaveSettings}
+          onClose={handleCloseSceneEditor}
+          onStatus={onStatus}
+          onSceneSaved={async () => {
+            await onWikiSync?.();
+          }}
+          onDirtyChange={handleSceneEditorDirtyChange}
+          onRegisterFlush={handleRegisterSceneEditorFlush}
+        />
       ) : null}
     </section>
   );

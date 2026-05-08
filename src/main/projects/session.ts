@@ -28,7 +28,13 @@ export class ProjectSessionManager {
   private currentProject: OpenedProject | null = null;
   private autosave: AutoSaveScheduler | null = null;
 
-  async createProject(params: { rootPath: string; name: string }): Promise<OpenedProject> {
+  async createProject(params: {
+    rootPath: string;
+    name: string;
+    targetWordCount?: number | null;
+    targetChapterWordCount?: number | null;
+    plannedCompletionDate?: string | null;
+  }): Promise<OpenedProject> {
     const created = await createProjectOnDisk(params);
     return this.openProject({ rootPath: created.rootPath });
   }
@@ -72,6 +78,23 @@ export class ProjectSessionManager {
     }
 
     return this.currentProject.project.id;
+  }
+
+  updateProjectPlanning(input: {
+    targetWordCount: number | null;
+    targetChapterWordCount: number | null;
+    plannedCompletionDate: string | null;
+  }): OpenedProject {
+    if (!this.currentProject || !this.repository) {
+      throw new Error('No open project session');
+    }
+
+    const project = this.repository.updateProjectPlanning(this.currentProject.project.id, input);
+    this.currentProject = {
+      ...this.currentProject,
+      project,
+    };
+    return this.currentProject;
   }
 
   async syncProjectWikiSources(): Promise<WikiSourceExportResult> {

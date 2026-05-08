@@ -10,6 +10,8 @@ import type {
   PlotRecord,
   ProjectRecord,
   SceneCardRecord,
+  TimelineItemRecord,
+  TimelineSettingsRecord,
 } from '../persistence/types';
 import { extractRichTextBlocks, type RichTextDocument } from '../chapters/rich-text';
 import { writeTextFileAtomic } from './atomic-write';
@@ -122,6 +124,10 @@ function sourceRelativePathFromKey(key: string): string | null {
 
   if (key === 'cards/plot.md') {
     return path.join('sources', 'cards', 'plot.md');
+  }
+
+  if (key === 'cards/timeline.md') {
+    return path.join('sources', 'cards', 'timeline.md');
   }
 
   if (key === 'ai/chat.md') {
@@ -300,6 +306,73 @@ function formatPlotSource(plots: PlotRecord[], chapters: ChapterNodeRecord[]): s
   return ['# Plot Sources', '', ...sections].join('\n');
 }
 
+function formatTimelineSource(params: {
+  settings: TimelineSettingsRecord;
+  items: TimelineItemRecord[];
+  chapters: ChapterNodeRecord[];
+  scenes: SceneCardRecord[];
+  plots: PlotRecord[];
+}): string {
+  const { settings, items, chapters, scenes, plots } = params;
+  const chaptersById = new Map(chapters.map((chapter) => [chapter.id, chapter]));
+  const scenesById = new Map(scenes.map((scene) => [scene.id, scene]));
+  const plotsByNumber = new Map(plots.map((plot) => [plot.number, plot]));
+  const sections = [...items]
+    .sort((left, right) => {
+      if (left.positionX !== right.positionX) return left.positionX - right.positionX;
+      if (left.positionY !== right.positionY) return left.positionY - right.positionY;
+      return left.updatedAt.localeCompare(right.updatedAt);
+    })
+    .map((item, index) => {
+      const chapter =
+        item.itemType === 'chapter'
+          ? chaptersById.get(item.entityId)
+          : chaptersById.get(scenesById.get(item.entityId)?.chapterNodeId ?? '');
+      const scene = item.itemType === 'scene' ? scenesById.get(item.entityId) : null;
+      const plotNumber = scene?.plotNumber ?? chapter?.plotNumber ?? 0;
+      const plot = plotsByNumber.get(plotNumber);
+      const title = scene?.name ?? chapter?.title ?? item.entityId;
+
+      return [
+        `## ${index + 1}. ${title}`,
+        '',
+        `- id: ${item.id}`,
+        `- source_type: timeline_item`,
+        `- item_type: ${item.itemType}`,
+        `- entity_id: ${item.entityId}`,
+        `- title: ${title}`,
+        `- date_label: ${normalizeText(item.dateLabel) || 'not set'}`,
+        `- plot_number: ${plotNumber || 'unknown'}`,
+        `- plot_label: ${plot?.label ?? 'unknown'}`,
+        `- chapter_node_id: ${chapter?.id ?? 'unknown'}`,
+        `- chapter_title: ${chapter?.title ?? 'unknown'}`,
+        `- position_x: ${item.positionX}`,
+        `- position_y: ${item.positionY}`,
+        `- updated_at: ${item.updatedAt}`,
+        '',
+        scene
+          ? `Scene text: ${normalizeText(scene.text) || 'No scene text.'}`
+          : `Chapter description: ${normalizeText(chapter?.description) || 'No description.'}`,
+        '',
+      ].join('\n');
+    });
+
+  return [
+    '# Timeline Sources',
+    '',
+    '- source_type: timeline',
+    `- start_label: ${normalizeText(settings.startLabel) || 'not set'}`,
+    `- end_label: ${normalizeText(settings.endLabel) || 'not set'}`,
+    `- timeline_end_x: ${settings.timelineEndX}`,
+    `- updated_at: ${settings.updatedAt}`,
+    '',
+    'Ordine cronologico di lavoro definito dall’autore. Non modifica la scaletta narrativa o l’ordine di esportazione del manoscritto.',
+    '',
+    sections.length > 0 ? sections.join('\n') : 'No timeline items placed.',
+    '',
+  ].join('\n');
+}
+
 function formatAiChatSource(
   messages: CodexChatMessageRecord[],
   chapters: ChapterNodeRecord[],
@@ -344,6 +417,8 @@ function buildSourceFiles(params: {
   const locations = repository.listLocationCards(project.id);
   const scenes = repository.listSceneCards(project.id);
   const plots = repository.listPlots(project.id);
+  const timelineSettings = repository.getTimelineSettings(project.id);
+  const timelineItems = repository.listTimelineItems(project.id);
   const aiChatMessages = repository.listProjectCodexChatMessages(project.id);
 
   const chapterSources = chapters.map((node) => {
@@ -384,6 +459,17 @@ function buildSourceFiles(params: {
       key: 'cards/plot.md',
       relativePath: path.join('sources', 'cards', 'plot.md'),
       content: formatPlotSource(plots, chapters),
+    },
+    {
+      key: 'cards/timeline.md',
+      relativePath: path.join('sources', 'cards', 'timeline.md'),
+      content: formatTimelineSource({
+        settings: timelineSettings,
+        items: timelineItems,
+        chapters,
+        scenes,
+        plots,
+      }),
     },
     {
       key: 'ai/chat.md',

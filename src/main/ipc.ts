@@ -61,6 +61,24 @@ const appPreferencesUpdateRequestSchema = z.object({
 const projectCreateRequestSchema = z.object({
   rootPath: z.string().trim().min(1),
   name: z.string().trim().min(1).max(200),
+  targetWordCount: z.number().int().min(1).max(10_000_000).nullable().optional(),
+  targetChapterWordCount: z.number().int().min(1).max(500_000).nullable().optional(),
+  plannedCompletionDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+});
+
+const projectPlanningUpdateRequestSchema = z.object({
+  targetWordCount: z.number().int().min(1).max(10_000_000).nullable(),
+  targetChapterWordCount: z.number().int().min(1).max(500_000).nullable(),
+  plannedCompletionDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
 });
 
 const projectOpenRequestSchema = z.object({
@@ -248,6 +266,22 @@ const deleteSceneCardRequestSchema = z.object({
   id: z.string().trim().min(1),
 });
 
+const timelineSettingsUpdateRequestSchema = z.object({
+  startLabel: z.string().trim().max(120),
+  endLabel: z.string().trim().max(120),
+  timelineEndX: z.number().min(480).max(20_000),
+});
+
+const timelineItemTypeSchema = z.enum(['chapter', 'scene']);
+
+const timelineItemUpdateRequestSchema = z.object({
+  itemType: timelineItemTypeSchema,
+  entityId: z.string().trim().min(1),
+  positionX: z.number(),
+  positionY: z.number(),
+  dateLabel: z.string().trim().max(120),
+});
+
 const deleteLocationCardRequestSchema = z.object({
   id: z.string().trim().min(1),
 });
@@ -295,6 +329,7 @@ const codexAssistRequestSchema = z.object({
   message: z.string().trim().min(1),
   context: z.string().trim().max(10_000).optional(),
   projectName: z.string().trim().optional(),
+  timeoutMs: z.number().int().min(1000).max(180_000).optional(),
 });
 
 const codexChatRequestSchema = z.object({
@@ -334,6 +369,9 @@ const projectResponseSchema = z.object({
   dbPath: z.string(),
   assetsPath: z.string(),
   snapshotsPath: z.string(),
+  targetWordCount: z.number().int().positive().nullable(),
+  targetChapterWordCount: z.number().int().positive().nullable(),
+  plannedCompletionDate: z.string().nullable(),
 });
 
 const snapshotResponseSchema = z.object({
@@ -341,6 +379,15 @@ const snapshotResponseSchema = z.object({
   filePath: z.string(),
   createdAt: z.string(),
   reason: z.string(),
+});
+
+const writingSessionResponseSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  chapterNodeId: z.string(),
+  wordDelta: z.number().int(),
+  wordCount: z.number().int().min(0),
+  createdAt: z.string(),
 });
 
 const plotResponseSchema = z.object({
@@ -465,6 +512,31 @@ const sceneCardResponseSchema = z.object({
   positionY: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
+});
+
+const timelineSettingsResponseSchema = z.object({
+  projectId: z.string(),
+  startLabel: z.string(),
+  endLabel: z.string(),
+  timelineEndX: z.number(),
+  updatedAt: z.string(),
+});
+
+const timelineItemResponseSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  itemType: timelineItemTypeSchema,
+  entityId: z.string(),
+  positionX: z.number(),
+  positionY: z.number(),
+  dateLabel: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const timelineStateResponseSchema = z.object({
+  settings: timelineSettingsResponseSchema,
+  items: z.array(timelineItemResponseSchema),
 });
 
 const revisionEntityTypeSchema = z.enum(['chapter', 'scene', 'character', 'location']);
@@ -607,6 +679,7 @@ export type AppPreferencesResponse = z.infer<typeof appPreferencesResponseSchema
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
 export type ProjectInspectPathResponse = z.infer<typeof projectInspectPathResponseSchema>;
 export type SnapshotResponse = z.infer<typeof snapshotResponseSchema>;
+export type WritingSessionResponse = z.infer<typeof writingSessionResponseSchema>;
 export type PlotResponse = z.infer<typeof plotResponseSchema>;
 export type ChapterNodeResponse = z.infer<typeof chapterNodeResponseSchema>;
 export type StoryEdgeResponse = z.infer<typeof storyEdgeResponseSchema>;
@@ -617,6 +690,9 @@ export type CharacterImageResponse = z.infer<typeof characterImageResponseSchema
 export type LocationCardResponse = z.infer<typeof locationCardResponseSchema>;
 export type LocationImageResponse = z.infer<typeof locationImageResponseSchema>;
 export type SceneCardResponse = z.infer<typeof sceneCardResponseSchema>;
+export type TimelineStateResponse = z.infer<typeof timelineStateResponseSchema>;
+export type TimelineSettingsResponse = z.infer<typeof timelineSettingsResponseSchema>;
+export type TimelineItemResponse = z.infer<typeof timelineItemResponseSchema>;
 export type EntityRevisionResponse = z.infer<typeof entityRevisionResponseSchema>;
 export type EntityRevisionCurrentResponse = z.infer<typeof entityRevisionCurrentResponseSchema>;
 export type CodexStatusResponse = z.infer<typeof codexStatusResponseSchema>;
@@ -635,7 +711,13 @@ export function buildPingResponse(request: PingRequest): PingResponse {
 }
 
 function toProjectResponse(input: {
-  project: { id: string; name: string };
+  project: {
+    id: string;
+    name: string;
+    targetWordCount?: number | null;
+    targetChapterWordCount?: number | null;
+    plannedCompletionDate?: string | null;
+  };
   rootPath: string;
   dbPath: string;
   assetsPath: string;
@@ -648,6 +730,9 @@ function toProjectResponse(input: {
     dbPath: input.dbPath,
     assetsPath: input.assetsPath,
     snapshotsPath: input.snapshotsPath,
+    targetWordCount: input.project.targetWordCount ?? null,
+    targetChapterWordCount: input.project.targetChapterWordCount ?? null,
+    plannedCompletionDate: input.project.plannedCompletionDate ?? null,
   };
 }
 
@@ -1324,12 +1409,6 @@ function compareChapterNodes(left: ChapterNodeRecord, right: ChapterNodeRecord):
   if (left.blockNumber !== right.blockNumber) {
     return left.blockNumber - right.blockNumber;
   }
-  if (left.positionY !== right.positionY) {
-    return left.positionY - right.positionY;
-  }
-  if (left.positionX !== right.positionX) {
-    return left.positionX - right.positionX;
-  }
   return left.title.localeCompare(right.title, 'it');
 }
 
@@ -1339,7 +1418,7 @@ function orderChapterNodesByConnections(
 ): ChapterNodeRecord[] {
   const nodesSorted = [...nodes].sort(compareChapterNodes);
   const nodeById = new Map(nodesSorted.map((node) => [node.id, node]));
-  const indegree = new Map<string, number>(nodesSorted.map((node) => [node.id, 0]));
+  const incoming = new Map<string, string[]>(nodesSorted.map((node) => [node.id, []]));
   const outgoing = new Map<string, string[]>(nodesSorted.map((node) => [node.id, []]));
 
   for (const edge of edges) {
@@ -1347,7 +1426,7 @@ function orderChapterNodesByConnections(
       continue;
     }
     outgoing.get(edge.sourceId)?.push(edge.targetId);
-    indegree.set(edge.targetId, (indegree.get(edge.targetId) ?? 0) + 1);
+    incoming.get(edge.targetId)?.push(edge.sourceId);
   }
 
   for (const [nodeId, targetIds] of outgoing) {
@@ -1356,40 +1435,48 @@ function orderChapterNodesByConnections(
     );
     outgoing.set(nodeId, targetIds);
   }
+  for (const [nodeId, sourceIds] of incoming) {
+    sourceIds.sort((leftId, rightId) =>
+      compareChapterNodes(nodeById.get(leftId)!, nodeById.get(rightId)!),
+    );
+    incoming.set(nodeId, sourceIds);
+  }
 
-  const queue = nodesSorted.filter((node) => (indegree.get(node.id) ?? 0) === 0);
   const ordered: ChapterNodeRecord[] = [];
-  const queued = new Set(queue.map((node) => node.id));
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
 
-  while (queue.length > 0) {
-    queue.sort(compareChapterNodes);
-    const node = queue.shift();
-    if (!node) {
-      break;
+  function visit(node: ChapterNodeRecord): void {
+    if (visiting.has(node.id)) {
+      return;
     }
-    queued.delete(node.id);
+    if (visited.has(node.id)) {
+      return;
+    }
+
+    visiting.add(node.id);
     ordered.push(node);
+    visited.add(node.id);
 
     for (const targetId of outgoing.get(node.id) ?? []) {
-      const nextIndegree = (indegree.get(targetId) ?? 0) - 1;
-      indegree.set(targetId, nextIndegree);
-      if (nextIndegree === 0) {
-        const targetNode = nodeById.get(targetId);
-        if (targetNode && !queued.has(targetId)) {
-          queue.push(targetNode);
-          queued.add(targetId);
-        }
+      const targetNode = nodeById.get(targetId);
+      if (!targetNode) {
+        continue;
       }
+      visit(targetNode);
     }
+    visiting.delete(node.id);
   }
 
-  if (ordered.length === nodesSorted.length) {
-    return ordered;
+  const startNodes = nodesSorted.filter((node) => (incoming.get(node.id)?.length ?? 0) === 0);
+  for (const node of startNodes.length > 0 ? startNodes : nodesSorted) {
+    visit(node);
+  }
+  for (const node of nodesSorted) {
+    visit(node);
   }
 
-  const presentIds = new Set(ordered.map((node) => node.id));
-  const remaining = nodesSorted.filter((node) => !presentIds.has(node.id));
-  return [...ordered, ...remaining];
+  return ordered;
 }
 
 export function collectManuscriptChapters(
@@ -1415,12 +1502,9 @@ export function collectManuscriptChapters(
       ),
   );
 
-  const nodesWithContent = allNodes.filter((node) => documentsByNodeId.has(node.id));
-  const nodeIdsWithContent = new Set(nodesWithContent.map((node) => node.id));
-  const relevantEdges = allEdges.filter(
-    (edge) => nodeIdsWithContent.has(edge.sourceId) && nodeIdsWithContent.has(edge.targetId),
+  const orderedNodes = orderChapterNodesByConnections(allNodes, allEdges).filter((node) =>
+    documentsByNodeId.has(node.id),
   );
-  const orderedNodes = orderChapterNodesByConnections(nodesWithContent, relevantEdges);
 
   return orderedNodes.map((node) => ({
     title: node.title,
@@ -1543,8 +1627,22 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const project = await sessionManager.createProject({
       rootPath: request.rootPath,
       name: request.name,
+      targetWordCount: request.targetWordCount ?? null,
+      targetChapterWordCount: request.targetChapterWordCount ?? null,
+      plannedCompletionDate: request.plannedCompletionDate ?? null,
     });
 
+    return projectResponseSchema.parse(toProjectResponse(project));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.projectUpdatePlanning, async (_event, payload: unknown) => {
+    const request = projectPlanningUpdateRequestSchema.parse(payload);
+    const project = sessionManager.updateProjectPlanning({
+      targetWordCount: request.targetWordCount,
+      targetChapterWordCount: request.targetChapterWordCount,
+      plannedCompletionDate: request.plannedCompletionDate,
+    });
+    await syncProjectWikiSourcesBestEffort(sessionManager);
     return projectResponseSchema.parse(toProjectResponse(project));
   });
 
@@ -1669,6 +1767,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
   ipcMain.handle(IPC_CHANNELS.projectListSnapshots, async () => {
     const snapshots = await sessionManager.listSnapshots();
     return z.array(snapshotResponseSchema).parse(snapshots);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.projectListWritingSessions, () => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    return z.array(writingSessionResponseSchema).parse(repository.listWritingSessions(projectId));
   });
 
   ipcMain.handle(IPC_CHANNELS.projectRecoverLatestSnapshot, async () => {
@@ -1890,6 +1993,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const parsedDocument = parseRichTextDocument(request.contentJson);
     const normalizedDocument = normalizeRichTextDocumentMentions(repository, parsedDocument);
     const wordCount = getWordCountFromDocument(normalizedDocument);
+    const previousDocument = repository.getChapterDocumentByNodeId(request.chapterNodeId);
     createAutomaticRevision(repository, projectId, 'chapter', request.chapterNodeId);
 
     const saved = repository.upsertChapterDocument({
@@ -1897,6 +2001,18 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       contentJson: JSON.stringify(normalizedDocument),
       wordCount,
     });
+    const wordDelta = wordCount - (previousDocument?.wordCount ?? 0);
+    if (wordDelta > 0) {
+      try {
+        repository.recordWritingSession(projectId, {
+          chapterNodeId: request.chapterNodeId,
+          wordDelta,
+          wordCount,
+        });
+      } catch {
+        // Writing metrics are auxiliary; manuscript saves must remain the primary operation.
+      }
+    }
 
     repository.setChapterNodeRichTextDocId(request.chapterNodeId, saved.id);
 
@@ -2540,6 +2656,53 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     return successResponseSchema.parse({ ok: true });
   });
 
+  ipcMain.handle(IPC_CHANNELS.timelineGetState, () => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    return timelineStateResponseSchema.parse({
+      settings: repository.getTimelineSettings(projectId),
+      items: repository.listTimelineItems(projectId),
+    });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.timelineUpdateSettings, (_event, payload: unknown) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const request = timelineSettingsUpdateRequestSchema.parse(payload);
+    return timelineSettingsResponseSchema.parse(
+      repository.upsertTimelineSettings(projectId, {
+        startLabel: request.startLabel,
+        endLabel: request.endLabel,
+        timelineEndX: request.timelineEndX,
+      }),
+    );
+  });
+
+  ipcMain.handle(IPC_CHANNELS.timelineUpdateItem, (_event, payload: unknown) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const request = timelineItemUpdateRequestSchema.parse(payload);
+
+    if (request.itemType === 'chapter') {
+      const chapter = repository.getChapterNodeById(request.entityId);
+      if (!chapter || chapter.projectId !== projectId) {
+        throw new Error('Chapter node not found');
+      }
+    } else {
+      const scene = repository.getSceneCardById(request.entityId);
+      if (!scene || scene.projectId !== projectId) {
+        throw new Error('Scene card not found');
+      }
+    }
+
+    return timelineItemResponseSchema.parse(
+      repository.upsertTimelineItem(projectId, {
+        itemType: request.itemType,
+        entityId: request.entityId,
+        positionX: request.positionX,
+        positionY: request.positionY,
+        dateLabel: request.dateLabel,
+      }),
+    );
+  });
+
   ipcMain.handle(IPC_CHANNELS.revisionGetCurrent, (_event, payload: unknown) => {
     const { repository, projectId } = getStoryContext(sessionManager);
     const request = revisionGetCurrentRequestSchema.parse(payload);
@@ -2697,6 +2860,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
+        timeoutMs: request.timeoutMs,
       },
     );
 

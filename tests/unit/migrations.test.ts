@@ -48,6 +48,8 @@ describe('database migrations', () => {
           'location_cards',
           'location_images',
           'location_chapter_links',
+          'timeline_settings',
+          'timeline_items',
         ]),
       );
 
@@ -59,12 +61,49 @@ describe('database migrations', () => {
         'allow_external_memory_sharing',
       );
 
+      const projectColumns = db.prepare("PRAGMA table_info('projects')").all() as Array<{
+        name: string;
+      }>;
+      expect(projectColumns.map((row) => row.name)).toEqual(
+        expect.arrayContaining([
+          'target_word_count',
+          'target_chapter_word_count',
+          'planned_completion_date',
+        ]),
+      );
+
       const characterCardColumns = db
         .prepare("PRAGMA table_info('character_cards')")
         .all() as Array<{ name: string }>;
       expect(characterCardColumns.map((row) => row.name)).toEqual(
         expect.arrayContaining(['hair_color', 'eye_color', 'skin_color']),
       );
+
+      const writingSessionColumns = db
+        .prepare("PRAGMA table_info('writing_sessions')")
+        .all() as Array<{ name: string }>;
+      expect(writingSessionColumns.map((row) => row.name)).toEqual(
+        expect.arrayContaining(['project_id', 'chapter_node_id', 'word_delta', 'word_count']),
+      );
+
+      const timelineItemColumns = db.prepare("PRAGMA table_info('timeline_items')").all() as Array<{
+        name: string;
+      }>;
+      expect(timelineItemColumns.map((row) => row.name)).toEqual(
+        expect.arrayContaining([
+          'project_id',
+          'item_type',
+          'entity_id',
+          'position_x',
+          'position_y',
+          'date_label',
+        ]),
+      );
+
+      const timelineSettingsColumns = db
+        .prepare("PRAGMA table_info('timeline_settings')")
+        .all() as Array<{ name: string }>;
+      expect(timelineSettingsColumns.map((row) => row.name)).toContain('timeline_end_x');
     } finally {
       db.close();
     }

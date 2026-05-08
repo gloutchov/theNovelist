@@ -55,6 +55,9 @@ export async function installNovelistApiMock(
         dbPath: string;
         assetsPath: string;
         snapshotsPath: string;
+        targetWordCount: number | null;
+        targetChapterWordCount: number | null;
+        plannedCompletionDate: string | null;
       },
       plots: [] as Array<{
         id: string;
@@ -130,6 +133,14 @@ export async function installNovelistApiMock(
         role: 'user' | 'assistant';
         content: string;
         mode: 'cli' | 'fallback' | null;
+        createdAt: string;
+      }>,
+      writingSessions: [] as Array<{
+        id: string;
+        projectId: string;
+        chapterNodeId: string;
+        wordDelta: number;
+        wordCount: number;
         createdAt: string;
       }>,
       characterCards: [] as Array<{
@@ -208,6 +219,24 @@ export async function installNovelistApiMock(
         createdAt: string;
         updatedAt: string;
       }>,
+      timelineSettings: null as null | {
+        projectId: string;
+        startLabel: string;
+        endLabel: string;
+        timelineEndX: number;
+        updatedAt: string;
+      },
+      timelineItems: [] as Array<{
+        id: string;
+        projectId: string;
+        itemType: 'chapter' | 'scene';
+        entityId: string;
+        positionX: number;
+        positionY: number;
+        dateLabel: string;
+        createdAt: string;
+        updatedAt: string;
+      }>,
       entityRevisions: [] as Array<{
         id: string;
         projectId: string;
@@ -241,7 +270,10 @@ export async function installNovelistApiMock(
       state.locationImages = [];
       state.locationChapterLinks = [];
       state.sceneCards = [];
+      state.timelineSettings = null;
+      state.timelineItems = [];
       state.entityRevisions = [];
+      state.writingSessions = [];
     };
 
     const buildWordSequence = (wordCount: number): string =>
@@ -358,6 +390,9 @@ export async function installNovelistApiMock(
         dbPath: `${rootPath}/project.db`,
         assetsPath: `${rootPath}/assets`,
         snapshotsPath: `${rootPath}/.snapshots`,
+        targetWordCount: null,
+        targetChapterWordCount: null,
+        plannedCompletionDate: null,
       };
 
       resetProjectData();
@@ -441,7 +476,13 @@ export async function installNovelistApiMock(
         return clone(state.appPreferences);
       },
 
-      createProject: async (payload: { rootPath: string; name: string }) => {
+      createProject: async (payload: {
+        rootPath: string;
+        name: string;
+        targetWordCount?: number | null;
+        targetChapterWordCount?: number | null;
+        plannedCompletionDate?: string | null;
+      }) => {
         const id = nextId('project');
         state.currentProject = {
           id,
@@ -450,12 +491,32 @@ export async function installNovelistApiMock(
           dbPath: `${payload.rootPath}/project.db`,
           assetsPath: `${payload.rootPath}/assets`,
           snapshotsPath: `${payload.rootPath}/.snapshots`,
+          targetWordCount: payload.targetWordCount ?? null,
+          targetChapterWordCount: payload.targetChapterWordCount ?? null,
+          plannedCompletionDate: payload.plannedCompletionDate ?? null,
         };
         resetProjectData();
         state.codexSettings = {
           ...state.codexSettings,
           projectId: id,
           updatedAt: nowIso(),
+        };
+        return clone(state.currentProject);
+      },
+
+      updateProjectPlanning: async (payload: {
+        targetWordCount: number | null;
+        targetChapterWordCount: number | null;
+        plannedCompletionDate: string | null;
+      }) => {
+        if (!state.currentProject) {
+          throw new Error('No open project session');
+        }
+        state.currentProject = {
+          ...state.currentProject,
+          targetWordCount: payload.targetWordCount,
+          targetChapterWordCount: payload.targetChapterWordCount,
+          plannedCompletionDate: payload.plannedCompletionDate,
         };
         return clone(state.currentProject);
       },
@@ -501,13 +562,15 @@ export async function installNovelistApiMock(
 
       listSnapshots: async () => [],
 
+      listWritingSessions: async () => clone(state.writingSessions.slice(-12)),
+
       recoverLatestSnapshot: async () => null,
 
       wikiGetStatus: async () => ({
         initialized: true,
         derivedPending: false,
         updatedAt: nowIso(),
-        sourceCount: state.nodes.length + 5,
+        sourceCount: state.nodes.length + 6,
       }),
 
       wikiSync: async () => {
@@ -519,7 +582,7 @@ export async function installNovelistApiMock(
         return {
           changed: false,
           changedSources: [],
-          sourceCount: state.nodes.length + 5,
+          sourceCount: state.nodes.length + 6,
           derivedPending: false,
         };
       },
@@ -823,14 +886,27 @@ export async function installNovelistApiMock(
         contentJson: string;
         wordCount?: number;
       }) => {
+        const project = ensureProject();
         const existing = await api.getChapterDocument({ chapterNodeId: payload.chapterNodeId });
+        const nextWordCount = payload.wordCount ?? existing.wordCount;
+        const wordDelta = nextWordCount - existing.wordCount;
         const updated = {
           ...existing,
           contentJson: payload.contentJson,
-          wordCount: payload.wordCount ?? existing.wordCount,
+          wordCount: nextWordCount,
           updatedAt: nowIso(),
         };
         state.chapterDocumentsByNodeId.set(payload.chapterNodeId, updated);
+        if (wordDelta > 0) {
+          state.writingSessions.push({
+            id: nextId('session'),
+            projectId: project.id,
+            chapterNodeId: payload.chapterNodeId,
+            wordDelta,
+            wordCount: nextWordCount,
+            createdAt: nowIso(),
+          });
+        }
         return clone(updated);
       },
 
@@ -1200,7 +1276,77 @@ export async function installNovelistApiMock(
 
       deleteSceneCard: async (payload: { id: string }) => {
         state.sceneCards = state.sceneCards.filter((card) => card.id !== payload.id);
+        state.timelineItems = state.timelineItems.filter(
+          (item) => !(item.itemType === 'scene' && item.entityId === payload.id),
+        );
         return { ok: true as const };
+      },
+
+      getTimelineState: async () => {
+        const project = ensureProject();
+        const settings = state.timelineSettings ?? {
+          projectId: project.id,
+          startLabel: '',
+          endLabel: '',
+          timelineEndX: 1148,
+          updatedAt: nowIso(),
+        };
+        return {
+          settings: clone(settings),
+          items: clone(state.timelineItems),
+        };
+      },
+
+      updateTimelineSettings: async (payload: {
+        startLabel: string;
+        endLabel: string;
+        timelineEndX: number;
+      }) => {
+        const project = ensureProject();
+        state.timelineSettings = {
+          projectId: project.id,
+          startLabel: payload.startLabel,
+          endLabel: payload.endLabel,
+          timelineEndX: payload.timelineEndX,
+          updatedAt: nowIso(),
+        };
+        return clone(state.timelineSettings);
+      },
+
+      updateTimelineItem: async (payload: {
+        itemType: 'chapter' | 'scene';
+        entityId: string;
+        positionX: number;
+        positionY: number;
+        dateLabel: string;
+      }) => {
+        const project = ensureProject();
+        const now = nowIso();
+        const existing = state.timelineItems.find(
+          (item) => item.itemType === payload.itemType && item.entityId === payload.entityId,
+        );
+        if (existing) {
+          Object.assign(existing, {
+            positionX: payload.positionX,
+            positionY: payload.positionY,
+            dateLabel: payload.dateLabel,
+            updatedAt: now,
+          });
+          return clone(existing);
+        }
+        const created = {
+          id: nextId('timeline-item'),
+          projectId: project.id,
+          itemType: payload.itemType,
+          entityId: payload.entityId,
+          positionX: payload.positionX,
+          positionY: payload.positionY,
+          dateLabel: payload.dateLabel,
+          createdAt: now,
+          updatedAt: now,
+        };
+        state.timelineItems.push(created);
+        return clone(created);
       },
 
       getRevisionCurrent: async (payload: {

@@ -14,6 +14,7 @@ export interface CodexRuntimeSettings {
   allowApiCalls: boolean;
   apiKey: string | null;
   apiModel: string;
+  timeoutMs: number;
 }
 
 export interface CodexStatus {
@@ -66,19 +67,33 @@ interface ProviderProbe {
   reason?: string;
 }
 
+const DEFAULT_CODEX_TIMEOUT_MS = 45_000;
+
 const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   provider: 'codex_cli',
   fallbackProvider: 'none',
   allowApiCalls: false,
   apiKey: null,
   apiModel: 'gpt-5-mini',
+  timeoutMs: DEFAULT_CODEX_TIMEOUT_MS,
 };
 const resolvedCommandCache = new Map<string, Promise<string>>();
 const resolvedPathCache = new Map<string, Promise<string | null>>();
 
 type RuntimePlatform = NodeJS.Platform;
 
-function normalizeSettings(settings?: Partial<CodexRuntimeSettings>): CodexRuntimeSettings {
+function normalizeRequestTimeoutMs(value: unknown, fallback: number): number {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 1000) {
+    return fallback;
+  }
+  return Math.min(Math.trunc(numericValue), 180_000);
+}
+
+function normalizeSettings(
+  settings?: Partial<CodexRuntimeSettings>,
+  defaultTimeoutMs = resolveTimeoutMs(),
+): CodexRuntimeSettings {
   const fallbackProvider = settings?.fallbackProvider;
 
   return {
@@ -95,6 +110,7 @@ function normalizeSettings(settings?: Partial<CodexRuntimeSettings>): CodexRunti
     allowApiCalls: Boolean(settings?.allowApiCalls),
     apiKey: settings?.apiKey ?? null,
     apiModel: settings?.apiModel?.trim() || DEFAULT_AI_SETTINGS.apiModel,
+    timeoutMs: normalizeRequestTimeoutMs(settings?.timeoutMs, defaultTimeoutMs),
   };
 }
 
@@ -505,9 +521,9 @@ async function buildCliEnvironment(commandPath: string): Promise<NodeJS.ProcessE
 }
 
 function resolveTimeoutMs(): number {
-  const value = Number(process.env['NOVELIST_CODEX_TIMEOUT_MS'] ?? '45000');
+  const value = Number(process.env['NOVELIST_CODEX_TIMEOUT_MS'] ?? DEFAULT_CODEX_TIMEOUT_MS);
   if (!Number.isFinite(value) || value < 1000) {
-    return 45000;
+    return DEFAULT_CODEX_TIMEOUT_MS;
   }
   return value;
 }
@@ -653,7 +669,11 @@ async function runOpenAiApi(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   const abortHandler = (): void => controller.abort();
   signal?.addEventListener('abort', abortHandler, { once: true });
 
@@ -697,6 +717,14 @@ async function runOpenAiApi(
     };
   } catch (error) {
     if (controller.signal.aborted || signal?.aborted) {
+      if (timedOut && !signal?.aborted) {
+        return {
+          output: '',
+          mode: 'fallback',
+          error: `Timeout OpenAI API (${timeoutMs}ms)`,
+        };
+      }
+
       return {
         output: '',
         mode: 'fallback',
@@ -737,7 +765,11 @@ async function runOllamaApi(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   const abortHandler = (): void => controller.abort();
   signal?.addEventListener('abort', abortHandler, { once: true });
   const baseUrl = resolveOllamaHost();
@@ -790,6 +822,14 @@ async function runOllamaApi(
     };
   } catch (error) {
     if (controller.signal.aborted || signal?.aborted) {
+      if (timedOut && !signal?.aborted) {
+        return {
+          output: '',
+          mode: 'fallback',
+          error: `Timeout Ollama API (${timeoutMs}ms)`,
+        };
+      }
+
       return {
         output: '',
         mode: 'fallback',
@@ -1042,7 +1082,7 @@ export class CodexCliService {
     settings?: Partial<CodexRuntimeSettings>,
     workspaceRoot?: string,
   ): Promise<CodexStatus> {
-    const runtime = normalizeSettings(settings);
+    const runtime = normalizeSettings(settings, this.timeoutMs);
     const primaryProbe = await this.probeProvider(runtime.provider, runtime, workspaceRoot);
     if (primaryProbe.available) {
       return this.toStatus(primaryProbe, runtime);
@@ -1290,7 +1330,7 @@ export class CodexCliService {
         };
       }
 
-      return runOpenAiApi(apiKey, runtime.apiModel, prompt, this.timeoutMs, signal);
+      return runOpenAiApi(apiKey, runtime.apiModel, prompt, runtime.timeoutMs, signal);
     }
 
     if (provider === 'ollama') {
@@ -1303,14 +1343,14 @@ export class CodexCliService {
         };
       }
 
-      return runOllamaApi(runtime.apiModel, prompt, this.timeoutMs, signal);
+      return runOllamaApi(runtime.apiModel, prompt, runtime.timeoutMs, signal);
     }
 
     const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
     return runCodexCli(
       resolvedCommandName,
       prompt,
-      this.timeoutMs,
+      runtime.timeoutMs,
       {
         cwd: workspaceRoot,
       },

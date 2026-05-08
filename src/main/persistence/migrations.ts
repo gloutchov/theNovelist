@@ -419,6 +419,69 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 17,
+    statements: [
+      `ALTER TABLE projects ADD COLUMN target_word_count INTEGER;`,
+      `ALTER TABLE projects ADD COLUMN target_chapter_word_count INTEGER;`,
+      `ALTER TABLE projects ADD COLUMN planned_completion_date TEXT;`,
+      `
+      CREATE TABLE IF NOT EXISTS writing_sessions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        chapter_node_id TEXT NOT NULL,
+        word_delta INTEGER NOT NULL,
+        word_count INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_node_id) REFERENCES chapter_nodes(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_writing_sessions_project_created
+      ON writing_sessions(project_id, created_at DESC);
+      `,
+    ],
+  },
+  {
+    version: 18,
+    statements: [
+      `
+      CREATE TABLE IF NOT EXISTS timeline_settings (
+        project_id TEXT PRIMARY KEY,
+        start_label TEXT NOT NULL DEFAULT '',
+        end_label TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      CREATE TABLE IF NOT EXISTS timeline_items (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        item_type TEXT NOT NULL CHECK(item_type IN ('chapter', 'scene')),
+        entity_id TEXT NOT NULL,
+        position_x REAL NOT NULL,
+        position_y REAL NOT NULL,
+        date_label TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        UNIQUE (project_id, item_type, entity_id)
+      );
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_timeline_items_project
+      ON timeline_items(project_id, item_type);
+      `,
+    ],
+  },
+  {
+    version: 19,
+    statements: [
+      `ALTER TABLE timeline_settings ADD COLUMN timeline_end_x REAL NOT NULL DEFAULT 1148;`,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

@@ -81,7 +81,7 @@ describe('collectManuscriptChapters', () => {
         title: 'Una vita tra i Boschi',
         description: '',
         plotNumber: 1,
-        blockNumber: 1,
+        blockNumber: 10,
         positionX: 120,
         positionY: 120,
       });
@@ -89,7 +89,7 @@ describe('collectManuscriptChapters', () => {
         title: 'Valeria',
         description: '',
         plotNumber: 1,
-        blockNumber: 2,
+        blockNumber: 20,
         positionX: 240,
         positionY: 120,
       });
@@ -97,7 +97,7 @@ describe('collectManuscriptChapters', () => {
         title: 'Indagini sul passato',
         description: '',
         plotNumber: 1,
-        blockNumber: 3,
+        blockNumber: 30,
         positionX: 360,
         positionY: 120,
       });
@@ -105,7 +105,7 @@ describe('collectManuscriptChapters', () => {
         title: 'La scoperta',
         description: '',
         plotNumber: 1,
-        blockNumber: 4,
+        blockNumber: 1,
         positionX: 480,
         positionY: 120,
       });
