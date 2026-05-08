@@ -350,6 +350,8 @@ const codexUpdateSettingsRequestSchema = z.object({
   apiKey: z.string().max(500).nullable().optional(),
   clearStoredApiKey: z.boolean().optional(),
   apiModel: z.string().trim().max(120).optional(),
+  apiImageModel: z.string().trim().max(120).optional(),
+  ollamaModel: z.string().trim().max(120).optional(),
 });
 
 const codexChatHistoryRequestSchema = z.object({
@@ -628,6 +630,8 @@ const codexSettingsResponseSchema = z.object({
   hasRuntimeApiKey: z.boolean(),
   apiKeyStorage: z.enum(['secure_storage', 'legacy_db', 'none']),
   apiModel: z.string(),
+  apiImageModel: z.string(),
+  ollamaModel: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -1588,13 +1592,10 @@ async function resolveImageApiRuntime(
   }
 
   const modelFromEnv = process.env['NOVELIST_IMAGE_MODEL']?.trim();
-  const modelFromSettings = settings.apiModel.trim().toLowerCase().includes('image')
-    ? settings.apiModel.trim()
-    : '';
 
   return {
     apiKey,
-    model: modelFromEnv || modelFromSettings || 'gpt-image-1',
+    model: modelFromEnv || settings.apiImageModel.trim() || 'gpt-image-1',
   };
 }
 
@@ -2040,6 +2041,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
               allowApiCalls: codexSettings.allowApiCalls,
               apiKey: runtime.runtimeApiKey,
               apiModel: codexSettings.apiModel,
+              ollamaModel: codexSettings.ollamaModel,
             },
           );
           summaryText = normalizeSummaryText(summaryResult.output);
@@ -2778,6 +2780,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
+        ollamaModel: settings.ollamaModel,
       },
       workspaceRoot,
     );
@@ -2826,6 +2829,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
       autoSummarizeDescriptions: request.autoSummarizeDescriptions,
       apiKey: preserveLegacyApiKey ? runtime.settings.apiKey : null,
       apiModel: request.apiModel,
+      apiImageModel: request.apiImageModel,
+      ollamaModel: request.ollamaModel,
     });
 
     const resolved = await resolveCodexRuntime(repository, projectId);
@@ -2860,6 +2865,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
+        ollamaModel: settings.ollamaModel,
         timeoutMs: request.timeoutMs,
       },
     );
@@ -2892,6 +2898,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
+        ollamaModel: settings.ollamaModel,
       },
     );
 
@@ -2944,6 +2951,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
         allowApiCalls: settings.allowApiCalls,
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
+        ollamaModel: settings.ollamaModel,
       },
     );
 

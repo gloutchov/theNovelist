@@ -334,6 +334,8 @@ const novelistApi = {
     apiKey?: string | null;
     clearStoredApiKey?: boolean;
     apiModel?: string;
+    apiImageModel?: string;
+    ollamaModel?: string;
   }): Promise<CodexSettingsResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexUpdateSettings, payload),
   codexAssist: (payload: {

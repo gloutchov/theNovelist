@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import {
   applyEdgeChanges,
   applyNodeChanges,
@@ -27,6 +35,11 @@ import ChapterFlowNode, { type ChapterFlowNodeData } from './ChapterFlowNode';
 import CharacterBoard from './CharacterBoard';
 import CharacterFlowNode from './CharacterFlowNode';
 import { getNearbyCanvasPosition } from './canvas-position';
+import {
+  FLOW_MINIMAP_MASK_COLOR,
+  getFlowMiniMapNodeColor,
+  getFlowMiniMapNodeStrokeColor,
+} from './flow-minimap';
 import LocationBoard from './LocationBoard';
 import LocationFlowNode from './LocationFlowNode';
 import PlotFlowNode, { type PlotFlowNodeData } from './PlotFlowNode';
@@ -58,6 +71,7 @@ type DashboardLocationCard = Awaited<
 type DashboardSceneCard = Awaited<
   ReturnType<(typeof window.novelistApi)['listSceneCards']>
 >[number];
+type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexMemorySource = NonNullable<
   Awaited<ReturnType<(typeof window.novelistApi)['codexChat']>>['memorySources']
 >[number];
@@ -167,8 +181,37 @@ interface OutlineState {
   ambiguousCount: number;
 }
 
+interface RichTextNodeJson {
+  type?: string;
+  text?: string;
+  attrs?: Record<string, unknown>;
+  marks?: Array<{ type?: string; attrs?: Record<string, unknown> }>;
+  content?: RichTextNodeJson[];
+}
+
+interface RichTextDocumentJson {
+  type?: string;
+  content?: RichTextNodeJson[];
+}
+
+interface ReadingChapter {
+  id: string;
+  title: string;
+  document: RichTextDocumentJson;
+  wordCount: number;
+}
+
+interface ReadingViewState {
+  title: string;
+  subtitle: string;
+  chapters: ReadingChapter[];
+}
+
 const DEFAULT_PROJECT_NAME = 'Romanzo senza titolo';
 const MEMORY_SUMMARY_STORAGE_PREFIX = 'the-novelist.memory-summary.v1';
+const DEFAULT_API_MODEL = 'gpt-5-mini';
+const DEFAULT_API_IMAGE_MODEL = 'gpt-image-1';
+const DEFAULT_OLLAMA_MODEL = 'gemma4:e4b-it-q4_K_M';
 
 function createEmptyDashboardState(): DashboardState {
   return {
@@ -689,11 +732,160 @@ function buildOutlineChapterOrder(
   return { orderedChapters, incomingById, outgoingById, cycleIds };
 }
 
+function parseReadingDocument(contentJson: string): RichTextDocumentJson {
+  try {
+    const parsed = JSON.parse(contentJson) as RichTextDocumentJson;
+    if (parsed && parsed.type === 'doc' && Array.isArray(parsed.content)) {
+      return parsed;
+    }
+  } catch {
+    return { type: 'doc', content: [] };
+  }
+
+  return { type: 'doc', content: [] };
+}
+
+function richTextNodeHasContent(node: RichTextNodeJson): boolean {
+  if (typeof node.text === 'string' && node.text.trim().length > 0) {
+    return true;
+  }
+  if (node.type === 'referenceMention') {
+    const label = typeof node.attrs?.label === 'string' ? node.attrs.label.trim() : '';
+    return label.length > 0;
+  }
+  return Array.isArray(node.content) && node.content.some(richTextNodeHasContent);
+}
+
+function richTextDocumentHasContent(document: RichTextDocumentJson): boolean {
+  return Array.isArray(document.content) && document.content.some(richTextNodeHasContent);
+}
+
+function getReadingTextAlign(attrs: Record<string, unknown> | undefined): CSSProperties | undefined {
+  const textAlign = attrs?.textAlign;
+  if (
+    textAlign === 'left' ||
+    textAlign === 'center' ||
+    textAlign === 'right' ||
+    textAlign === 'justify'
+  ) {
+    return { textAlign };
+  }
+
+  return undefined;
+}
+
+function renderReadingInlineNode(node: RichTextNodeJson, key: string): ReactNode {
+  if (node.type === 'hardBreak') {
+    return <br key={key} />;
+  }
+
+  if (node.type === 'referenceMention') {
+    return null;
+  }
+
+  let content: ReactNode =
+    typeof node.text === 'string'
+      ? node.text
+      : node.content?.map((child, index) => renderReadingInlineNode(child, `${key}-${index}`));
+
+  for (const [markIndex, mark] of (node.marks ?? []).entries()) {
+    const markKey = `${key}-mark-${markIndex}`;
+    if (mark.type === 'bold') {
+      content = <strong key={markKey}>{content}</strong>;
+    } else if (mark.type === 'italic') {
+      content = <em key={markKey}>{content}</em>;
+    } else if (mark.type === 'strike') {
+      content = <s key={markKey}>{content}</s>;
+    } else if (mark.type === 'code') {
+      content = <code key={markKey}>{content}</code>;
+    } else if (mark.type === 'underline') {
+      content = <u key={markKey}>{content}</u>;
+    }
+  }
+
+  return <span key={key}>{content}</span>;
+}
+
+function renderReadingBlockNode(node: RichTextNodeJson, key: string): ReactNode {
+  const children = Array.isArray(node.content)
+    ? node.content.map((child, index) => {
+        if (child.type === 'bulletList' || child.type === 'orderedList' || child.type === 'blockquote') {
+          return renderReadingBlockNode(child, `${key}-${index}`);
+        }
+        return renderReadingInlineNode(child, `${key}-${index}`);
+      })
+    : null;
+  const textAlignStyle = getReadingTextAlign(node.attrs);
+
+  if (node.type === 'heading') {
+    const level = node.attrs?.level === 1 ? 2 : node.attrs?.level === 2 ? 3 : 4;
+    if (level === 2) {
+      return (
+        <h2 key={key} style={textAlignStyle}>
+          {children}
+        </h2>
+      );
+    }
+    if (level === 3) {
+      return (
+        <h3 key={key} style={textAlignStyle}>
+          {children}
+        </h3>
+      );
+    }
+    return (
+      <h4 key={key} style={textAlignStyle}>
+        {children}
+      </h4>
+    );
+  }
+
+  if (node.type === 'blockquote') {
+    return (
+      <blockquote key={key} style={textAlignStyle}>
+        {children}
+      </blockquote>
+    );
+  }
+
+  if (node.type === 'bulletList') {
+    return <ul key={key}>{children}</ul>;
+  }
+
+  if (node.type === 'orderedList') {
+    return <ol key={key}>{children}</ol>;
+  }
+
+  if (node.type === 'listItem') {
+    return <li key={key}>{children}</li>;
+  }
+
+  return (
+    <p key={key} style={textAlignStyle}>
+      {children}
+    </p>
+  );
+}
+
+function renderReadingDocument(document: RichTextDocumentJson): ReactNode {
+  if (!richTextDocumentHasContent(document)) {
+    return <p className="reader-empty-chapter">Capitolo vuoto.</p>;
+  }
+
+  return (document.content ?? []).map((node, index) => renderReadingBlockNode(node, `block-${index}`));
+}
+
 function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
-  const maybeSettings = settings as CodexSettings & { allowExternalMemorySharing?: boolean };
+  const maybeSettings = settings as CodexSettings & {
+    allowExternalMemorySharing?: boolean;
+    apiImageModel?: string;
+    ollamaModel?: string;
+  };
   return {
     ...settings,
     allowExternalMemorySharing: maybeSettings.allowExternalMemorySharing ?? true,
+    apiImageModel: maybeSettings.apiImageModel?.trim() || DEFAULT_API_IMAGE_MODEL,
+    ollamaModel: maybeSettings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL,
   };
 }
 
@@ -716,6 +908,10 @@ function hasPendingAiSettingsChanges(
       normalizeCodexSettings(persistedSettings).allowExternalMemorySharing ||
     localSettings.autoSummarizeDescriptions !== persistedSettings.autoSummarizeDescriptions ||
     localSettings.apiModel !== persistedSettings.apiModel ||
+    normalizeCodexSettings(localSettings).apiImageModel !==
+      normalizeCodexSettings(persistedSettings).apiImageModel ||
+    normalizeCodexSettings(localSettings).ollamaModel !==
+      normalizeCodexSettings(persistedSettings).ollamaModel ||
     Boolean(apiKeyInput.trim()) ||
     clearStoredApiKey
   );
@@ -1100,6 +1296,8 @@ export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(() => createEmptyDashboardState());
   const [outline, setOutline] = useState<OutlineState>(() => createEmptyOutlineState());
   const [draggedOutlineChapterId, setDraggedOutlineChapterId] = useState<string | null>(null);
+  const [readingView, setReadingView] = useState<ReadingViewState | null>(null);
+  const [readingViewLoading, setReadingViewLoading] = useState<boolean>(false);
 
   const [plots, setPlots] = useState<PlotRecord[]>([]);
   const [plotNodes, setPlotNodes] = useState<PlotCanvasNode[]>([]);
@@ -1415,6 +1613,8 @@ export default function App() {
         apiKey: apiKeyInput || undefined,
         clearStoredApiKey: shouldClearStoredApiKey || undefined,
         apiModel: aiSettings.apiModel,
+        apiImageModel: normalizeCodexSettings(aiSettings).apiImageModel,
+        ollamaModel: normalizeCodexSettings(aiSettings).ollamaModel,
       });
       setAiSettings(normalizeCodexSettings(saved));
       setAiApiKeyInput('');
@@ -1837,6 +2037,95 @@ export default function App() {
     void syncOutlineOrder(nextChapters);
   }
 
+  async function openChapterReadingView(chapter: OutlineChapter): Promise<void> {
+    if (!currentProject) {
+      setStatus('Apri o crea prima un progetto');
+      return;
+    }
+
+    setReadingViewLoading(true);
+    setError(null);
+
+    try {
+      const document = await window.novelistApi.getChapterDocument({
+        chapterNodeId: chapter.node.id,
+      });
+      setReadingView({
+        title: chapter.node.title,
+        subtitle: currentProject.name,
+        chapters: [
+          {
+            id: chapter.node.id,
+            title: chapter.node.title,
+            document: parseReadingDocument(document.contentJson),
+            wordCount: document.wordCount,
+          },
+        ],
+      });
+      setStatus(`Vista lettura aperta: ${chapter.node.title}`);
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      setStatus('Errore apertura vista lettura');
+    } finally {
+      setReadingViewLoading(false);
+    }
+  }
+
+  async function openFullDocumentReadingView(): Promise<void> {
+    if (!currentProject) {
+      setStatus('Apri o crea prima un progetto');
+      return;
+    }
+
+    setReadingViewLoading(true);
+    setError(null);
+
+    try {
+      const state = await window.novelistApi.getStoryState();
+      const { orderedChapters } = buildOutlineChapterOrder(state.nodes, state.edges);
+      if (orderedChapters.length === 0) {
+        setError('Nessun capitolo disponibile per aprire il documento completo.');
+        setStatus('Documento completo non disponibile');
+        return;
+      }
+
+      const documentsByNodeId = new Map<string, ChapterDocumentRecord>(
+        (
+          await Promise.all(
+            orderedChapters.map(async (chapter) => {
+              const document = await window.novelistApi.getChapterDocument({
+                chapterNodeId: chapter.id,
+              });
+              return [chapter.id, document] as const;
+            }),
+          )
+        ).map(([chapterNodeId, document]) => [chapterNodeId, document]),
+      );
+
+      setReadingView({
+        title: `${currentProject.name} - Documento completo`,
+        subtitle: `${orderedChapters.length} capitoli`,
+        chapters: orderedChapters.map((chapter) => {
+          const document = documentsByNodeId.get(chapter.id);
+          return {
+            id: chapter.id,
+            title: chapter.title,
+            document: parseReadingDocument(document?.contentJson ?? ''),
+            wordCount: document?.wordCount ?? 0,
+          };
+        }),
+      });
+      setStatus('Vista lettura documento completo aperta');
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      setStatus('Errore apertura documento completo');
+    } finally {
+      setReadingViewLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!currentProject) {
       setDashboard(createEmptyDashboardState());
@@ -1851,6 +2140,23 @@ export default function App() {
       void refreshOutlineData();
     }
   }, [activeTab, currentProject, refreshDashboardData, refreshOutlineData]);
+
+  useEffect(() => {
+    if (!readingView) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setReadingView(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [readingView]);
 
   async function refreshWikiStatus(): Promise<void> {
     if (!currentProject) {
@@ -2423,6 +2729,10 @@ export default function App() {
             apiKey: aiApiKeyInput.trim() || undefined,
             clearStoredApiKey: clearStoredApiKey || undefined,
             apiModel: aiSettings?.apiModel,
+            apiImageModel: aiSettings
+              ? normalizeCodexSettings(aiSettings).apiImageModel
+              : undefined,
+            ollamaModel: aiSettings ? normalizeCodexSettings(aiSettings).ollamaModel : undefined,
           })
         : persistedAiSettings;
 
@@ -3736,9 +4046,23 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => void refreshOutlineData()}
-                  disabled={outline.loading || outline.saving || busy}
+                  disabled={outline.loading || outline.saving || readingViewLoading || busy}
                 >
                   {outline.loading ? 'Aggiorno...' : 'Aggiorna Scaletta'}
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => void openFullDocumentReadingView()}
+                  disabled={
+                    outline.loading ||
+                    outline.saving ||
+                    readingViewLoading ||
+                    busy ||
+                    outline.chapters.length === 0
+                  }
+                >
+                  {readingViewLoading ? 'Apro...' : 'Apri Documento completo'}
                 </button>
               </div>
             </section>
@@ -3784,8 +4108,8 @@ export default function App() {
                             <button
                               type="button"
                               className="button-secondary"
-                              onClick={() => openEditorForNode(chapter.node.id)}
-                              disabled={outline.saving || busy}
+                              onClick={() => void openChapterReadingView(chapter)}
+                              disabled={outline.saving || readingViewLoading || busy}
                             >
                               Apri
                             </button>
@@ -4006,7 +4330,13 @@ export default function App() {
               fitView
               deleteKeyCode={['Backspace', 'Delete']}
             >
-              <MiniMap zoomable pannable />
+              <MiniMap
+                zoomable
+                pannable
+                nodeColor={getFlowMiniMapNodeColor}
+                nodeStrokeColor={getFlowMiniMapNodeStrokeColor}
+                maskColor={FLOW_MINIMAP_MASK_COLOR}
+              />
               <Controls />
               <Background gap={18} size={1} color="#d1d5db" />
             </ReactFlow>
@@ -4087,7 +4417,13 @@ export default function App() {
                 deleteKeyCode={null}
                 zoomOnDoubleClick={false}
               >
-                <MiniMap zoomable pannable />
+                <MiniMap
+                  zoomable
+                  pannable
+                  nodeColor={getFlowMiniMapNodeColor}
+                  nodeStrokeColor={getFlowMiniMapNodeStrokeColor}
+                  maskColor={FLOW_MINIMAP_MASK_COLOR}
+                />
                 <Controls />
                 <Background gap={18} size={1} color="#d1d5db" />
               </ReactFlow>
@@ -4402,24 +4738,6 @@ export default function App() {
 
             <details className="panel panel-subsection settings-section" open>
               <summary>Impostazioni AI</summary>
-              <label className="checkbox-inline">
-                <input
-                  type="checkbox"
-                  checked={Boolean(aiSettings?.enabled)}
-                  disabled={!aiSettings}
-                  onChange={(event) =>
-                    setAiSettings((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            enabled: event.target.checked,
-                          }
-                        : prev,
-                    )
-                  }
-                />
-                <span>Consenso invio testo a strumenti AI</span>
-              </label>
               <label>
                 Provider
                 <select
@@ -4473,6 +4791,83 @@ export default function App() {
                 Provider primario: {getAiProviderLabel(aiSettings?.provider ?? 'codex_cli')}.
                 Fallback: {getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none')}.
               </p>
+              <label>
+                Modello API
+                <input
+                  value={aiSettings?.apiModel ?? DEFAULT_API_MODEL}
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            apiModel: event.target.value,
+                          }
+                        : prev,
+                    )
+                  }
+                  placeholder={DEFAULT_API_MODEL}
+                  disabled={!aiSettings}
+                />
+              </label>
+              <label>
+                Modello API immagini
+                <input
+                  value={
+                    aiSettings
+                      ? normalizeCodexSettings(aiSettings).apiImageModel
+                      : DEFAULT_API_IMAGE_MODEL
+                  }
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            apiImageModel: event.target.value,
+                          }
+                        : prev,
+                    )
+                  }
+                  placeholder={DEFAULT_API_IMAGE_MODEL}
+                  disabled={!aiSettings}
+                />
+              </label>
+              <label>
+                Modello Ollama
+                <input
+                  value={aiSettings ? normalizeCodexSettings(aiSettings).ollamaModel : DEFAULT_OLLAMA_MODEL}
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            ollamaModel: event.target.value,
+                          }
+                        : prev,
+                    )
+                  }
+                  placeholder={DEFAULT_OLLAMA_MODEL}
+                  disabled={!aiSettings}
+                />
+              </label>
+              {!currentProject ? (
+                <p className="muted">
+                  Le impostazioni AI restano legate al progetto aperto e sono disabilitate finché
+                  non ne apri uno.
+                </p>
+              ) : null}
+              <div className="row-buttons">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveAiSettings()}
+                  disabled={!aiSettings || aiSettingsBusy || !currentProject}
+                >
+                  Salva Impostazioni AI
+                </button>
+              </div>
+            </details>
+
+            <details className="panel panel-subsection settings-section" open>
+              <summary>Consensi</summary>
               <label className="checkbox-inline">
                 <input
                   type="checkbox"
@@ -4490,6 +4885,45 @@ export default function App() {
                   }
                 />
                 <span>Abilita chiamate API esterne</span>
+              </label>
+              <p className="muted">
+                Richiesto per OpenAI API e per l'endpoint HTTP locale di Ollama.
+              </p>
+              <label className="checkbox-inline">
+                <input
+                  type="checkbox"
+                  checked={Boolean(aiSettings?.enabled)}
+                  disabled={!aiSettings}
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            enabled: event.target.checked,
+                          }
+                        : prev,
+                    )
+                  }
+                />
+                <span>Consenso invio testo a strumenti AI</span>
+              </label>
+              <label className="checkbox-inline">
+                <input
+                  type="checkbox"
+                  checked={aiSettings ? aiSettings.allowExternalMemorySharing !== false : false}
+                  disabled={!aiSettings}
+                  onChange={(event) =>
+                    setAiSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            allowExternalMemorySharing: event.target.checked,
+                          }
+                        : prev,
+                    )
+                  }
+                />
+                <span>Consenso invio memoria progetto a provider esterni</span>
               </label>
               <label className="checkbox-inline">
                 <input
@@ -4509,26 +4943,25 @@ export default function App() {
                 />
                 <span>Auto-riassunto descrizione blocco al salvataggio</span>
               </label>
+              <p className="muted">
+                Se disattivato, la chat AI non allega la wiki del progetto quando il provider o il
+                fallback possono inviare il prompt fuori dal computer.
+              </p>
+              <div className="row-buttons">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveAiSettings()}
+                  disabled={!aiSettings || aiSettingsBusy || !currentProject}
+                >
+                  Salva Consensi
+                </button>
+              </div>
+            </details>
+
+            <details className="panel panel-subsection settings-section">
+              <summary>Segreti</summary>
               <label>
-                Modello API
-                <input
-                  value={aiSettings?.apiModel ?? 'gpt-5-mini'}
-                  onChange={(event) =>
-                    setAiSettings((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            apiModel: event.target.value,
-                          }
-                        : prev,
-                    )
-                  }
-                  placeholder="gpt-5-mini"
-                  disabled={!aiSettings}
-                />
-              </label>
-              <label>
-                API Key (opzionale)
+                API Key
                 <input
                   type="password"
                   value={aiApiKeyInput}
@@ -4551,12 +4984,6 @@ export default function App() {
               {clearStoredApiKey ? (
                 <p className="muted">La chiave salvata verrà rimossa al prossimo salvataggio.</p>
               ) : null}
-              {!currentProject ? (
-                <p className="muted">
-                  Le impostazioni AI restano legate al progetto aperto e sono disabilitate finché
-                  non ne apri uno.
-                </p>
-              ) : null}
               <div className="row-buttons">
                 <button
                   type="button"
@@ -4569,49 +4996,12 @@ export default function App() {
                 >
                   Rimuovi API key salvata
                 </button>
-              </div>
-              <div className="row-buttons">
                 <button
                   type="button"
                   onClick={() => void handleSaveAiSettings()}
                   disabled={!aiSettings || aiSettingsBusy || !currentProject}
                 >
-                  Salva Impostazioni AI
-                </button>
-              </div>
-            </details>
-
-            <details className="panel panel-subsection settings-section" open>
-              <summary>Consensi</summary>
-              <label className="checkbox-inline">
-                <input
-                  type="checkbox"
-                  checked={aiSettings ? aiSettings.allowExternalMemorySharing !== false : false}
-                  disabled={!aiSettings}
-                  onChange={(event) =>
-                    setAiSettings((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            allowExternalMemorySharing: event.target.checked,
-                          }
-                        : prev,
-                    )
-                  }
-                />
-                <span>Consenso invio memoria progetto a provider esterni</span>
-              </label>
-              <p className="muted">
-                Se disattivato, la chat AI non allega la wiki del progetto quando il provider o il
-                fallback possono inviare il prompt fuori dal computer.
-              </p>
-              <div className="row-buttons">
-                <button
-                  type="button"
-                  onClick={() => void handleSaveAiSettings()}
-                  disabled={!aiSettings || aiSettingsBusy || !currentProject}
-                >
-                  Salva Consensi
+                  Salva Segreti
                 </button>
               </div>
             </details>
@@ -5078,6 +5468,30 @@ export default function App() {
           }}
           onMemorySources={setLastAiMemorySources}
         />
+      ) : null}
+
+      {readingView ? (
+        <section className="reading-view-overlay" role="dialog" aria-modal="true">
+          <header className="reading-view-header">
+            <div>
+              <p>{readingView.subtitle}</p>
+              <h1>{readingView.title}</h1>
+            </div>
+            <button type="button" className="button-secondary" onClick={() => setReadingView(null)}>
+              Chiudi
+            </button>
+          </header>
+          <div className="reading-view-scroll">
+            <div className="reading-view-document">
+              {readingView.chapters.map((chapter) => (
+                <article key={chapter.id} className="reading-view-chapter">
+                  {readingView.chapters.length > 1 ? <h2>{chapter.title}</h2> : null}
+                  <div className="reading-view-content">{renderReadingDocument(chapter.document)}</div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
       ) : null}
     </main>
   );

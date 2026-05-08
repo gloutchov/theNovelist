@@ -60,6 +60,8 @@ describe('database migrations', () => {
       expect(codexSettingsColumns.map((row) => row.name)).toContain(
         'allow_external_memory_sharing',
       );
+      expect(codexSettingsColumns.map((row) => row.name)).toContain('ollama_model');
+      expect(codexSettingsColumns.map((row) => row.name)).toContain('api_image_model');
 
       const projectColumns = db.prepare("PRAGMA table_info('projects')").all() as Array<{
         name: string;

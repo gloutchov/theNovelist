@@ -14,6 +14,7 @@ export interface CodexRuntimeSettings {
   allowApiCalls: boolean;
   apiKey: string | null;
   apiModel: string;
+  ollamaModel: string;
   timeoutMs: number;
 }
 
@@ -75,6 +76,7 @@ const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   allowApiCalls: false,
   apiKey: null,
   apiModel: 'gpt-5-mini',
+  ollamaModel: 'gemma4:e4b-it-q4_K_M',
   timeoutMs: DEFAULT_CODEX_TIMEOUT_MS,
 };
 const resolvedCommandCache = new Map<string, Promise<string>>();
@@ -110,6 +112,7 @@ function normalizeSettings(
     allowApiCalls: Boolean(settings?.allowApiCalls),
     apiKey: settings?.apiKey ?? null,
     apiModel: settings?.apiModel?.trim() || DEFAULT_AI_SETTINGS.apiModel,
+    ollamaModel: settings?.ollamaModel?.trim() || DEFAULT_AI_SETTINGS.ollamaModel,
     timeoutMs: normalizeRequestTimeoutMs(settings?.timeoutMs, defaultTimeoutMs),
   };
 }
@@ -561,14 +564,17 @@ function fallbackTransform(action: CodexTransformAction, sourceText: string): st
   return normalized.length > 160 ? `${normalized.slice(0, 157).trim()}...` : normalized;
 }
 
-function fallbackChatResponse(message: string): string {
+function fallbackChatResponse(message: string, error?: string): string {
   const clean = compactWhitespace(message);
 
   return [
     'Modalita fallback locale attiva: AI non raggiungibile.',
     `Richiesta ricevuta: "${clean}".`,
+    error ? `Dettaglio tecnico: ${error}` : null,
     'Suggerimento: verifica impostazioni provider (Codex CLI, OpenAI API o Ollama).',
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function buildTransformPrompt(request: CodexTransformRequest): string {
@@ -849,7 +855,14 @@ async function runOllamaApi(
   }
 }
 
-async function probeOllama(timeoutMs: number): Promise<{ available: boolean; reason?: string }> {
+interface OllamaTagsResponse {
+  models?: Array<{ name?: string; model?: string }>;
+}
+
+async function probeOllama(
+  timeoutMs: number,
+  model?: string,
+): Promise<{ available: boolean; reason?: string }> {
   const baseUrl = resolveOllamaHost();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -865,6 +878,22 @@ async function probeOllama(timeoutMs: number): Promise<{ available: boolean; rea
         available: false,
         reason: `Ollama API ${response.status}: ${body.slice(0, 200)}`,
       };
+    }
+    if (model?.trim()) {
+      const payload = (await response.json()) as OllamaTagsResponse;
+      const modelNames = new Set(
+        (payload.models ?? [])
+          .flatMap((item) => [item.name, item.model])
+          .filter((name): name is string => typeof name === 'string' && Boolean(name.trim())),
+      );
+      if (!modelNames.has(model.trim())) {
+        return {
+          available: false,
+          reason: `Modello Ollama non installato: ${model.trim()}. Modelli disponibili: ${
+            [...modelNames].join(', ') || 'nessuno'
+          }.`,
+        };
+      }
     }
     return { available: true };
   } catch (error) {
@@ -1169,10 +1198,10 @@ export class CodexCliService {
         };
       }
 
-      const probe = await probeOllama(Math.min(this.timeoutMs, 10_000));
+      const probe = await probeOllama(Math.min(this.timeoutMs, 10_000), runtime.ollamaModel);
       return {
         available: probe.available,
-        command: `ollama@${resolveOllamaHost()}`,
+        command: `ollama@${resolveOllamaHost()} ${runtime.ollamaModel}`,
         mode: probe.available ? 'api' : 'fallback',
         reason: probe.available ? undefined : (probe.reason ?? 'Ollama non raggiungibile'),
       };
@@ -1224,7 +1253,7 @@ export class CodexCliService {
   ): Promise<CodexResult> {
     const prompt = buildChatPrompt(request);
     return this.enqueuePrompt(prompt, request.workspaceRoot, settings, (error) => ({
-      output: fallbackChatResponse(request.message),
+      output: fallbackChatResponse(request.message, error),
       mode: 'fallback',
       usedCommand: this.commandName,
       error,
@@ -1343,7 +1372,7 @@ export class CodexCliService {
         };
       }
 
-      return runOllamaApi(runtime.apiModel, prompt, runtime.timeoutMs, signal);
+      return runOllamaApi(runtime.ollamaModel, prompt, runtime.timeoutMs, signal);
     }
 
     const resolvedCommandName = await resolveRunnableCommandName(this.commandName);

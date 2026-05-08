@@ -92,6 +92,13 @@ interface PanDragState {
   startScrollTop: number;
 }
 
+interface TimelineViewport {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 const TIMELINE_Y = 96;
 const TIMELINE_AXIS_START_X = 74;
 const TIMELINE_DEFAULT_END_X = 1148;
@@ -108,6 +115,8 @@ const TIMELINE_ZOOM_MIN = 0.5;
 const TIMELINE_ZOOM_MAX = 1.8;
 const TIMELINE_ZOOM_STEP = 0.15;
 const TIMELINE_LOCAL_STORAGE_PREFIX = 'the-novelist.timeline.v1';
+const TIMELINE_MINIMAP_MAX_WIDTH = 190;
+const TIMELINE_MINIMAP_MAX_HEIGHT = 130;
 
 function getTimelineApi(): TimelineApi {
   return window.novelistApi as unknown as TimelineApi;
@@ -391,6 +400,12 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
   const [panDrag, setPanDrag] = useState<PanDragState | null>(null);
   const [timelineZoom, setTimelineZoom] = useState<number>(1);
   const [timelineEndX, setTimelineEndX] = useState<number>(TIMELINE_DEFAULT_END_X);
+  const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -423,6 +438,13 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
     () => Math.max(TIMELINE_CANVAS_MIN_HEIGHT, ...items.map((item) => item.positionY + 160)),
     [items],
   );
+
+  const minimapScale = useMemo(
+    () => Math.min(TIMELINE_MINIMAP_MAX_WIDTH / canvasWidth, TIMELINE_MINIMAP_MAX_HEIGHT / canvasHeight),
+    [canvasHeight, canvasWidth],
+  );
+  const minimapWidth = Math.max(120, Math.round(canvasWidth * minimapScale));
+  const minimapHeight = Math.max(76, Math.round(canvasHeight * minimapScale));
 
   const refreshTimeline = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -821,6 +843,115 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
     );
   }
 
+  const updateTimelineViewport = useCallback((): void => {
+    const shell = scrollShellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    setTimelineViewport({
+      left: shell.scrollLeft / timelineZoom,
+      top: shell.scrollTop / timelineZoom,
+      width: shell.clientWidth / timelineZoom,
+      height: shell.clientHeight / timelineZoom,
+    });
+  }, [timelineZoom]);
+
+  const zoomTimelineFromCenter = useCallback(
+    (direction: 1 | -1): void => {
+      const shell = scrollShellRef.current;
+      if (!shell) {
+        setTimelineZoom((current) =>
+          clamp(
+            current + direction * TIMELINE_ZOOM_STEP,
+            TIMELINE_ZOOM_MIN,
+            TIMELINE_ZOOM_MAX,
+          ),
+        );
+        return;
+      }
+
+      const pointerX = shell.clientWidth / 2;
+      const pointerY = shell.clientHeight / 2;
+      setTimelineZoom((currentZoom) => {
+        const nextZoom = clamp(
+          currentZoom + direction * TIMELINE_ZOOM_STEP,
+          TIMELINE_ZOOM_MIN,
+          TIMELINE_ZOOM_MAX,
+        );
+        if (nextZoom === currentZoom) {
+          return currentZoom;
+        }
+
+        const contentX = (shell.scrollLeft + pointerX) / currentZoom;
+        const contentY = (shell.scrollTop + pointerY) / currentZoom;
+        window.requestAnimationFrame(() => {
+          shell.scrollLeft = contentX * nextZoom - pointerX;
+          shell.scrollTop = contentY * nextZoom - pointerY;
+          updateTimelineViewport();
+        });
+        return nextZoom;
+      });
+    },
+    [updateTimelineViewport],
+  );
+
+  const fitTimelineView = useCallback((): void => {
+    const shell = scrollShellRef.current;
+    if (!shell) {
+      setTimelineZoom(1);
+      return;
+    }
+
+    const contentBounds = items.reduce(
+      (bounds, item) => ({
+        left: Math.min(bounds.left, item.positionX),
+        top: Math.min(bounds.top, item.positionY),
+        right: Math.max(bounds.right, item.positionX + TIMELINE_CARD_WIDTH),
+        bottom: Math.max(bounds.bottom, item.positionY + 132),
+      }),
+      {
+        left: TIMELINE_AXIS_START_X,
+        top: Math.max(0, TIMELINE_Y - 64),
+        right: timelineEndX + 140,
+        bottom: TIMELINE_Y + 180,
+      },
+    );
+    const padding = 56;
+    const contentWidth = contentBounds.right - contentBounds.left + padding * 2;
+    const contentHeight = contentBounds.bottom - contentBounds.top + padding * 2;
+    const nextZoom = clamp(
+      Math.min(shell.clientWidth / contentWidth, shell.clientHeight / contentHeight, 1),
+      TIMELINE_ZOOM_MIN,
+      TIMELINE_ZOOM_MAX,
+    );
+
+    setTimelineZoom(nextZoom);
+    window.requestAnimationFrame(() => {
+      shell.scrollLeft = Math.max(0, (contentBounds.left - padding) * nextZoom);
+      shell.scrollTop = Math.max(0, (contentBounds.top - padding) * nextZoom);
+      updateTimelineViewport();
+    });
+  }, [items, timelineEndX, updateTimelineViewport]);
+
+  function handleMinimapPointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const shell = scrollShellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const nextCenterX = ((event.clientX - rect.left) / minimapWidth) * canvasWidth;
+    const nextCenterY = ((event.clientY - rect.top) / minimapHeight) * canvasHeight;
+    shell.scrollLeft = Math.max(0, nextCenterX * timelineZoom - shell.clientWidth / 2);
+    shell.scrollTop = Math.max(0, nextCenterY * timelineZoom - shell.clientHeight / 2);
+    updateTimelineViewport();
+  }
+
   const handleTimelineWheel = useCallback((event: WheelEvent): void => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target || target.closest('input, textarea, select')) {
@@ -854,10 +985,11 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
       window.requestAnimationFrame(() => {
         shell.scrollLeft = contentX * nextZoom - pointerX;
         shell.scrollTop = contentY * nextZoom - pointerY;
+        updateTimelineViewport();
       });
       return nextZoom;
     });
-  }, []);
+  }, [updateTimelineViewport]);
 
   useEffect(() => {
     const shell = scrollShellRef.current;
@@ -865,11 +997,27 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
       return;
     }
 
+    updateTimelineViewport();
     shell.addEventListener('wheel', handleTimelineWheel, { passive: false });
     return () => {
       shell.removeEventListener('wheel', handleTimelineWheel);
     };
-  }, [handleTimelineWheel]);
+  }, [handleTimelineWheel, updateTimelineViewport]);
+
+  useEffect(() => {
+    updateTimelineViewport();
+  }, [canvasHeight, canvasWidth, timelineZoom, updateTimelineViewport]);
+
+  useEffect(() => {
+    const shell = scrollShellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => updateTimelineViewport());
+    resizeObserver.observe(shell);
+    return () => resizeObserver.disconnect();
+  }, [updateTimelineViewport]);
 
   return (
     <section className="timeline-workspace">
@@ -898,39 +1046,6 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
             Non collocati:{' '}
             <strong>{items.filter((item) => !isAttachedToTimeline(item, items)).length}</strong>
           </p>
-        </div>
-
-        <div className="panel">
-          <h2>Zoom</h2>
-          <div className="timeline-zoom-controls">
-            <button
-              type="button"
-              onClick={() =>
-                setTimelineZoom((current) =>
-                  clamp(current - TIMELINE_ZOOM_STEP, TIMELINE_ZOOM_MIN, TIMELINE_ZOOM_MAX),
-                )
-              }
-              disabled={timelineZoom <= TIMELINE_ZOOM_MIN}
-              title="Zoom out"
-            >
-              -
-            </button>
-            <button type="button" onClick={() => setTimelineZoom(1)}>
-              {Math.round(timelineZoom * 100)}%
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setTimelineZoom((current) =>
-                  clamp(current + TIMELINE_ZOOM_STEP, TIMELINE_ZOOM_MIN, TIMELINE_ZOOM_MAX),
-                )
-              }
-              disabled={timelineZoom >= TIMELINE_ZOOM_MAX}
-              title="Zoom in"
-            >
-              +
-            </button>
-          </div>
         </div>
 
         <div className="panel">
@@ -963,151 +1078,221 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
         </div>
       </aside>
 
-      <section
-        ref={scrollShellRef}
-        className={panDrag ? 'timeline-scroll-shell is-panning' : 'timeline-scroll-shell'}
-        onPointerDown={handlePanPointerDown}
-      >
-        <div
-          className="timeline-scale-frame"
-          style={{ width: canvasWidth * timelineZoom, height: canvasHeight * timelineZoom }}
+      <section className="timeline-canvas-shell">
+        <section
+          ref={scrollShellRef}
+          className={panDrag ? 'timeline-scroll-shell is-panning' : 'timeline-scroll-shell'}
+          onPointerDown={handlePanPointerDown}
+          onScroll={updateTimelineViewport}
         >
           <div
-            ref={canvasRef}
-            className={dragging ? 'timeline-canvas is-dragging' : 'timeline-canvas'}
-            style={{
-              width: canvasWidth,
-              height: canvasHeight,
-              transform: `scale(${timelineZoom})`,
-            }}
+            className="timeline-scale-frame"
+            style={{ width: canvasWidth * timelineZoom, height: canvasHeight * timelineZoom }}
           >
             <div
-              className={axisDrag ? 'timeline-axis is-resizing' : 'timeline-axis'}
+              ref={canvasRef}
+              className={dragging ? 'timeline-canvas is-dragging' : 'timeline-canvas'}
               style={{
-                top: TIMELINE_Y,
-                left: TIMELINE_AXIS_START_X,
-                width: timelineEndX - TIMELINE_AXIS_START_X,
+                width: canvasWidth,
+                height: canvasHeight,
+                transform: `scale(${timelineZoom})`,
               }}
-              onPointerDown={handleAxisPointerDown}
-              title="Trascina per allungare o accorciare la timeline"
             >
-              <span className="timeline-axis-line" />
-              <span className="timeline-axis-arrow" />
-            </div>
+              <div
+                className={axisDrag ? 'timeline-axis is-resizing' : 'timeline-axis'}
+                style={{
+                  top: TIMELINE_Y,
+                  left: TIMELINE_AXIS_START_X,
+                  width: timelineEndX - TIMELINE_AXIS_START_X,
+                }}
+                onPointerDown={handleAxisPointerDown}
+                title="Trascina per allungare o accorciare la timeline"
+              >
+                <span className="timeline-axis-line" />
+                <span className="timeline-axis-arrow" />
+              </div>
 
-            <label className="timeline-endpoint timeline-start" style={{ top: TIMELINE_Y - 48 }}>
-              <span>Inizio</span>
-              <input
-                value={startLabel}
-                onChange={(event) => setStartLabel(event.target.value)}
-                onBlur={() => void persistSettings()}
-                placeholder="Data"
-                disabled={saving}
-              />
-            </label>
+              <label className="timeline-endpoint timeline-start" style={{ top: TIMELINE_Y - 48 }}>
+                <span>Inizio</span>
+                <input
+                  value={startLabel}
+                  onChange={(event) => setStartLabel(event.target.value)}
+                  onBlur={() => void persistSettings()}
+                  placeholder="Data"
+                  disabled={saving}
+                />
+              </label>
 
-            <label
-              className="timeline-endpoint timeline-end"
-              style={{ top: TIMELINE_Y - 48, left: timelineEndX + 24 }}
-            >
-              <span>Fine</span>
-              <input
-                value={endLabel}
-                onChange={(event) => setEndLabel(event.target.value)}
-                onBlur={() => void persistSettings()}
-                placeholder="Data"
-                disabled={saving}
-              />
-            </label>
+              <label
+                className="timeline-endpoint timeline-end"
+                style={{ top: TIMELINE_Y - 48, left: timelineEndX + 24 }}
+              >
+                <span>Fine</span>
+                <input
+                  value={endLabel}
+                  onChange={(event) => setEndLabel(event.target.value)}
+                  onBlur={() => void persistSettings()}
+                  placeholder="Data"
+                  disabled={saving}
+                />
+              </label>
 
-            {items
-              .filter((item) => isAttachedToTimeline(item, items))
-              .map((item) => {
-                const connectorHeight = Math.max(28, item.positionY - TIMELINE_Y - 6);
-                return (
-                  <span key={`connector-${item.key}`}>
-                    <span
-                      className="timeline-connector"
-                      style={
-                        {
-                          left: getTimelineCenterX(item),
-                          top: TIMELINE_Y + 8,
-                          height: connectorHeight,
-                          backgroundColor: item.plotColor,
-                        } as CSSProperties
-                      }
-                    />
-                    {item.dateLabel.trim() ? (
+              {items
+                .filter((item) => isAttachedToTimeline(item, items))
+                .map((item) => {
+                  const connectorHeight = Math.max(28, item.positionY - TIMELINE_Y - 6);
+                  return (
+                    <span key={`connector-${item.key}`}>
                       <span
-                        className="timeline-connector-label"
+                        className="timeline-connector"
                         style={
                           {
                             left: getTimelineCenterX(item),
-                            top: Math.max(TIMELINE_Y + 24, item.positionY - 30),
-                            borderColor: item.plotColor,
+                            top: TIMELINE_Y + 8,
+                            height: connectorHeight,
+                            backgroundColor: item.plotColor,
                           } as CSSProperties
                         }
-                      >
-                        {item.dateLabel}
+                      />
+                      {item.dateLabel.trim() ? (
+                        <span
+                          className="timeline-connector-label"
+                          style={
+                            {
+                              left: getTimelineCenterX(item),
+                              top: Math.max(TIMELINE_Y + 24, item.positionY - 30),
+                              borderColor: item.plotColor,
+                            } as CSSProperties
+                          }
+                        >
+                          {item.dateLabel}
+                        </span>
+                      ) : null}
+                    </span>
+                  );
+                })}
+
+              {items.map((item) => {
+                const isSelected = item.key === selectedKey;
+                return (
+                  <article
+                    key={item.key}
+                    className={[
+                      'timeline-block',
+                      item.itemType === 'chapter' ? 'timeline-block-chapter' : 'timeline-block-scene',
+                      isSelected ? 'is-selected' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    style={
+                      {
+                        left: item.positionX,
+                        top: item.positionY,
+                        width: TIMELINE_CARD_WIDTH,
+                        '--plot-color': item.plotColor,
+                      } as CSSProperties
+                    }
+                    onPointerDown={(event) => handleBlockPointerDown(event, item)}
+                  >
+                    <header className="timeline-block-header">
+                      <span className="timeline-block-kind">
+                        {item.itemType === 'chapter' ? 'Capitolo' : 'Scena'}
                       </span>
+                      <span className="timeline-block-plot">{item.plotLabel}</span>
+                    </header>
+                    <h3>{item.itemType === 'scene' ? `#${item.title}` : item.title}</h3>
+                    <p>{item.subtitle || '-'}</p>
+                    {isSelected ? (
+                      <label className="timeline-date-field">
+                        <span>Data aggancio</span>
+                        <input
+                          value={item.dateLabel}
+                          onChange={(event) => handleDateChange(item, event.target.value)}
+                          onBlur={() => {
+                            const current = itemsRef.current.find(
+                              (currentItem) => currentItem.key === item.key,
+                            );
+                            if (current) {
+                              void persistItem(current);
+                            }
+                          }}
+                          placeholder="Riferimento temporale"
+                          disabled={saving}
+                        />
+                      </label>
                     ) : null}
-                  </span>
+                  </article>
                 );
               })}
-
-            {items.map((item) => {
-              const isSelected = item.key === selectedKey;
-              return (
-                <article
-                  key={item.key}
-                  className={[
-                    'timeline-block',
-                    item.itemType === 'chapter' ? 'timeline-block-chapter' : 'timeline-block-scene',
-                    isSelected ? 'is-selected' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={
-                    {
-                      left: item.positionX,
-                      top: item.positionY,
-                      width: TIMELINE_CARD_WIDTH,
-                      '--plot-color': item.plotColor,
-                    } as CSSProperties
-                  }
-                  onPointerDown={(event) => handleBlockPointerDown(event, item)}
-                >
-                  <header className="timeline-block-header">
-                    <span className="timeline-block-kind">
-                      {item.itemType === 'chapter' ? 'Capitolo' : 'Scena'}
-                    </span>
-                    <span className="timeline-block-plot">{item.plotLabel}</span>
-                  </header>
-                  <h3>{item.itemType === 'scene' ? `#${item.title}` : item.title}</h3>
-                  <p>{item.subtitle || '-'}</p>
-                  {isSelected ? (
-                    <label className="timeline-date-field">
-                      <span>Data aggancio</span>
-                      <input
-                        value={item.dateLabel}
-                        onChange={(event) => handleDateChange(item, event.target.value)}
-                        onBlur={() => {
-                          const current = itemsRef.current.find(
-                            (currentItem) => currentItem.key === item.key,
-                          );
-                          if (current) {
-                            void persistItem(current);
-                          }
-                        }}
-                        placeholder="Riferimento temporale"
-                        disabled={saving}
-                      />
-                    </label>
-                  ) : null}
-                </article>
-              );
-            })}
+            </div>
           </div>
+        </section>
+
+        <div className="timeline-canvas-controls" aria-label="Controlli timeline">
+          <button
+            type="button"
+            onClick={() => zoomTimelineFromCenter(1)}
+            disabled={timelineZoom >= TIMELINE_ZOOM_MAX}
+            title="Zoom in"
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => zoomTimelineFromCenter(-1)}
+            disabled={timelineZoom <= TIMELINE_ZOOM_MIN}
+            title="Zoom out"
+            aria-label="Zoom out"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            onClick={fitTimelineView}
+            title="Adatta vista"
+            aria-label="Adatta vista"
+          >
+            [ ]
+          </button>
+        </div>
+
+        <div
+          className="timeline-minimap"
+          style={{ width: minimapWidth, height: minimapHeight }}
+          onPointerDown={handleMinimapPointerDown}
+          title="Area di lavoro"
+        >
+          <span
+            className="timeline-minimap-axis"
+            style={{
+              left: TIMELINE_AXIS_START_X * minimapScale,
+              top: TIMELINE_Y * minimapScale,
+              width: Math.max(20, (timelineEndX - TIMELINE_AXIS_START_X) * minimapScale),
+            }}
+          />
+          {items.map((item) => (
+            <span
+              key={`minimap-${item.key}`}
+              className="timeline-minimap-item"
+              style={{
+                left: item.positionX * minimapScale,
+                top: item.positionY * minimapScale,
+                width: Math.max(4, TIMELINE_CARD_WIDTH * minimapScale),
+                height: Math.max(3, 84 * minimapScale),
+                backgroundColor: item.plotColor,
+              }}
+            />
+          ))}
+          <span
+            className="timeline-minimap-viewport"
+            style={{
+              left: clamp(timelineViewport.left * minimapScale, 0, minimapWidth),
+              top: clamp(timelineViewport.top * minimapScale, 0, minimapHeight),
+              width: clamp(timelineViewport.width * minimapScale, 8, minimapWidth),
+              height: clamp(timelineViewport.height * minimapScale, 8, minimapHeight),
+            }}
+          />
         </div>
       </section>
     </section>

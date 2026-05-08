@@ -17,6 +17,11 @@ import {
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import { getNearbyCanvasPosition } from './canvas-position';
+import {
+  FLOW_MINIMAP_MASK_COLOR,
+  getFlowMiniMapNodeColor,
+  getFlowMiniMapNodeStrokeColor,
+} from './flow-minimap';
 import LocationFlowNode, { type LocationFlowNodeData } from './LocationFlowNode';
 import { getStatusTone } from './status-tone';
 import { toImageSource } from './image-path';
@@ -986,7 +991,13 @@ export default function LocationBoard({
           fitView
           deleteKeyCode={['Backspace', 'Delete']}
         >
-          <MiniMap zoomable pannable />
+          <MiniMap
+            zoomable
+            pannable
+            nodeColor={getFlowMiniMapNodeColor}
+            nodeStrokeColor={getFlowMiniMapNodeStrokeColor}
+            maskColor={FLOW_MINIMAP_MASK_COLOR}
+          />
           <Controls />
           <Background gap={18} size={1} color="#d1d5db" />
         </ReactFlow>

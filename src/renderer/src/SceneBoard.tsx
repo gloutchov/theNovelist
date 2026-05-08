@@ -18,6 +18,11 @@ import {
 } from '@xyflow/react';
 import { getNearbyCanvasPosition } from './canvas-position';
 import ChapterEditor from './ChapterEditor';
+import {
+  FLOW_MINIMAP_MASK_COLOR,
+  getFlowMiniMapNodeColor,
+  getFlowMiniMapNodeStrokeColor,
+} from './flow-minimap';
 import SceneFlowNode, { type SceneFlowNodeData } from './SceneFlowNode';
 import { getStatusTone } from './status-tone';
 
@@ -497,7 +502,13 @@ export default function SceneBoard({
           fitView
           deleteKeyCode={null}
         >
-          <MiniMap zoomable pannable />
+          <MiniMap
+            zoomable
+            pannable
+            nodeColor={getFlowMiniMapNodeColor}
+            nodeStrokeColor={getFlowMiniMapNodeStrokeColor}
+            maskColor={FLOW_MINIMAP_MASK_COLOR}
+          />
           <Controls />
           <Background gap={18} size={1} color="#d1d5db" />
         </ReactFlow>
