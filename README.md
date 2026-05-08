@@ -110,7 +110,7 @@ La timeline viene utile per dare ordine cronologico agli eventi raccontati. La s
 L'autore può anche indicare date precise, sia di inizio, sia di fine, della timeline. E definire anche date specifiche per ogni singolo elemento connesso ad essa.
 
 ### Scaletta
-La scaletta è uno strumento di drag and drop verticale in cui l'autore può disporre i capitoli come meglio preferisce. La stampa, o l'export del romanzo/racconto avverrà in base all'ordinamento scelto in questa vista.
+La scaletta è uno strumento di drag and drop verticale in cui l'autore può disporre i capitoli come meglio preferisce. La stampa, o l'export del romanzo/racconto avverrà in base all'ordinamento scelto in questa vista. Il pulsante Apri permette di leggere il capitolo, o l'intero documento, in una finestra a zero-fastidi, pensata per non affaticare gli occhi.
 
 ### Revisioni
 Il programma tiene memoria di ogni modifica fatta nei capitoli e nelle scene, così come nelle schede personaggio e location. Nel caso si voglia tornare indietro, è possibile andare sulla vista Revisioni, cercare quella desiderata, e ripristinarla. 
@@ -195,13 +195,13 @@ Il programma permette di scegliere tra:
 3. Salvataggio automatico, a ogni modifica fatta dall'utente.
 
 ### Impostazioni AI
-Il programma prevede tre possibilità:
-1. Chiamare a riga di comando Codex CLI (installato in locale)
-2. Usare una API KEY e i servizi cloud
-3. Usare una AI locale (o cloud) tramite Ollama.
+Qui si può scegliere il modello AI da usare (Codex CLI, OperAI API KEY, Ollama), il fallback nel caso la AI scelta abbia problemi (tra cui anche No AI), e impostare i modelli a cui fare le richieste (prima di cambiare quelli di default, verificare i costi per token).
 
 ### Consensi
-Il programma permette di scegliere se permettere o meno alle AI di accedere alla memoria Wiki del progetto.
+Qui sono presenti le box per abilitare le varie funzionalità AI previste dall'applicazione.
+
+### Segreti
+Qui va inserita la API KEY per i servizi cloud.
 
 #### Codex CLI
 Codex CLI è il command line interface di OpenAI. Viene installato localmente, ma utilizza i modelli di OpenAI, di conseguenza è necessario un abbonamento a chatGPT (minimo il Plus), o una API KEY da associare.
