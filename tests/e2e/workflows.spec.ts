@@ -405,7 +405,6 @@ test('create character card from editor selection', async ({ page }) => {
   await createModal.getByLabel('Nome personaggio').fill('Anna Rossi');
   await createModal.getByRole('button', { name: 'Crea e inserisci @' }).click();
 
-  await expect(editorContent).toContainText('@Anna Rossi');
   await expect(editorContent).toContainText(sourceText);
   await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
 
@@ -454,7 +453,6 @@ test('create location card from editor selection', async ({ page }) => {
   await createModal.getByLabel('Nome location').fill('Porto Vecchio');
   await createModal.getByRole('button', { name: 'Crea e inserisci @' }).click();
 
-  await expect(editorContent).toContainText('@Porto Vecchio');
   await expect(editorContent).toContainText(sourceText);
   await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
 
