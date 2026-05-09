@@ -27,7 +27,7 @@ async function createPlot(page: Page, title: string, summary = 'Bozza sintetica'
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
   await expect(plotPanel).toBeVisible();
-  await plotPanel.getByLabel('Titolo trama').fill(title);
+  await plotPanel.getByLabel('Etichetta trama').fill(title);
   await plotPanel.getByLabel('Bozza trama / struttura').fill(summary);
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
   await expect(page.locator('.canvas-wrap').getByText(title)).toBeVisible();
