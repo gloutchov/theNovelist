@@ -110,16 +110,7 @@ test.describe('electron real e2e workflows', () => {
 
       const createdNode = window.locator('.react-flow__node').last();
       await expect(createdNode).toBeVisible({ timeout: 10_000 });
-      await createdNode.dblclick();
-
-      const editNodeModal = window.locator('.modal-card').filter({
-        has: window.getByRole('heading', { name: 'Modifica Blocco' }),
-      });
-      await expect(editNodeModal).toBeVisible({ timeout: 10_000 });
-      const openEditorButton = editNodeModal.getByRole('button', { name: 'Apri editor capitolo' });
-      await expect(openEditorButton).toBeEnabled({ timeout: 10_000 });
-      await openEditorButton.click();
-
+      await createdNode.click();
       await expect(window.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
       await expect(window.getByText('Caricamento capitolo...')).toBeHidden();
       const editorContent = window.locator('.novelist-editor-content');
