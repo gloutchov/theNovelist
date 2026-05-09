@@ -13,6 +13,7 @@ export interface ProjectWikiSearchResult {
   category: 'index' | 'source' | 'wiki';
   score: number;
   snippet: string;
+  content?: string;
 }
 
 interface WikiSearchDocument {
@@ -25,6 +26,7 @@ interface ScoredWikiSearchDocument extends WikiSearchDocument {
   title: string;
   score: number;
   snippet: string;
+  content: string;
 }
 
 const DEFAULT_LIMIT = 8;
@@ -188,6 +190,7 @@ function scoreDocument(params: {
     title: params.title,
     score,
     snippet: buildSnippet(params.content, params.terms, params.maxSnippetLength),
+    content: params.content,
   };
 }
 
@@ -245,5 +248,6 @@ export async function searchProjectWiki(
       category: result.category,
       score: result.score,
       snippet: result.snippet,
+      content: result.content,
     }));
 }

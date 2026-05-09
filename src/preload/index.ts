@@ -26,6 +26,7 @@ import type {
   TimelineItemResponse,
   TimelineSettingsResponse,
   TimelineStateResponse,
+  WikiSourceContentResponse,
   WikiStatusResponse,
   WikiSyncResponse,
   WikiSearchResultResponse,
@@ -79,6 +80,8 @@ const novelistApi = {
   wikiSync: (): Promise<WikiSyncResponse> => ipcRenderer.invoke(IPC_CHANNELS.wikiSync),
   wikiSearch: (payload: { query: string; limit?: number }): Promise<WikiSearchResultResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.wikiSearch, payload),
+  wikiReadSource: (payload: { path: string }): Promise<WikiSourceContentResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.wikiReadSource, payload),
   getStoryState: (): Promise<StoryStateResponse> => ipcRenderer.invoke(IPC_CHANNELS.storyGetState),
   createPlot: (payload: {
     number: number;
@@ -141,6 +144,8 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.chapterPrint, payload),
   exportManuscriptDocx: (): Promise<{ filePath: string } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.manuscriptExportDocx),
+  exportManuscriptEpub: (): Promise<{ filePath: string } | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.manuscriptExportEpub),
   printManuscript: (): Promise<{ ok: true } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.manuscriptPrint),
   listChapterCharacters: (payload: { chapterNodeId: string }): Promise<CharacterCardResponse[]> =>

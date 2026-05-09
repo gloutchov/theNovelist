@@ -58,6 +58,7 @@ type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPref
 type CreatedChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['createStoryNode']>>;
 type WikiStatus = Awaited<ReturnType<(typeof window.novelistApi)['wikiGetStatus']>>;
 type WikiSearchResult = Awaited<ReturnType<(typeof window.novelistApi)['wikiSearch']>>[number];
+type SelectedWikiSearchResult = WikiSearchResult & { content: string };
 type DashboardSnapshot = Awaited<ReturnType<(typeof window.novelistApi)['listSnapshots']>>[number];
 type DashboardWritingSession = Awaited<
   ReturnType<(typeof window.novelistApi)['listWritingSessions']>
@@ -760,7 +761,9 @@ function richTextDocumentHasContent(document: RichTextDocumentJson): boolean {
   return Array.isArray(document.content) && document.content.some(richTextNodeHasContent);
 }
 
-function getReadingTextAlign(attrs: Record<string, unknown> | undefined): CSSProperties | undefined {
+function getReadingTextAlign(
+  attrs: Record<string, unknown> | undefined,
+): CSSProperties | undefined {
   const textAlign = attrs?.textAlign;
   if (
     textAlign === 'left' ||
@@ -809,7 +812,11 @@ function renderReadingInlineNode(node: RichTextNodeJson, key: string): ReactNode
 function renderReadingBlockNode(node: RichTextNodeJson, key: string): ReactNode {
   const children = Array.isArray(node.content)
     ? node.content.map((child, index) => {
-        if (child.type === 'bulletList' || child.type === 'orderedList' || child.type === 'blockquote') {
+        if (
+          child.type === 'bulletList' ||
+          child.type === 'orderedList' ||
+          child.type === 'blockquote'
+        ) {
           return renderReadingBlockNode(child, `${key}-${index}`);
         }
         return renderReadingInlineNode(child, `${key}-${index}`);
@@ -872,7 +879,9 @@ function renderReadingDocument(document: RichTextDocumentJson): ReactNode {
     return <p className="reader-empty-chapter">Capitolo vuoto.</p>;
   }
 
-  return (document.content ?? []).map((node, index) => renderReadingBlockNode(node, `block-${index}`));
+  return (document.content ?? []).map((node, index) =>
+    renderReadingBlockNode(node, `block-${index}`),
+  );
 }
 
 function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
@@ -1289,6 +1298,8 @@ export default function App() {
   const [wikiError, setWikiError] = useState<string | null>(null);
   const [wikiSearchQuery, setWikiSearchQuery] = useState<string>('');
   const [wikiSearchResults, setWikiSearchResults] = useState<WikiSearchResult[]>([]);
+  const [selectedWikiSearchResult, setSelectedWikiSearchResult] =
+    useState<SelectedWikiSearchResult | null>(null);
   const [lastAiMemorySources, setLastAiMemorySources] = useState<CodexMemorySource[]>([]);
   const [memoryStorySummary, setMemoryStorySummary] = useState<string>('');
   const [memoryStorySummaryBusy, setMemoryStorySummaryBusy] = useState<boolean>(false);
@@ -2212,6 +2223,7 @@ export default function App() {
     const query = wikiSearchQuery.trim();
     if (!query) {
       setWikiSearchResults([]);
+      setSelectedWikiSearchResult(null);
       setStatus('Inserisci una ricerca per la memoria progetto');
       return;
     }
@@ -2222,6 +2234,7 @@ export default function App() {
     try {
       const results = await window.novelistApi.wikiSearch({ query, limit: 10 });
       setWikiSearchResults(results);
+      setSelectedWikiSearchResult(null);
       setStatus(
         results.length > 0
           ? `Memoria progetto: ${results.length} risultati`
@@ -2232,6 +2245,28 @@ export default function App() {
       setWikiError(message);
       setError(message);
       setStatus('Errore ricerca memoria progetto');
+    } finally {
+      setWikiBusy(false);
+    }
+  }
+
+  async function handleOpenWikiSearchResult(result: WikiSearchResult): Promise<void> {
+    setWikiBusy(true);
+    setError(null);
+    setWikiError(null);
+    try {
+      const readSource = window.novelistApi.wikiReadSource;
+      const source =
+        typeof readSource === 'function' ? await readSource({ path: result.path }) : null;
+      setSelectedWikiSearchResult({
+        ...result,
+        content: source?.content || result.content || result.snippet,
+      });
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setWikiError(message);
+      setError(message);
+      setStatus('Errore apertura fonte memoria');
     } finally {
       setWikiBusy(false);
     }
@@ -2304,6 +2339,7 @@ export default function App() {
   function openMemoryTab(): void {
     setWikiSearchQuery('');
     setWikiSearchResults([]);
+    setSelectedWikiSearchResult(null);
     setActiveTab('memory');
     void refreshWikiStatus();
     void refreshMemoryStorySummary();
@@ -2400,6 +2436,7 @@ export default function App() {
       setWikiError(null);
       setWikiSearchQuery('');
       setWikiSearchResults([]);
+      setSelectedWikiSearchResult(null);
       setLastAiMemorySources([]);
       setStatus(statusMessage);
       void refreshDashboardData();
@@ -2535,6 +2572,7 @@ export default function App() {
       setWikiError(null);
       setWikiSearchQuery('');
       setWikiSearchResults([]);
+      setSelectedWikiSearchResult(null);
       setLastAiMemorySources([]);
       setActiveTab('dashboard');
       setDashboard(createEmptyDashboardState());
@@ -3220,6 +3258,25 @@ export default function App() {
     }
   }
 
+  async function handleExportManuscriptEpub(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await window.novelistApi.exportManuscriptEpub();
+      if (result) {
+        setStatus(`Documento completo ePUB esportato: ${result.filePath}`);
+      } else {
+        setStatus('Esportazione ePUB documento completo annullata');
+      }
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      setError(message);
+      setStatus('Errore export ePUB documento completo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handlePrintManuscript(): Promise<void> {
     setBusy(true);
     setError(null);
@@ -3644,6 +3701,14 @@ export default function App() {
                 disabled={!canSaveProject || !hasUnsavedChanges}
               >
                 Salva
+              </button>
+              <button
+                type="button"
+                className="export-action-button"
+                onClick={() => void handleExportManuscriptEpub()}
+                disabled={!currentProject || busy}
+              >
+                Esporta ePUB
               </button>
               <button
                 type="button"
@@ -4610,11 +4675,16 @@ export default function App() {
               <summary>Risultati</summary>
               {wikiSearchResults.length > 0 ? (
                 <div className="memory-results">
-                  {wikiSearchResults.map((result) => (
-                    <article className="memory-result-card memory-answer-card" key={result.path}>
+                  {wikiSearchResults.map((result, index) => (
+                    <button
+                      type="button"
+                      className="memory-result-card memory-answer-card memory-result-button"
+                      key={`${result.path}-${index}`}
+                      onClick={() => void handleOpenWikiSearchResult(result)}
+                    >
                       <strong>{formatWikiResultTitle(result)}</strong>
                       <p>{result.snippet}</p>
-                    </article>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -4670,6 +4740,30 @@ export default function App() {
             <p>Apri o crea un progetto nella scheda "Struttura Storia" per usare la memoria.</p>
           </section>
         )
+      ) : null}
+
+      {selectedWikiSearchResult ? (
+        <div className="modal-overlay">
+          <div className="modal-card large-modal-card memory-result-modal-card">
+            <div className="memory-result-modal-header">
+              <div>
+                <h3>{formatWikiResultTitle(selectedWikiSearchResult)}</h3>
+                <code>{selectedWikiSearchResult.path}</code>
+              </div>
+              <span>{formatWikiCategoryLabel(selectedWikiSearchResult.category)}</span>
+            </div>
+            <pre className="memory-result-full-text">{selectedWikiSearchResult.content}</pre>
+            <div className="row-buttons modal-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setSelectedWikiSearchResult(null)}
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {isAiSettingsModalOpen ? (
@@ -4834,7 +4928,11 @@ export default function App() {
               <label>
                 Modello Ollama
                 <input
-                  value={aiSettings ? normalizeCodexSettings(aiSettings).ollamaModel : DEFAULT_OLLAMA_MODEL}
+                  value={
+                    aiSettings
+                      ? normalizeCodexSettings(aiSettings).ollamaModel
+                      : DEFAULT_OLLAMA_MODEL
+                  }
                   onChange={(event) =>
                     setAiSettings((prev) =>
                       prev
@@ -5486,7 +5584,9 @@ export default function App() {
               {readingView.chapters.map((chapter) => (
                 <article key={chapter.id} className="reading-view-chapter">
                   {readingView.chapters.length > 1 ? <h2>{chapter.title}</h2> : null}
-                  <div className="reading-view-content">{renderReadingDocument(chapter.document)}</div>
+                  <div className="reading-view-content">
+                    {renderReadingDocument(chapter.document)}
+                  </div>
                 </article>
               ))}
             </div>

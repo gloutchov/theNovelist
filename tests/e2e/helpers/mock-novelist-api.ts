@@ -608,6 +608,14 @@ export async function installNovelistApiMock(
             category: 'source' as const,
             score: 1,
             snippet: node.description || node.title,
+            content: [
+              `# ${node.title}`,
+              '',
+              node.description,
+              state.chapterDocumentsByNodeId.get(node.id)?.contentJson ?? '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
           }));
 
         const remaining = Math.max(limit - chapterResults.length, 0);
@@ -625,9 +633,36 @@ export async function installNovelistApiMock(
             category: 'source' as const,
             score: 1,
             snippet: card.text || card.notes || card.name,
+            content: [`# ${card.name}`, '', card.text, card.notes].filter(Boolean).join('\n'),
           }));
 
         return [...chapterResults, ...sceneResults];
+      },
+
+      wikiReadSource: async (payload: { path: string }) => {
+        const chapter = state.nodes.find(
+          (node) => payload.path === `sources/chapters/chapter-${node.id}.md`,
+        );
+        if (chapter) {
+          return {
+            path: payload.path,
+            content: [
+              `# ${chapter.title}`,
+              '',
+              chapter.description,
+              state.chapterDocumentsByNodeId.get(chapter.id)?.contentJson ?? '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          };
+        }
+
+        return {
+          path: payload.path,
+          content: state.sceneCards
+            .map((card) => [`# ${card.name}`, '', card.text, card.notes].filter(Boolean).join('\n'))
+            .join('\n\n'),
+        };
       },
 
       getStoryState: async () => ({
@@ -920,6 +955,10 @@ export async function installNovelistApiMock(
 
       exportManuscriptDocx: async () => ({
         filePath: '/tmp/manoscritto-completo.docx',
+      }),
+
+      exportManuscriptEpub: async () => ({
+        filePath: '/tmp/manoscritto-completo.epub',
       }),
 
       printManuscript: async () => ({ ok: true as const }),
