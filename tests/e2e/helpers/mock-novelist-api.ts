@@ -1330,7 +1330,7 @@ export async function installNovelistApiMock(
           startLabel: '',
           endLabel: '',
           timelineEndX: 1148,
-          updatedAt: nowIso(),
+          updatedAt: '1970-01-01T00:00:00.000Z',
         };
         return {
           settings: clone(settings),

@@ -50,6 +50,8 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+const DEFAULT_TIMELINE_SETTINGS_UPDATED_AT = '1970-01-01T00:00:00.000Z';
+
 function toProjectRecord(row: Record<string, unknown>): ProjectRecord {
   return {
     id: String(row.id),
@@ -1802,7 +1804,7 @@ export class NovelistRepository {
       startLabel: '',
       endLabel: '',
       timelineEndX: 1148,
-      updatedAt: nowIso(),
+      updatedAt: DEFAULT_TIMELINE_SETTINGS_UPDATED_AT,
     };
   }
 
