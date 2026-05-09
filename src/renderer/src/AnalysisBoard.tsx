@@ -101,6 +101,15 @@ function truncateText(value: string, maxLength: number): string {
   return `${compact.slice(0, maxLength).trim()}...`;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function characterName(card: CharacterCard): string {
   return `${card.firstName} ${card.lastName}`.trim() || card.id;
 }
@@ -308,10 +317,71 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const completedKinds = useMemo(() => new Set(results.map((result) => result.kind)), [results]);
   const activeTest = useMemo(
     () => ANALYSIS_TESTS.find((test) => test.kind === activeKind) ?? null,
     [activeKind],
   );
+
+  function printResult(result: AnalysisResult): void {
+    const frame = document.createElement('iframe');
+    frame.title = `Stampa analisi ${result.title}`;
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    document.body.appendChild(frame);
+
+    const frameDocument = frame.contentDocument;
+    if (!frameDocument) {
+      document.body.removeChild(frame);
+      setError('Impossibile preparare la stampa del report.');
+      onStatus('Errore stampa report analisi');
+      return;
+    }
+
+    frameDocument.open();
+    frameDocument.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(result.title)}</title>
+    <style>
+      @page { margin: 1.5cm; }
+      body {
+        color: #111827;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11pt;
+        line-height: 1.5;
+      }
+      h1 { margin: 0 0 0.35rem; font-size: 18pt; }
+      time { display: block; color: #64748b; margin-bottom: 1rem; }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(result.title)}</h1>
+    <time>${escapeHtml(new Date(result.generatedAt).toLocaleString())}</time>
+    <pre>${escapeHtml(result.output)}</pre>
+  </body>
+</html>`);
+    frameDocument.close();
+
+    setTimeout(() => {
+      frame.contentWindow?.focus();
+      frame.contentWindow?.print();
+      setTimeout(() => {
+        frame.remove();
+      }, 1_000);
+    }, 100);
+  }
 
   async function runAnalysis(kind: AnalysisKind): Promise<void> {
     const test = ANALYSIS_TESTS.find((candidate) => candidate.kind === kind);
@@ -449,7 +519,14 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
         {ANALYSIS_TESTS.map((test) => (
           <article className="panel analysis-test-card" key={test.kind}>
             <div>
-              <h3>{test.title}</h3>
+              <h3>
+                {test.title}
+                {completedKinds.has(test.kind) ? (
+                  <span className="analysis-test-complete-flag" aria-label="Test completato">
+                    ✓
+                  </span>
+                ) : null}
+              </h3>
               <p>{test.description}</p>
             </div>
             <button
@@ -480,7 +557,16 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
                   <p className="eyebrow">Report</p>
                   <h2>{result.title}</h2>
                 </div>
-                <span>{new Date(result.generatedAt).toLocaleString()}</span>
+                <div className="analysis-result-actions">
+                  <span>{new Date(result.generatedAt).toLocaleString()}</span>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => printResult(result)}
+                  >
+                    Stampa
+                  </button>
+                </div>
               </header>
               <pre>{result.output}</pre>
             </article>

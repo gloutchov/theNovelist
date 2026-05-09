@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+import { readFile, stat } from 'node:fs/promises';
+import path from 'node:path';
 import { closeDatabase, openDatabase } from '../persistence/database';
 import { NovelistRepository } from '../persistence/repository';
 import type { ProjectRecord } from '../persistence/types';
@@ -8,6 +10,7 @@ import { getProjectWikiStatus, type ProjectWikiStatus } from '../wiki/status';
 import { searchProjectWiki, type ProjectWikiSearchResult } from '../wiki/search';
 import { buildProjectMemoryContext, type ProjectMemoryContext } from '../wiki/chat-context';
 import { syncProjectWikiDeterministic, type ProjectWikiSyncResult } from '../wiki/sync';
+import { isSafeWikiRelativePath } from '../wiki/path-safety';
 import {
   AutoSaveScheduler,
   createProjectSnapshot,
@@ -21,6 +24,7 @@ export interface OpenedProject extends ProjectPaths {
 }
 
 const PROJECT_CLOSE_WIKI_SYNC_TIMEOUT_MS = 12_000;
+const MAX_WIKI_SOURCE_READ_BYTES = 500_000;
 
 export class ProjectSessionManager {
   private db: Database.Database | null = null;
@@ -141,6 +145,30 @@ export class ProjectSessionManager {
     return searchProjectWiki(this.currentProject.wikiPath, params.query, {
       limit: params.limit,
     });
+  }
+
+  async readProjectWikiSource(relativePath: string): Promise<string> {
+    if (!this.currentProject) {
+      throw new Error('No open project session');
+    }
+
+    if (!isSafeWikiRelativePath(relativePath)) {
+      throw new Error('Invalid wiki source path');
+    }
+
+    const normalizedPath = relativePath.trim().replace(/\\/g, '/');
+    const absolutePath = path.resolve(this.currentProject.wikiPath, normalizedPath);
+    const wikiRoot = path.resolve(this.currentProject.wikiPath);
+    if (absolutePath !== wikiRoot && !absolutePath.startsWith(`${wikiRoot}${path.sep}`)) {
+      throw new Error('Invalid wiki source path');
+    }
+
+    const fileStats = await stat(absolutePath);
+    if (!fileStats.isFile() || fileStats.size > MAX_WIKI_SOURCE_READ_BYTES) {
+      throw new Error('Wiki source is not readable');
+    }
+
+    return readFile(absolutePath, 'utf8');
   }
 
   async buildProjectMemoryContext(params: {

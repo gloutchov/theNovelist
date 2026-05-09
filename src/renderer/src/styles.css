@@ -142,9 +142,14 @@ body {
 
 .dashboard-project-actions {
   display: grid;
-  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.55rem;
   min-width: min(100%, 780px);
+}
+
+.dashboard-project-actions button {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .dashboard-summary-grid {
@@ -1925,6 +1930,24 @@ button:disabled {
   background: var(--surface-secondary);
 }
 
+.memory-result-button {
+  display: block;
+  width: 100%;
+  color: var(--text-body);
+  text-align: left;
+  box-shadow: none;
+}
+
+.memory-result-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-primary);
+}
+
+.memory-result-button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .memory-answer-card strong {
   display: block;
   margin-bottom: 0.4rem;
@@ -1958,6 +1981,55 @@ button:disabled {
   margin: 0.55rem 0 0;
   color: var(--text-body);
   line-height: 1.45;
+}
+
+.memory-result-modal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.memory-result-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.memory-result-modal-header h3 {
+  margin: 0 0 0.35rem;
+}
+
+.memory-result-modal-header code {
+  color: var(--text-muted);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.memory-result-modal-header span {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-accent);
+  color: var(--accent-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.memory-result-full-text {
+  max-height: min(64vh, 720px);
+  overflow: auto;
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  color: var(--text-body);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .analysis-workspace {
@@ -2008,8 +2080,23 @@ button:disabled {
 }
 
 .analysis-test-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   margin: 0 0 0.35rem;
   font-size: 1rem;
+}
+
+.analysis-test-complete-flag {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.38rem;
+  border-radius: 999px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid rgba(22, 101, 52, 0.28);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .analysis-test-card p {
@@ -2058,6 +2145,17 @@ button:disabled {
   color: var(--text-muted);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.analysis-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.analysis-result-actions button {
+  min-height: 34px;
+  padding-inline: 0.7rem;
 }
 
 .analysis-result-card pre {

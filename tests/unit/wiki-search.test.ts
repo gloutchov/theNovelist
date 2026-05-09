@@ -53,6 +53,7 @@ describe('searchProjectWiki', () => {
       category: 'source',
     });
     expect(results[0]?.snippet).toContain('Tizio firma');
+    expect(results[0]?.content).toContain('Tizio firma il patto nel magazzino vicino al porto.');
     expect(results.map((result) => result.path)).not.toContain('maintenance/ignored.md');
   });
 

@@ -8,6 +8,7 @@ import {
   buildChapterPrintHtml,
   buildManuscriptPrintHtml,
   exportManuscriptToDocx,
+  exportManuscriptToEpub,
   exportRichTextToDocx,
   getDefaultExportName,
 } from './chapters/exporters';
@@ -364,6 +365,10 @@ const wikiSearchRequestSchema = z.object({
   limit: z.number().int().min(1).max(25).optional(),
 });
 
+const wikiReadSourceRequestSchema = z.object({
+  path: z.string().trim().min(1).max(1_000),
+});
+
 const projectResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -673,6 +678,12 @@ const wikiSearchResultResponseSchema = z.object({
   category: z.enum(['index', 'source', 'wiki']),
   score: z.number(),
   snippet: z.string(),
+  content: z.string().optional(),
+});
+
+const wikiSourceContentResponseSchema = z.object({
+  path: z.string(),
+  content: z.string(),
 });
 
 const successResponseSchema = z.object({ ok: z.literal(true) });
@@ -706,6 +717,7 @@ export type CodexChatMessageResponse = z.infer<typeof codexChatMessageResponseSc
 export type WikiStatusResponse = z.infer<typeof wikiStatusResponseSchema>;
 export type WikiSyncResponse = z.infer<typeof wikiSyncResponseSchema>;
 export type WikiSearchResultResponse = z.infer<typeof wikiSearchResultResponseSchema>;
+export type WikiSourceContentResponse = z.infer<typeof wikiSourceContentResponseSchema>;
 
 export function buildPingResponse(request: PingRequest): PingResponse {
   return {
@@ -1524,6 +1536,11 @@ function getManuscriptTitle(sessionManager: ProjectSessionManager): string {
   return `${project.project.name} - Documento completo`;
 }
 
+function getProjectPrintTitle(sessionManager: ProjectSessionManager): string {
+  const project = sessionManager.getOpenedProject();
+  return project?.project.name ?? 'The Novelist';
+}
+
 async function printHtmlContent(html: string): Promise<boolean> {
   const printWindow = new BrowserWindow({
     show: false,
@@ -1541,6 +1558,7 @@ async function printHtmlContent(html: string): Promise<boolean> {
         {
           silent: false,
           printBackground: true,
+          pageSize: 'A4',
         },
         (success, errorType) => {
           if (!success && errorType && !errorType.toLowerCase().includes('cancel')) {
@@ -1798,6 +1816,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const request = wikiSearchRequestSchema.parse(payload);
     const results = await sessionManager.searchProjectWiki(request);
     return z.array(wikiSearchResultResponseSchema).parse(results);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.wikiReadSource, async (_event, payload: unknown) => {
+    const request = wikiReadSourceRequestSchema.parse(payload);
+    const content = await sessionManager.readProjectWikiSource(request.path);
+    return wikiSourceContentResponseSchema.parse({
+      path: request.path,
+      content,
+    });
   });
 
   ipcMain.handle(IPC_CHANNELS.storyGetState, () => {
@@ -2101,6 +2128,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
 
     await exportRichTextToDocx({
       title: node.title,
+      projectTitle: getProjectPrintTitle(sessionManager),
       document,
       outputPath: saveResult.filePath,
     });
@@ -2119,6 +2147,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     const document = getNodeExportDocument(repository, request.chapterNodeId, node.description);
     const html = buildChapterPrintHtml({
       title: node.title,
+      projectTitle: getProjectPrintTitle(sessionManager),
       document,
     });
     const printed = await printHtmlContent(html);
@@ -2127,6 +2156,37 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     }
 
     return successResponseSchema.parse({ ok: true });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.manuscriptExportEpub, async (event) => {
+    const { repository, projectId } = getStoryContext(sessionManager);
+    const chapters = collectManuscriptChapters(repository, projectId);
+    if (chapters.length === 0) {
+      throw new Error('Nessun blocco disponibile per esportare il documento completo.');
+    }
+
+    const manuscriptTitle = getManuscriptTitle(sessionManager);
+    const project = sessionManager.getOpenedProject();
+    const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    const saveDialogOptions = {
+      defaultPath: project
+        ? `${project.assetsPath}/${getDefaultExportName(manuscriptTitle, 'epub')}`
+        : getDefaultExportName(manuscriptTitle, 'epub'),
+      filters: [{ name: 'EPUB', extensions: ['epub'] }],
+    };
+    const saveResult = browserWindow
+      ? await dialog.showSaveDialog(browserWindow, saveDialogOptions)
+      : await dialog.showSaveDialog(saveDialogOptions);
+    if (saveResult.canceled || !saveResult.filePath) {
+      return null;
+    }
+
+    await exportManuscriptToEpub({
+      title: manuscriptTitle,
+      chapters,
+      outputPath: saveResult.filePath,
+    });
+    return exportResponseSchema.parse({ filePath: saveResult.filePath });
   });
 
   ipcMain.handle(IPC_CHANNELS.manuscriptExportDocx, async (event) => {
@@ -2154,6 +2214,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
 
     await exportManuscriptToDocx({
       title: manuscriptTitle,
+      projectTitle: getProjectPrintTitle(sessionManager),
       chapters,
       outputPath: saveResult.filePath,
     });
@@ -2169,6 +2230,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
 
     const html = buildManuscriptPrintHtml({
       title: getManuscriptTitle(sessionManager),
+      projectTitle: getProjectPrintTitle(sessionManager),
       chapters,
     });
     const printed = await printHtmlContent(html);

@@ -1,6 +1,6 @@
 # Sicurezza - The Novelist
 
-Stato documentato al **3 maggio 2026**.
+Stato documentato al **9 maggio 2026**.
 
 Questo documento riepiloga le misure di sicurezza implementate in The Novelist e i limiti residui noti. L'applicazione e una app desktop locale: non ha un backend proprietario remoto, ma puo comunicare con provider AI esterni se l'utente li abilita.
 
@@ -12,6 +12,7 @@ Questo documento riepiloga le misure di sicurezza implementate in The Novelist e
   - `assets/`: immagini, export e allegati;
   - `.snapshots/`: snapshot DB per recovery;
   - `wiki/`: memoria Markdown locale derivata dal database.
+- Dalla release 4.x il database include anche scene, timeline, revisioni delle entita, obiettivi di scrittura e sessioni di scrittura.
 - Provider AI supportati:
   - `Codex CLI`;
   - `OpenAI API`;
@@ -60,9 +61,10 @@ Riferimenti:
 
 ## 5. Appartenenza al progetto
 
-- Le operazioni su nodi, connessioni, personaggi, location, link e immagini verificano che gli ID appartengano al progetto aperto.
+- Le operazioni su nodi, scene, timeline, revisioni, connessioni, personaggi, location, link e immagini verificano che gli ID appartengano al progetto aperto.
 - Questo evita collegamenti o manipolazioni tra progetti diversi.
 - Le immagini lette dal renderer devono appartenere agli asset del progetto aperto.
+- Il ripristino di una revisione accetta solo snapshot appartenenti al progetto aperto e crea una revisione dello stato corrente prima di sovrascrivere l'entita.
 
 Riferimento:
 
@@ -75,6 +77,7 @@ Riferimento:
 - `foreign_keys = ON`.
 - Migrations versionate in `src/main/persistence/migrations.ts`.
 - Vincoli `UNIQUE`, `CHECK` e `ON DELETE CASCADE` mantengono coerenza relazionale.
+- Le tabelle introdotte per scene, timeline, revisioni e sessioni di scrittura sono legate al progetto tramite `project_id` e usano chiavi esterne o controlli applicativi di appartenenza.
 
 Riferimenti:
 
@@ -124,6 +127,7 @@ Riferimenti:
 - Ogni progetto puo avere una directory `wiki/` locale.
 - La wiki e derivata da `project.db`: non sostituisce il database e non diventa fonte autoritativa.
 - Le fonti deterministic-first vengono esportate in `wiki/sources/`.
+- Le fonti includono anche scene e timeline (`sources/cards/scenes.md` e `sources/cards/timeline.md`), oltre a capitoli, trame, personaggi, location e chat AI.
 - La ricerca locale nella tab `Memoria` legge Markdown locali e non richiede provider esterni.
 - Le pagine app-managed (`AGENTS.md`, `index.md`, `log.md` e `sources/`) possono essere riscritte o aggiornate dal sync.
 - Le modifiche manuali alla wiki non sono considerate fonte di verita e possono essere sovrascritte.
@@ -160,7 +164,12 @@ Riferimento:
 - Le immagini associate vengono copiate in `assets/img/...`.
 - Le immagini generate vengono salvate in `assets/generated-images/...`.
 - La lettura immagini verso renderer e limitata a raster interni ad `assets/` del progetto aperto.
-- Estensioni e MIME type sono controllati lato main process.
+- L'import di immagini associate e validato lato main process prima della copia:
+  - sono accettate solo estensioni raster previste (`png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`);
+  - i primi byte del file devono corrispondere alla signature/magic number del formato dichiarato;
+  - file con estensione non supportata, estensione falsa o contenuto non immagine vengono rifiutati con errore esplicito.
+- La lettura immagini verso renderer resta limitata a raster interni ad `assets/` del progetto aperto.
+- Le immagini generate derivano da byte prodotti o scaricati dal provider immagini e sono salvate con estensione controllata.
 
 Riferimenti:
 
@@ -170,15 +179,15 @@ Riferimenti:
 
 ## 12. Menzioni, export e privacy editoriale
 
-- Le menzioni `@personaggio` e `@location` usano identificatori strutturati.
+- Le menzioni `@personaggio`, `@location` e `#scena` usano identificatori strutturati.
 - In lettura/salvataggio il main process normalizza riferimenti e label verso entita canoniche.
 - Menzioni malformate o riferite a entita non piu esistenti vengono scartate.
 - Le menzioni non vengono incluse in:
   - conteggio parole;
   - export DOCX;
-  - export PDF;
   - stampa HTML.
 - Questo evita leakage di metadati interni nel manoscritto esportato.
+- Le scene possono essere sincronizzate dal contenuto del capitolo, ma `project.db` resta la fonte autoritativa e le entita richiamate sono normalizzate dal main process.
 
 Riferimenti:
 
@@ -191,6 +200,7 @@ Riferimenti:
 
 - Snapshot manuali e autosave del database.
 - Recovery dell'ultimo snapshot disponibile.
+- Revisioni applicative per capitoli, scene, personaggi e location, con snapshot JSON e testo indicizzato per consultazione/ripristino.
 - Packaging e test ricostruiscono `better-sqlite3` per il runtime corretto, riducendo mismatch ABI tra Node locale ed Electron.
 
 Riferimenti:

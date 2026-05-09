@@ -89,7 +89,7 @@
     "@xyflow/react": "^12.10.1",
     "better-sqlite3": "^12.6.2",
     "docx": "^9.6.0",
-    "pdfkit": "^0.17.2",
+    "jszip": "^3.10.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "zod": "^4.3.6"
@@ -99,7 +99,6 @@
     "@playwright/test": "^1.58.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.3.5",
-    "@types/pdfkit": "^0.17.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",

@@ -27,10 +27,9 @@ export const IPC_CHANNELS = {
   chapterGetDocument: 'chapter:get-document',
   chapterSaveDocument: 'chapter:save-document',
   chapterExportDocx: 'chapter:export-docx',
-  chapterExportPdf: 'chapter:export-pdf',
   chapterPrint: 'chapter:print',
+  manuscriptExportEpub: 'manuscript:export-epub',
   manuscriptExportDocx: 'manuscript:export-docx',
-  manuscriptExportPdf: 'manuscript:export-pdf',
   manuscriptPrint: 'manuscript:print',
   chapterListCharacters: 'chapter:list-characters',
   chapterListLocations: 'chapter:list-locations',
@@ -77,4 +76,5 @@ export const IPC_CHANNELS = {
   wikiGetStatus: 'wiki:get-status',
   wikiSync: 'wiki:sync',
   wikiSearch: 'wiki:search',
+  wikiReadSource: 'wiki:read-source',
 } as const;
