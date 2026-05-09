@@ -37,7 +37,7 @@ async function createProjectFromUi(window: Page, rootPath: string, name: string)
   });
   await expect(createProjectModal).toBeVisible({ timeout: 10_000 });
   await createProjectModal.getByRole('button', { name: 'Sfoglia...' }).click();
-  await expect(createProjectModal.getByPlaceholder('Seleziona la cartella del progetto')).toHaveValue(rootPath);
+  await expect(createProjectModal.getByPlaceholder(/Seleziona la cartella/)).toHaveValue(rootPath);
   await createProjectModal.getByLabel('Nome progetto').fill(name);
   const createAndOpenButton = createProjectModal.getByRole('button', { name: 'Crea e Apri' });
   await expect(createAndOpenButton).toBeEnabled();
