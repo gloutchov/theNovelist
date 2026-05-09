@@ -30,7 +30,7 @@ test('plot board shows existing plot cards with current project creation flow', 
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
   await expect(plotPanel).toBeVisible();
-  await plotPanel.getByLabel('Titolo trama').fill('Trama di prova');
+  await plotPanel.getByLabel('Etichetta trama').fill('Trama di prova');
   await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza sintetica');
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
 

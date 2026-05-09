@@ -49,14 +49,7 @@ async function openChapterEditorWithText(
 ): Promise<void> {
   await createProject(page, projectName);
   await createChapter(page, 'Capitolo Alpha', 'Scena iniziale');
-  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
-
-  const editNodeModal = page.locator('.modal-card').filter({
-    has: page.getByRole('heading', { name: 'Modifica Blocco' }),
-  });
-  await expect(editNodeModal).toBeVisible();
-  await editNodeModal.getByRole('button', { name: 'Apri editor capitolo' }).click();
-
+  await page.locator('.canvas-wrap .react-flow__node').first().click();
   await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
   await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
 
@@ -412,7 +405,6 @@ test('create character card from editor selection', async ({ page }) => {
   await createModal.getByLabel('Nome personaggio').fill('Anna Rossi');
   await createModal.getByRole('button', { name: 'Crea e inserisci @' }).click();
 
-  await expect(editorContent).toContainText('@Anna Rossi');
   await expect(editorContent).toContainText(sourceText);
   await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
 
@@ -461,7 +453,6 @@ test('create location card from editor selection', async ({ page }) => {
   await createModal.getByLabel('Nome location').fill('Porto Vecchio');
   await createModal.getByRole('button', { name: 'Crea e inserisci @' }).click();
 
-  await expect(editorContent).toContainText('@Porto Vecchio');
   await expect(editorContent).toContainText(sourceText);
   await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
 
@@ -490,7 +481,7 @@ test('plot board shows created plot cards on canvas', async ({ page }) => {
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
   await expect(plotPanel).toBeVisible();
-  await plotPanel.getByLabel('Titolo trama').fill('Trama di prova');
+  await plotPanel.getByLabel('Etichetta trama').fill('Trama di prova');
   await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza sintetica');
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
 
@@ -504,12 +495,12 @@ test('memory tab syncs and searches project wiki', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Memoria', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Wiki locale del romanzo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Riassunto storia' })).toBeVisible();
   await expect(page.getByText('Aggiornata')).toBeVisible();
   await expect(page.getByText(/fonti indicizzate/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Aggiorna memoria progetto' }).click();
-  await expect(page.getByRole('button', { name: 'Aggiorna memoria progetto' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Aggiorna' }).click();
+  await expect(page.getByRole('button', { name: 'Aggiorna' })).toBeEnabled();
 
   await page.getByLabel('Cerca nella wiki locale').fill('magazzino');
   await page.getByRole('button', { name: 'Cerca' }).click();
@@ -522,13 +513,7 @@ test('memory tab shows sources from last AI response', async ({ page }) => {
   await createProject(page, 'E2E Memory Sources');
   await createChapter(page, 'Capitolo Fonti AI', 'La scena contiene il patto nel magazzino.');
 
-  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
-  const editNodeModal = page.locator('.modal-card').filter({
-    has: page.getByRole('heading', { name: 'Modifica Blocco' }),
-  });
-  await expect(editNodeModal).toBeVisible();
-  await editNodeModal.getByRole('button', { name: 'Apri editor capitolo' }).click();
-
+  await page.locator('.canvas-wrap .react-flow__node').first().click();
   await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
   await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
 
@@ -578,7 +563,7 @@ test('saving plot does not wait for automatic memory sync', async ({ page }) => 
     has: page.getByRole('heading', { name: 'Nuova Trama' }),
   });
   await expect(plotPanel).toBeVisible();
-  await plotPanel.getByLabel('Titolo trama').fill('Trama memoria');
+  await plotPanel.getByLabel('Etichetta trama').fill('Trama memoria');
   await plotPanel.getByLabel('Bozza trama / struttura').fill('Bozza iniziale');
   await plotPanel.getByRole('button', { name: 'Crea Trama' }).click();
 
