@@ -5,6 +5,7 @@ import {
   PROJECT_SNAPSHOTS_DIRNAME,
   resolveProjectPaths,
 } from './project-files';
+import { APP_CONFIG } from '../config/app-config';
 
 export interface SnapshotRecord {
   fileName: string;
@@ -14,7 +15,10 @@ export interface SnapshotRecord {
 }
 
 function sanitizeReason(reason: string): string {
-  return reason.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 30) || 'manual';
+  return (
+    reason.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, APP_CONFIG.snapshots.reasonMaxLength) ||
+    'manual'
+  );
 }
 
 function buildTimestamp(date: Date): string {
@@ -52,19 +56,21 @@ export async function listProjectSnapshots(rootPath: string): Promise<SnapshotRe
   }
 
   const snapshotRecords = await Promise.all(
-    files.filter((file) => file.endsWith('.sqlite')).map(async (fileName) => {
-      const [timestamp = '', reasonWithExt = 'manual.sqlite'] = fileName.split('__');
-      const reason = reasonWithExt.replace('.sqlite', '');
-      const filePath = path.join(snapshotsPath, fileName);
-      const fileStats = await stat(filePath);
+    files
+      .filter((file) => file.endsWith('.sqlite'))
+      .map(async (fileName) => {
+        const [timestamp = '', reasonWithExt = 'manual.sqlite'] = fileName.split('__');
+        const reason = reasonWithExt.replace('.sqlite', '');
+        const filePath = path.join(snapshotsPath, fileName);
+        const fileStats = await stat(filePath);
 
-      return {
-        fileName,
-        filePath,
-        createdAt: fileStats.mtime.toISOString() || timestamp,
-        reason,
-      };
-    }),
+        return {
+          fileName,
+          filePath,
+          createdAt: fileStats.mtime.toISOString() || timestamp,
+          reason,
+        };
+      }),
   );
 
   return snapshotRecords.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

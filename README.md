@@ -34,8 +34,6 @@ Rimane comunque, e sempre, una app realizzata in vibe-coding.
 
 > Questa app è stata realizzata in vibecoding con codex CLI. Attualmente è da intendersi come alpha funzionante. Potrebbe necessitare di ottimizzazione, pulizia di codice orfano, interventi di sicurezza, e molto altro ancora...
 
-Nota aggiornata: il renderer gira con `sandbox: true`, `contextIsolation: true` e CSP esplicita. Il bridge `window.novelistApi` passa solo dal preload Electron.
-
 ## Sommario
 
 - Introduzione
@@ -75,6 +73,20 @@ Funzionalità secondarie:
 - Abbinamento a modelli locali con Ollama
 
 ## Come iniziare
+
+### Download, firma e checksum
+
+The Novelist e nato come programma personale ed e poi stato pubblicato come progetto open source con licenza Apache 2.0. Le build pubblicate non sono firmate con certificati Apple o Windows.
+
+Questo significa che:
+
+- su macOS puo comparire un avviso di Gatekeeper al primo avvio;
+- su Windows puo comparire un avviso SmartScreen o "autore sconosciuto";
+- il codice sorgente resta ispezionabile nel repository, ma i pacchetti scaricati non hanno una firma commerciale del sistema operativo.
+
+E' quindi possibile che all'avvio il Sistema Operativo vi chieda il permesso a procedere nell'apertura dell'app.
+
+Nota: In caso abbiate dubbi, nel repository trovate i checksum dei programmi. Nell'area Tech di questo documento trovate le istruzioni per verificare che i files non siano stati compromessi.
 
 ### Avvio di The Novelist
 
@@ -287,7 +299,7 @@ La release 3.x aveva gia introdotto la memoria Wiki locale e il flusso AI contes
 - **Timeline narrativa**: vista cronologica separata dall'ordine di lettura, con capitoli e scene posizionabili, etichette data, estremi timeline, zoom, minimap e salvataggio su database.
 - **Revisioni entita**: storico manuale/automatico/ripristino per capitoli, scene, personaggi e location, con snapshot strutturati e ripristino controllato.
 - **Analisi AI strutturata**: controlli dedicati per coerenza narrativa, eventi non risolti, stile, ritmo narrativo, nomi e convenzioni, usando capitoli, scene, schede, timeline e Wiki come contesto.
-- **Personaggi e immagini**: le schede personaggio includono anche colore occhi e pelle; l'import immagini ora valida estensione e firma binaria lato main process prima della copia in `assets/`.
+- **Personaggi e immagini**: le schede personaggio includono anche colore occhi e pelle; l'import immagini ora valida estensione, firma binaria e dimensione massima lato main process prima della copia in `assets/`.
 - **Memoria Wiki estesa**: le fonti generate includono anche scene e timeline, oltre a capitoli, trame, personaggi, location e chat AI.
 - **Impostazioni AI piu granulari**: fallback provider per progetto, modello Ollama configurabile, modello immagini OpenAI configurabile, stato provider, consenso separato per invio memoria a provider esterni.
 - **Robustezza tecnica**: nuove migration SQLite per scene, revisioni, obiettivi/sessioni e timeline; test unitari/e2e aggiornati per i nuovi flussi.
@@ -615,10 +627,35 @@ Nota:
 
 - la build locale e non firmata/notarizzata; al primo avvio potrebbe essere necessario `tasto destro > Apri`.
 - senza un certificato Apple `Developer ID Application` non e possibile firmare e notarizzare correttamente il pacchetto macOS.
+- il workflow genera anche `SHA256SUMS.txt` dagli artifact pubblicati e lo allega alla release.
+
+### Checksum manuali
+
+Se la release viene preparata localmente, genera un file checksum prima di caricare gli artifact su GitHub.
+
+Su Windows PowerShell:
+
+```powershell
+Get-ChildItem release -File |
+  Where-Object { $_.Name -match '\.(exe|dmg|zip|blockmap|yml)$' } |
+  Sort-Object Name |
+  ForEach-Object {
+    $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
+    "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), $_.Name
+  } | Set-Content release\SHA256SUMS.txt
+```
+
+Su macOS/Linux:
+
+```bash
+cd release
+shasum -a 256 *.dmg *.zip *.exe *.blockmap *.yml > SHA256SUMS.txt
+```
 
 ## Struttura repository
 
 - `src/main`: processo main Electron + IPC.
+- `src/main/config`: configurazione applicativa centrale.
 - `src/preload`: bridge sicuro `contextBridge`.
 - `src/renderer`: app React.
 - `src/main/persistence`: SQLite migration + repository.
@@ -639,10 +676,26 @@ Nota:
 - **Appartenenza Progetto**: Tutte le operazioni su nodi, scene, timeline, revisioni, connessioni, schede e immagini verificano che gli ID coinvolti appartengano al progetto aperto. Questo impedisce manipolazioni tra progetti diversi.
 - **Gestione Chiavi**: Le chiavi API sono gestite via `safeStorage` (dove disponibile) e mai inviate in chiaro al renderer.
 - **Memoria Progetto**: La wiki locale e derivata dal database, scritta con operazioni atomiche, confinata nella directory `wiki/` e inviata a provider esterni solo con consenso dedicato.
-- **Import Immagini**: I file associati a personaggi/location sono accettati solo se hanno estensione raster prevista e signature binaria coerente, con controllo centralizzato nel main process.
+- **Import Immagini**: I file associati a personaggi/location sono accettati solo se hanno estensione raster prevista, signature binaria coerente e dimensione entro il limite configurato, con controllo centralizzato nel main process.
+- **Immagini Locali**: Le immagini remote non sono supportate. Le immagini devono essere copiate nella cartella `assets/` del progetto; la CSP del renderer non consente `http:` o `https:` in `img-src`.
 - **Export Pulito**: I riferimenti strutturati a personaggi, location e scene non vengono esportati nel testo finale.
 
 Per il riepilogo completo delle misure implementate e dei limiti residui, vedi [sicurezza.md](./sicurezza.md).
+
+## Configurazione tecnica
+
+- I default applicativi sono raccolti in `src/main/config/app-config.ts`.
+- La sezione `ai` contiene provider, fallback, modelli predefiniti, timeout e default privacy.
+- La sezione `images` contiene formati ammessi, dimensione massima upload, directory interne e policy sulle sorgenti remote.
+- La sezione `wiki` contiene limiti di ricerca, lettura sorgenti e budget memoria AI.
+- La sezione `project` contiene i nomi canonici di `project.db`, `assets/`, `.snapshots/` e `wiki/`.
+
+Limite upload immagini:
+
+- Il limite predefinito e `APP_CONFIG.images.maxUploadBytes`, oggi pari a `20 * 1024 * 1024` byte, cioe 20 MB.
+- Per aumentarlo o ridurlo, modifica `maxUploadBytes` in `src/main/config/app-config.ts` e rilancia typecheck/test.
+- Lo stesso limite viene applicato sia all'import utente sia alla lettura anteprima dagli asset del progetto.
+- Il limite non riguarda direttamente la chiamata OpenAI Images API: le immagini generate vengono salvate localmente in `assets/generated-images/` e poi lette come asset di progetto.
 
 ## Struttura progetto narrativo su disco
 

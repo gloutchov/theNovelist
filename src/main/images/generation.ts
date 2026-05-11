@@ -1,10 +1,13 @@
-import { copyFile, mkdir, open, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, open, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import {
+  APP_CONFIG,
+  type GeneratedImageSize,
+  type ImportedImageExtension,
+} from '../config/app-config';
 import { toProjectStoredFilePath } from '../projects/asset-paths';
 import { appFetch, toExternalRequestError } from '../network/http';
-
-export type GeneratedImageSize = '1024x1024' | '1536x1024' | '1024x1536';
 
 export interface GenerateImageWithApiInput {
   apiKey: string;
@@ -27,8 +30,6 @@ export interface GeneratedImageResult {
   bytes: Buffer;
   extension: 'png' | 'jpg' | 'webp';
 }
-
-const DEFAULT_TIMEOUT_MS = 120_000;
 
 function extensionFromMimeType(mimeType: string | null): 'png' | 'jpg' | 'webp' {
   const normalized = (mimeType ?? '').toLowerCase();
@@ -57,7 +58,10 @@ export async function generateImageWithApi(
   input: GenerateImageWithApiInput,
 ): Promise<GeneratedImageResult> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), input.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    input.timeoutMs ?? APP_CONFIG.images.defaultGenerationTimeoutMs,
+  );
 
   try {
     const response = await appFetch('https://api.openai.com/v1/images/generations', {
@@ -120,7 +124,11 @@ export async function saveGeneratedImageToProject(input: {
   imageType: string;
   generated: GeneratedImageResult;
 }): Promise<string> {
-  const directory = path.join(input.assetsPath, 'generated-images', input.category);
+  const directory = path.join(
+    input.assetsPath,
+    APP_CONFIG.images.generatedImagesDirName,
+    input.category,
+  );
   await mkdir(directory, { recursive: true });
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -131,17 +139,11 @@ export async function saveGeneratedImageToProject(input: {
   return toProjectStoredFilePath(path.dirname(path.resolve(input.assetsPath)), filePath);
 }
 
-type ImportedImageExtension = 'png' | 'jpg' | 'jpeg' | 'webp' | 'gif' | 'bmp';
 type StoredImportedImageExtension = Exclude<ImportedImageExtension, 'jpeg'>;
 
-const IMPORTED_IMAGE_EXTENSIONS = new Set<ImportedImageExtension>([
-  'png',
-  'jpg',
-  'jpeg',
-  'webp',
-  'gif',
-  'bmp',
-]);
+const IMPORTED_IMAGE_EXTENSIONS = new Set<ImportedImageExtension>(
+  APP_CONFIG.images.importedExtensions,
+);
 
 function extensionFromFilePath(filePath: string): ImportedImageExtension {
   const ext = path.extname(filePath).toLowerCase().replace('.', '');
@@ -153,6 +155,11 @@ function extensionFromFilePath(filePath: string): ImportedImageExtension {
 
 function storedExtension(extension: ImportedImageExtension): StoredImportedImageExtension {
   return extension === 'jpeg' ? 'jpg' : extension;
+}
+
+function formatBytes(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  return `${Number.isInteger(megabytes) ? megabytes.toFixed(0) : megabytes.toFixed(1)} MB`;
 }
 
 function hasImageSignature(extension: ImportedImageExtension, bytes: Buffer): boolean {
@@ -178,10 +185,20 @@ function hasImageSignature(extension: ImportedImageExtension, bytes: Buffer): bo
   }
 }
 
-async function validateImportedImage(
+export async function validateProjectImageFile(
   sourceFilePath: string,
-  extension: ImportedImageExtension,
-): Promise<void> {
+  options: { maxBytes?: number } = {},
+): Promise<ImportedImageExtension> {
+  const extension = extensionFromFilePath(sourceFilePath);
+  const maxBytes = options.maxBytes ?? APP_CONFIG.images.maxUploadBytes;
+  const fileStats = await stat(sourceFilePath);
+  if (!fileStats.isFile()) {
+    throw new Error('Il percorso selezionato non e un file immagine');
+  }
+  if (fileStats.size > maxBytes) {
+    throw new Error(`Immagine troppo grande: limite ${formatBytes(maxBytes)}`);
+  }
+
   const handle = await open(sourceFilePath, 'r');
   try {
     const header = Buffer.alloc(12);
@@ -192,6 +209,8 @@ async function validateImportedImage(
   } finally {
     await handle.close();
   }
+
+  return extension;
 }
 
 export async function importImageToProject(input: {
@@ -201,10 +220,13 @@ export async function importImageToProject(input: {
   sourceFilePath: string;
 }): Promise<string> {
   const sourceFilePath = path.resolve(input.sourceFilePath.trim());
-  const extension = extensionFromFilePath(sourceFilePath);
-  await validateImportedImage(sourceFilePath, extension);
+  const extension = await validateProjectImageFile(sourceFilePath);
 
-  const directory = path.join(input.assetsPath, 'img', input.category);
+  const directory = path.join(
+    input.assetsPath,
+    APP_CONFIG.images.importedImagesDirName,
+    input.category,
+  );
   await mkdir(directory, { recursive: true });
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');

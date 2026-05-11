@@ -1,3 +1,4 @@
+import { APP_CONFIG } from '../config/app-config';
 import type { ProjectWikiSearchResult } from './search';
 import { searchProjectWiki } from './search';
 
@@ -5,9 +6,6 @@ export interface ProjectMemoryContext {
   content: string;
   results: ProjectWikiSearchResult[];
 }
-
-const DEFAULT_MEMORY_RESULT_LIMIT = 6;
-const DEFAULT_MEMORY_MAX_CHARS = 5_500;
 
 function trimToBudget(value: string, budget: number): string {
   if (value.length <= budget) {
@@ -19,7 +17,7 @@ function trimToBudget(value: string, budget: number): string {
 
 export function formatProjectMemoryContext(
   results: ProjectWikiSearchResult[],
-  maxChars = DEFAULT_MEMORY_MAX_CHARS,
+  maxChars: number = APP_CONFIG.wiki.memory.defaultMaxChars,
 ): string {
   if (results.length === 0) {
     return [
@@ -65,11 +63,14 @@ export async function buildProjectMemoryContext(params: {
   maxChars?: number;
 }): Promise<ProjectMemoryContext> {
   const results = await searchProjectWiki(params.wikiPath, params.query, {
-    limit: params.limit ?? DEFAULT_MEMORY_RESULT_LIMIT,
+    limit: params.limit ?? APP_CONFIG.wiki.memory.defaultResultLimit,
   });
 
   return {
-    content: formatProjectMemoryContext(results, params.maxChars ?? DEFAULT_MEMORY_MAX_CHARS),
+    content: formatProjectMemoryContext(
+      results,
+      params.maxChars ?? APP_CONFIG.wiki.memory.defaultMaxChars,
+    ),
     results,
   };
 }

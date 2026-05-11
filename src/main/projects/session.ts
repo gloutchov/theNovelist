@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { APP_CONFIG } from '../config/app-config';
 import { closeDatabase, openDatabase } from '../persistence/database';
 import { NovelistRepository } from '../persistence/repository';
 import type { ProjectRecord } from '../persistence/types';
@@ -22,9 +23,6 @@ import {
 export interface OpenedProject extends ProjectPaths {
   project: ProjectRecord;
 }
-
-const PROJECT_CLOSE_WIKI_SYNC_TIMEOUT_MS = 12_000;
-const MAX_WIKI_SOURCE_READ_BYTES = 500_000;
 
 export class ProjectSessionManager {
   private db: Database.Database | null = null;
@@ -53,7 +51,7 @@ export class ProjectSessionManager {
     this.currentProject = context;
     await this.syncProjectWikiSources();
 
-    this.autosave = new AutoSaveScheduler(30_000, async () => {
+    this.autosave = new AutoSaveScheduler(APP_CONFIG.autosave.intervalMs, async () => {
       if (!this.currentProject) {
         return;
       }
@@ -164,7 +162,7 @@ export class ProjectSessionManager {
     }
 
     const fileStats = await stat(absolutePath);
-    if (!fileStats.isFile() || fileStats.size > MAX_WIKI_SOURCE_READ_BYTES) {
+    if (!fileStats.isFile() || fileStats.size > APP_CONFIG.wiki.maxSourceReadBytes) {
       throw new Error('Wiki source is not readable');
     }
 
@@ -197,7 +195,7 @@ export class ProjectSessionManager {
       const completed = await Promise.race([
         syncPromise.then(() => true),
         new Promise<boolean>((resolve) => {
-          setTimeout(() => resolve(false), PROJECT_CLOSE_WIKI_SYNC_TIMEOUT_MS);
+          setTimeout(() => resolve(false), APP_CONFIG.wiki.closeSyncTimeoutMs);
         }),
       ]);
 

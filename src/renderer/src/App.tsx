@@ -600,6 +600,32 @@ function getAiFallbackLabel(fallbackProvider: CodexSettings['fallbackProvider'])
   return getAiProviderLabel(fallbackProvider);
 }
 
+function aiProviderCanLeaveDevice(provider: CodexSettings['provider']): boolean {
+  return provider === 'codex_cli' || provider === 'openai_api';
+}
+
+function aiSettingsMaySendPromptExternally(settings: CodexSettings): boolean {
+  return (
+    aiProviderCanLeaveDevice(settings.provider) ||
+    (settings.fallbackProvider !== 'none' && aiProviderCanLeaveDevice(settings.fallbackProvider))
+  );
+}
+
+function getAiMemorySharingLabel(settings: CodexSettings | null): string {
+  if (!settings) {
+    return 'Memoria progetto: non disponibile.';
+  }
+
+  const normalized = normalizeCodexSettings(settings);
+  if (!aiSettingsMaySendPromptExternally(normalized)) {
+    return 'Memoria progetto: locale, non inviata a provider esterni.';
+  }
+
+  return normalized.allowExternalMemorySharing
+    ? 'Memoria progetto: invio a provider esterni consentito.'
+    : 'Memoria progetto: non inviata a provider esterni.';
+}
+
 function getAiFallbackOptions(
   provider: CodexSettings['provider'],
 ): Array<{ value: CodexSettings['fallbackProvider']; label: string }> {
@@ -892,7 +918,7 @@ function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
   };
   return {
     ...settings,
-    allowExternalMemorySharing: maybeSettings.allowExternalMemorySharing ?? true,
+    allowExternalMemorySharing: maybeSettings.allowExternalMemorySharing ?? false,
     apiImageModel: maybeSettings.apiImageModel?.trim() || DEFAULT_API_IMAGE_MODEL,
     ollamaModel: maybeSettings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL,
   };
@@ -1619,7 +1645,7 @@ export default function App() {
         provider: aiSettings.provider,
         fallbackProvider: aiSettings.fallbackProvider,
         allowApiCalls: aiSettings.allowApiCalls,
-        allowExternalMemorySharing: aiSettings.allowExternalMemorySharing !== false,
+        allowExternalMemorySharing: aiSettings.allowExternalMemorySharing,
         autoSummarizeDescriptions: aiSettings.autoSummarizeDescriptions,
         apiKey: apiKeyInput || undefined,
         clearStoredApiKey: shouldClearStoredApiKey || undefined,
@@ -2762,7 +2788,7 @@ export default function App() {
             provider: aiSettings?.provider,
             fallbackProvider: aiSettings?.fallbackProvider,
             allowApiCalls: aiSettings?.allowApiCalls,
-            allowExternalMemorySharing: aiSettings?.allowExternalMemorySharing !== false,
+            allowExternalMemorySharing: aiSettings?.allowExternalMemorySharing,
             autoSummarizeDescriptions: aiSettings?.autoSummarizeDescriptions,
             apiKey: aiApiKeyInput.trim() || undefined,
             clearStoredApiKey: clearStoredApiKey || undefined,
@@ -4883,7 +4909,9 @@ export default function App() {
               </label>
               <p className="muted">
                 Provider primario: {getAiProviderLabel(aiSettings?.provider ?? 'codex_cli')}.
-                Fallback: {getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none')}.
+                Fallback: {getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none')}. Chiamate API
+                esterne: {aiSettings?.allowApiCalls ? 'abilitate' : 'disabilitate'}.
+                {getAiMemorySharingLabel(aiSettings)}
               </p>
               <label>
                 Modello API
@@ -5008,7 +5036,7 @@ export default function App() {
               <label className="checkbox-inline">
                 <input
                   type="checkbox"
-                  checked={aiSettings ? aiSettings.allowExternalMemorySharing !== false : false}
+                  checked={Boolean(aiSettings?.allowExternalMemorySharing)}
                   disabled={!aiSettings}
                   onChange={(event) =>
                     setAiSettings((prev) =>

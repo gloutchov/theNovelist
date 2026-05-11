@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { APP_CONFIG } from './config/app-config';
 
 export interface AppPreferencesRecord {
   autosaveMode: 'manual' | 'interval' | 'auto';
@@ -8,27 +9,35 @@ export interface AppPreferencesRecord {
   updatedAt: string;
 }
 
-const APP_PREFERENCES_FILENAME = 'app-preferences.json';
-
 export const DEFAULT_APP_PREFERENCES: AppPreferencesRecord = {
-  autosaveMode: 'auto',
-  autosaveIntervalMinutes: 5,
+  autosaveMode: APP_CONFIG.appPreferences.defaultAutosaveMode,
+  autosaveIntervalMinutes: APP_CONFIG.appPreferences.defaultAutosaveIntervalMinutes,
   updatedAt: new Date().toISOString(),
 };
 
 function getPreferencesFilePath(): string {
-  return path.join(app.getPath('userData'), APP_PREFERENCES_FILENAME);
+  return path.join(app.getPath('userData'), APP_CONFIG.appPreferences.fileName);
 }
 
 function normalizePreferences(
   input: Partial<AppPreferencesRecord> | null | undefined,
 ): AppPreferencesRecord {
   const autosaveMode =
-    input?.autosaveMode === 'manual' || input?.autosaveMode === 'interval' || input?.autosaveMode === 'auto'
+    input?.autosaveMode === 'manual' ||
+    input?.autosaveMode === 'interval' ||
+    input?.autosaveMode === 'auto'
       ? input.autosaveMode
       : DEFAULT_APP_PREFERENCES.autosaveMode;
   const autosaveIntervalMinutes = Number.isFinite(input?.autosaveIntervalMinutes)
-    ? Math.min(120, Math.max(1, Math.round(input?.autosaveIntervalMinutes ?? DEFAULT_APP_PREFERENCES.autosaveIntervalMinutes)))
+    ? Math.min(
+        APP_CONFIG.appPreferences.maxAutosaveIntervalMinutes,
+        Math.max(
+          APP_CONFIG.appPreferences.minAutosaveIntervalMinutes,
+          Math.round(
+            input?.autosaveIntervalMinutes ?? DEFAULT_APP_PREFERENCES.autosaveIntervalMinutes,
+          ),
+        ),
+      )
     : DEFAULT_APP_PREFERENCES.autosaveIntervalMinutes;
 
   return {

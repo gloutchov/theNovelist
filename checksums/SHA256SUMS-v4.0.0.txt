@@ -1,0 +1,13 @@
+c4042a7e92b8d142334774e9e780a9cf7080cb742c1a5463498c38927d0548d1  latest-mac.yml
+28070b3392f37e3e991a479f9b956db9ffe5010edcac22c2415870fedbf72b12  latest.yml
+2dcc65d5854581e365c0d930e6048ebb0d47ca94cbee1de74e4ff522a56bb7a4  The-Novelist-4.0.0-arm64-mac.zip
+fba0d71b3e7f8041550d5fc0f5ce5dc577d5264ba29dcba110b81de1b1518dab  The-Novelist-4.0.0-arm64-mac.zip.blockmap
+c6853412149a058e661428e8f721c490feaa2fe6e901ad3f2a46ec4d15cd2b16  The-Novelist-4.0.0-arm64.dmg
+bab87e86cf982be8f5b6f1634f689fbb6f8a8a7dc5a16cc3ebdd417e56a0f11d  The-Novelist-4.0.0-arm64.dmg.blockmap
+30f7849022b42a229ceee99abea52269d96f108aaaf93319e5b4fd56dbac4119  The-Novelist-4.0.0.exe
+7c0e2f66606abf0b20d6e0c2f4fc89ac596551a904b5f5de0c3197061c24b3bf  The-Novelist-Setup-4.0.0.exe
+eb19cf31ac9e4e667707b1cae52fac2d5e70124f142bdcf296e4e5734a743df9  The-Novelist-Setup-4.0.0.exe.blockmap
+4c7996a4c3e1a67811421ae7df073a7e04e8cb1cbdacfe2d03b7add54874c348  The.Novelist-4.0.0-arm64-mac.zip
+f6df83f5746debc9b683031893afe1259c957c6c2be250e62f443d0a26584bed  The.Novelist-4.0.0-arm64-mac.zip.blockmap
+b12e4f8370e37b86ba6524a96619d0974cad8b6cb914e981064402477c830910  The.Novelist-4.0.0-arm64.dmg
+f2e9cb4987f7f6e84239bf092fa9b5681d0d1dd0eb674b12aba59e5aa6c62e32  The.Novelist-4.0.0-arm64.dmg.blockmap

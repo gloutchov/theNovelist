@@ -119,7 +119,7 @@ describe('NovelistRepository', () => {
       expect(codexSettings.provider).toBe('codex_cli');
       expect(codexSettings.fallbackProvider).toBe('none');
       expect(codexSettings.allowApiCalls).toBe(false);
-      expect(codexSettings.allowExternalMemorySharing).toBe(true);
+      expect(codexSettings.allowExternalMemorySharing).toBe(false);
       expect(codexSettings.autoSummarizeDescriptions).toBe(true);
       expect(codexSettings.apiModel).toBe('gpt-5-mini');
       expect(codexSettings.apiImageModel).toBe('gpt-image-1');
@@ -221,9 +221,12 @@ describe('NovelistRepository', () => {
         characterCardId: character.id,
         chapterNodeIds: [chapterNode.id, chapterNode2.id, chapterNode.id],
       });
-      expect(repo.listCharacterChapterLinks(character.id).map((link) => link.chapterNodeId).sort()).toEqual(
-        [chapterNode.id, chapterNode2.id].sort(),
-      );
+      expect(
+        repo
+          .listCharacterChapterLinks(character.id)
+          .map((link) => link.chapterNodeId)
+          .sort(),
+      ).toEqual([chapterNode.id, chapterNode2.id].sort());
       expect(repo.listCharactersForChapter(project.id, chapterNode.id)).toHaveLength(1);
 
       const location = repo.createLocationCard(project.id, {
@@ -248,7 +251,9 @@ describe('NovelistRepository', () => {
         locationCardId: location.id,
         chapterNodeIds: [chapterNode2.id],
       });
-      expect(repo.listLocationChapterLinks(location.id).map((link) => link.chapterNodeId)).toEqual([chapterNode2.id]);
+      expect(repo.listLocationChapterLinks(location.id).map((link) => link.chapterNodeId)).toEqual([
+        chapterNode2.id,
+      ]);
       expect(repo.listLocationsForChapter(project.id, chapterNode2.id)).toHaveLength(1);
 
       repo.deleteStoryEdge(edge.id);
@@ -257,6 +262,117 @@ describe('NovelistRepository', () => {
       repo.deleteChapterNode(chapterNode.id);
       repo.deleteChapterNode(chapterNode2.id);
       expect(repo.listChapterNodes(project.id)).toHaveLength(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('keeps destructive story deletes transactional across related tables', async () => {
+    const dir = await createTempDir('novelist-repo-delete-');
+    const db = openDatabase(path.join(dir, 'project.db'));
+    const repo = new NovelistRepository(db);
+
+    try {
+      const project = repo.createProject({ name: 'Romanzo Test', rootPath: dir });
+      const plot = repo.createPlot(project.id, {
+        number: 1,
+        label: 'Trama principale',
+        summary: '',
+        color: '#3366ff',
+        positionX: 0,
+        positionY: 0,
+      });
+      const chapter = repo.createChapterNode(project.id, {
+        title: 'Capitolo 1',
+        description: '',
+        plotNumber: plot.number,
+        blockNumber: 1,
+        positionX: 0,
+        positionY: 0,
+      });
+      const scene = repo.createSceneCard(project.id, {
+        chapterNodeId: chapter.id,
+        name: 'Scena 1',
+        text: '',
+        contentJson: null,
+        notes: '',
+        plotNumber: plot.number,
+        positionX: 0,
+        positionY: 0,
+      });
+      repo.upsertTimelineItem(project.id, {
+        itemType: 'chapter',
+        entityId: chapter.id,
+        positionX: 10,
+        positionY: 10,
+        dateLabel: '',
+      });
+      repo.upsertTimelineItem(project.id, {
+        itemType: 'scene',
+        entityId: scene.id,
+        positionX: 20,
+        positionY: 20,
+        dateLabel: '',
+      });
+
+      repo.deleteChapterNode(chapter.id);
+
+      expect(repo.listChapterNodes(project.id)).toHaveLength(0);
+      expect(repo.listSceneCards(project.id)).toHaveLength(0);
+      expect(repo.listTimelineItems(project.id)).toHaveLength(0);
+
+      const chapterAfterDelete = repo.createChapterNode(project.id, {
+        title: 'Capitolo 2',
+        description: '',
+        plotNumber: plot.number,
+        blockNumber: 1,
+        positionX: 0,
+        positionY: 0,
+      });
+      const character = repo.createCharacterCard(project.id, {
+        firstName: 'Anna',
+        lastName: 'Rossi',
+        sex: 'F',
+        age: null,
+        sexualOrientation: '',
+        species: 'umana',
+        hairColor: '',
+        eyeColor: '',
+        skinColor: '',
+        bald: false,
+        beard: '',
+        physique: '',
+        job: '',
+        notes: '',
+        plotNumber: plot.number,
+        positionX: 0,
+        positionY: 0,
+      });
+      const location = repo.createLocationCard(project.id, {
+        name: 'Porto',
+        locationType: '',
+        description: '',
+        notes: '',
+        plotNumber: plot.number,
+        positionX: 0,
+        positionY: 0,
+      });
+      repo.setCharacterChapterLinks({
+        characterCardId: character.id,
+        chapterNodeIds: [chapterAfterDelete.id],
+      });
+      repo.setLocationChapterLinks({
+        locationCardId: location.id,
+        chapterNodeIds: [chapterAfterDelete.id],
+      });
+
+      repo.deletePlot(plot.id);
+
+      expect(repo.listPlots(project.id)).toHaveLength(0);
+      expect(repo.listChapterNodes(project.id)).toHaveLength(0);
+      expect(repo.listCharacterCards(project.id)).toHaveLength(0);
+      expect(repo.listLocationCards(project.id)).toHaveLength(0);
+      expect(repo.listTimelineItems(project.id)).toHaveLength(0);
     } finally {
       db.close();
     }

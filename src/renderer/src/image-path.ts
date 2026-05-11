@@ -4,7 +4,11 @@ export function toImageSource(filePath: string): string {
     return '';
   }
 
-  if (/^(https?:|data:|file:)/i.test(trimmed)) {
+  if (/^(https?:|file:)/i.test(trimmed)) {
+    return '';
+  }
+
+  if (/^(data:|blob:)/i.test(trimmed)) {
     return trimmed;
   }
 

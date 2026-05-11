@@ -111,7 +111,7 @@ export async function installNovelistApiMock(
         provider: 'codex_cli' as 'codex_cli' | 'openai_api' | 'ollama',
         fallbackProvider: 'none' as 'codex_cli' | 'openai_api' | 'ollama' | 'none',
         allowApiCalls: false,
-        allowExternalMemorySharing: true,
+        allowExternalMemorySharing: false,
         autoSummarizeDescriptions: true,
         apiKey: null as string | null,
         hasStoredApiKey: false,

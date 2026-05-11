@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   importImageToProject,
   saveGeneratedImageToProject,
+  validateProjectImageFile,
 } from '../../src/main/images/generation';
 
 const tempDirs: string[] = [];
@@ -135,6 +136,17 @@ describe('image-generation project storage', () => {
         sourceFilePath,
       }),
     ).rejects.toThrow('non corrisponde al formato immagine dichiarato');
+  });
+
+  it('rejects images above the configured size budget before import', async () => {
+    const externalRootPath = await createTempDir('novelist-image-source-');
+    const sourceFilePath = path.join(externalRootPath, 'portrait.png');
+
+    await writeFile(sourceFilePath, Buffer.concat([imageSignatures.png, Buffer.alloc(16)]));
+
+    await expect(validateProjectImageFile(sourceFilePath, { maxBytes: 8 })).rejects.toThrow(
+      'Immagine troppo grande',
+    );
   });
 
   it('stores generated location images with project-relative paths', async () => {
