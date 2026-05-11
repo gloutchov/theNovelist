@@ -68,7 +68,7 @@ interface ProviderProbe {
   reason?: string;
 }
 
-const DEFAULT_CODEX_TIMEOUT_MS = 45_000;
+const DEFAULT_CODEX_TIMEOUT_MS = 120_000;
 
 const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   provider: 'codex_cli',
@@ -750,8 +750,10 @@ async function runOpenAiApi(
   }
 }
 
-interface OllamaGenerateResponse {
-  response?: string;
+interface OllamaChatResponse {
+  message?: {
+    content?: string;
+  };
   error?: string;
 }
 
@@ -781,15 +783,21 @@ async function runOllamaApi(
   const baseUrl = resolveOllamaHost();
 
   try {
-    const response = await appFetch(`${baseUrl}/api/generate`, {
+    const response = await appFetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model,
-        prompt,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
         stream: false,
+        think: false,
       }),
       signal: controller.signal,
     });
@@ -803,7 +811,7 @@ async function runOllamaApi(
       };
     }
 
-    const payload = (await response.json()) as OllamaGenerateResponse;
+    const payload = (await response.json()) as OllamaChatResponse;
     if (payload.error?.trim()) {
       return {
         output: '',
@@ -812,7 +820,7 @@ async function runOllamaApi(
       };
     }
 
-    const text = payload.response?.trim() ?? '';
+    const text = payload.message?.content?.trim() ?? '';
     if (!text) {
       return {
         output: '',
