@@ -1,14 +1,15 @@
 import { access, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { APP_CONFIG } from '../config/app-config';
 import { openDatabase } from '../persistence/database';
 import { NovelistRepository } from '../persistence/repository';
 import type { ProjectRecord } from '../persistence/types';
 import { ensureProjectWiki } from '../wiki/bootstrap';
 
-export const PROJECT_DB_FILENAME = 'project.db';
-export const PROJECT_ASSETS_DIRNAME = 'assets';
-export const PROJECT_SNAPSHOTS_DIRNAME = '.snapshots';
-export const PROJECT_WIKI_DIRNAME = 'wiki';
+export const PROJECT_DB_FILENAME = APP_CONFIG.project.dbFileName;
+export const PROJECT_ASSETS_DIRNAME = APP_CONFIG.project.assetsDirName;
+export const PROJECT_SNAPSHOTS_DIRNAME = APP_CONFIG.project.snapshotsDirName;
+export const PROJECT_WIKI_DIRNAME = APP_CONFIG.project.wikiDirName;
 
 export interface ProjectPaths {
   rootPath: string;

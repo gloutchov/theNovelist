@@ -273,7 +273,10 @@ export default function CharacterBoard({
     [cardsById, editCardId],
   );
   const editDirty = useMemo(
-    () => (currentEditCard ? !areCharacterDraftsEqual(editDraft, characterToDraft(currentEditCard)) : false),
+    () =>
+      currentEditCard
+        ? !areCharacterDraftsEqual(editDraft, characterToDraft(currentEditCard))
+        : false,
     [currentEditCard, editDraft],
   );
   const effectiveCodexSettings = aiSettings ?? codexSettings;
@@ -289,13 +292,16 @@ export default function CharacterBoard({
     if (!trimmedPath) {
       return null;
     }
-    if (/^(https?:|data:|file:)/i.test(trimmedPath)) {
+    if (/^(https?:|file:)/i.test(trimmedPath)) {
+      return null;
+    }
+    if (/^(data:|blob:)/i.test(trimmedPath)) {
       return toImageSource(trimmedPath);
     }
     try {
       return await window.novelistApi.readImageDataUrl({ filePath: trimmedPath });
     } catch {
-      return toImageSource(trimmedPath);
+      return null;
     }
   }, []);
 
@@ -304,10 +310,10 @@ export default function CharacterBoard({
       window.novelistApi.listCharacterCards(),
       window.novelistApi.getStoryState(),
     ]);
-    
+
     const cardIds = new Set(nextCards.map((c) => c.id));
     const relevantEdges = state.edges.filter(
-      (edge) => cardIds.has(edge.sourceId) && cardIds.has(edge.targetId)
+      (edge) => cardIds.has(edge.sourceId) && cardIds.has(edge.targetId),
     );
 
     const primaryImageByCardId = new Map<string, string | null>();
@@ -329,15 +335,17 @@ export default function CharacterBoard({
     );
 
     setCards(nextCards);
-    setEdges(relevantEdges.map((edge) => ({
-      id: edge.id,
-      source: edge.sourceId,
-      target: edge.targetId,
-      sourceHandle: edge.sourceHandle ?? 'handle-bottom',
-      targetHandle: edge.targetHandle ?? 'handle-top',
-      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
-      style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
-    })));
+    setEdges(
+      relevantEdges.map((edge) => ({
+        id: edge.id,
+        source: edge.sourceId,
+        target: edge.targetId,
+        sourceHandle: edge.sourceHandle ?? 'handle-bottom',
+        targetHandle: edge.targetHandle ?? 'handle-top',
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-color)' },
+        style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
+      })),
+    );
     setNodes(
       nextCards.map((card) =>
         mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null, {
@@ -1584,11 +1592,7 @@ export default function CharacterBoard({
             </div>
 
             <div className="row-buttons">
-              <button
-                type="button"
-                onClick={() => void handleCloseEdit()}
-                disabled={busy}
-              >
+              <button type="button" onClick={() => void handleCloseEdit()} disabled={busy}>
                 Chiudi
               </button>
               <button type="button" onClick={() => void handleSaveEdit()} disabled={busy}>

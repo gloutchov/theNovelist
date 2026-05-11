@@ -71,6 +71,19 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd release-assets
+          shopt -s nullglob
+          files=( *.dmg *.zip *.exe *.blockmap latest*.yml )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release assets found for checksums" >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:

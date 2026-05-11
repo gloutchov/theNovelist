@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { APP_CONFIG } from '../config/app-config';
 import { isSafeWikiRelativePath } from './path-safety';
 
 export interface ProjectWikiSearchOptions {
@@ -29,9 +30,6 @@ interface ScoredWikiSearchDocument extends WikiSearchDocument {
   content: string;
 }
 
-const DEFAULT_LIMIT = 8;
-const DEFAULT_MAX_SNIPPET_LENGTH = 420;
-const MAX_SEARCH_FILE_BYTES = 500_000;
 const IGNORED_DIRECTORIES = new Set(['maintenance']);
 
 function normalizeForSearch(value: string): string {
@@ -204,17 +202,23 @@ export async function searchProjectWiki(
     return [];
   }
 
-  const limit = Math.max(1, Math.min(options.limit ?? DEFAULT_LIMIT, 25));
+  const limit = Math.max(
+    1,
+    Math.min(options.limit ?? APP_CONFIG.wiki.search.defaultLimit, APP_CONFIG.wiki.search.maxLimit),
+  );
   const maxSnippetLength = Math.max(
-    120,
-    Math.min(options.maxSnippetLength ?? DEFAULT_MAX_SNIPPET_LENGTH, 2_000),
+    APP_CONFIG.wiki.search.minMaxSnippetLength,
+    Math.min(
+      options.maxSnippetLength ?? APP_CONFIG.wiki.search.defaultMaxSnippetLength,
+      APP_CONFIG.wiki.search.maxMaxSnippetLength,
+    ),
   );
   const documents = await collectMarkdownDocuments(wikiPath);
   const scored: ScoredWikiSearchDocument[] = [];
 
   for (const document of documents) {
     const fileStats = await stat(document.absolutePath);
-    if (!fileStats.isFile() || fileStats.size > MAX_SEARCH_FILE_BYTES) {
+    if (!fileStats.isFile() || fileStats.size > APP_CONFIG.wiki.search.maxFileBytes) {
       continue;
     }
 

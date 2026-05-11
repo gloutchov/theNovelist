@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { APP_CONFIG } from '../config/app-config';
 import { appFetch, toExternalRequestError } from '../network/http';
 
 export type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -68,16 +69,14 @@ interface ProviderProbe {
   reason?: string;
 }
 
-const DEFAULT_CODEX_TIMEOUT_MS = 120_000;
-
 const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
-  provider: 'codex_cli',
-  fallbackProvider: 'none',
-  allowApiCalls: false,
+  provider: APP_CONFIG.ai.defaultProvider,
+  fallbackProvider: APP_CONFIG.ai.defaultFallbackProvider,
+  allowApiCalls: APP_CONFIG.ai.allowApiCallsByDefault,
   apiKey: null,
-  apiModel: 'gpt-5-mini',
-  ollamaModel: 'gemma4:e4b-it-q4_K_M',
-  timeoutMs: DEFAULT_CODEX_TIMEOUT_MS,
+  apiModel: APP_CONFIG.ai.defaultApiModel,
+  ollamaModel: APP_CONFIG.ai.defaultOllamaModel,
+  timeoutMs: APP_CONFIG.ai.defaultTimeoutMs,
 };
 const resolvedCommandCache = new Map<string, Promise<string>>();
 const resolvedPathCache = new Map<string, Promise<string | null>>();
@@ -86,10 +85,10 @@ type RuntimePlatform = NodeJS.Platform;
 
 function normalizeRequestTimeoutMs(value: unknown, fallback: number): number {
   const numericValue = Number(value);
-  if (!Number.isFinite(numericValue) || numericValue < 1000) {
+  if (!Number.isFinite(numericValue) || numericValue < APP_CONFIG.ai.minTimeoutMs) {
     return fallback;
   }
-  return Math.min(Math.trunc(numericValue), 180_000);
+  return Math.min(Math.trunc(numericValue), APP_CONFIG.ai.maxTimeoutMs);
 }
 
 function normalizeSettings(
@@ -524,11 +523,11 @@ async function buildCliEnvironment(commandPath: string): Promise<NodeJS.ProcessE
 }
 
 function resolveTimeoutMs(): number {
-  const value = Number(process.env['NOVELIST_CODEX_TIMEOUT_MS'] ?? DEFAULT_CODEX_TIMEOUT_MS);
-  if (!Number.isFinite(value) || value < 1000) {
-    return DEFAULT_CODEX_TIMEOUT_MS;
+  const value = Number(process.env[APP_CONFIG.ai.timeoutEnvVar] ?? APP_CONFIG.ai.defaultTimeoutMs);
+  if (!Number.isFinite(value) || value < APP_CONFIG.ai.minTimeoutMs) {
+    return APP_CONFIG.ai.defaultTimeoutMs;
   }
-  return value;
+  return Math.min(Math.trunc(value), APP_CONFIG.ai.maxTimeoutMs);
 }
 
 function resolveOllamaHost(): string {

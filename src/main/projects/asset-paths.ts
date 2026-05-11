@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { APP_CONFIG } from '../config/app-config';
 
 const URL_PATH_PATTERN = /^(https?:|data:|file:)/i;
 const WINDOWS_DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/;
@@ -12,7 +13,7 @@ function normalizeRelativePath(filePath: string): string {
 function getRelativePathFromAssets(filePath: string): string | null {
   const normalizedPath = path.normalize(filePath);
   const parts = normalizedPath.split(path.sep);
-  const assetsIndex = parts.lastIndexOf('assets');
+  const assetsIndex = parts.lastIndexOf(APP_CONFIG.project.assetsDirName);
   if (assetsIndex < 0 || assetsIndex === parts.length - 1) {
     return null;
   }
@@ -22,7 +23,11 @@ function getRelativePathFromAssets(filePath: string): string | null {
 
 export function isAbsoluteLocalPath(filePath: string): boolean {
   const trimmed = filePath.trim();
-  return path.isAbsolute(trimmed) || WINDOWS_DRIVE_PATH_PATTERN.test(trimmed) || WINDOWS_UNC_PATH_PATTERN.test(trimmed);
+  return (
+    path.isAbsolute(trimmed) ||
+    WINDOWS_DRIVE_PATH_PATTERN.test(trimmed) ||
+    WINDOWS_UNC_PATH_PATTERN.test(trimmed)
+  );
 }
 
 export function toProjectStoredFilePath(projectRootPath: string, filePath: string): string {
@@ -35,7 +40,11 @@ export function toProjectStoredFilePath(projectRootPath: string, filePath: strin
   const resolvedFilePath = path.resolve(trimmed);
   const relativeFilePath = path.relative(resolvedProjectRootPath, resolvedFilePath);
 
-  if (!relativeFilePath || relativeFilePath === '..' || relativeFilePath.startsWith(`..${path.sep}`)) {
+  if (
+    !relativeFilePath ||
+    relativeFilePath === '..' ||
+    relativeFilePath.startsWith(`..${path.sep}`)
+  ) {
     return resolvedFilePath;
   }
 
@@ -63,12 +72,17 @@ export function resolveProjectStoredFilePath(input: {
   const assetsCandidate = path.resolve(resolvedAssetsPath, normalizedRelativePath);
 
   const candidatePaths =
-    normalizedRelativePath === 'assets' || normalizedRelativePath.startsWith(`assets${path.sep}`)
+    normalizedRelativePath === APP_CONFIG.project.assetsDirName ||
+    normalizedRelativePath.startsWith(`${APP_CONFIG.project.assetsDirName}${path.sep}`)
       ? [rootCandidate, assetsCandidate]
-      : normalizedRelativePath === 'img' ||
-          normalizedRelativePath.startsWith(`img${path.sep}`) ||
-          normalizedRelativePath === 'generated-images' ||
-          normalizedRelativePath.startsWith(`generated-images${path.sep}`)
+      : normalizedRelativePath === APP_CONFIG.images.importedImagesDirName ||
+          normalizedRelativePath.startsWith(
+            `${APP_CONFIG.images.importedImagesDirName}${path.sep}`,
+          ) ||
+          normalizedRelativePath === APP_CONFIG.images.generatedImagesDirName ||
+          normalizedRelativePath.startsWith(
+            `${APP_CONFIG.images.generatedImagesDirName}${path.sep}`,
+          )
         ? [assetsCandidate, rootCandidate]
         : [rootCandidate, assetsCandidate];
 
@@ -100,7 +114,10 @@ export function repairProjectStoredFilePath(input: {
   }
 
   const normalizedAbsolutePath = path.resolve(trimmed);
-  const projectStoredPath = toProjectStoredFilePath(resolvedProjectRootPath, normalizedAbsolutePath);
+  const projectStoredPath = toProjectStoredFilePath(
+    resolvedProjectRootPath,
+    normalizedAbsolutePath,
+  );
   if (!isAbsoluteLocalPath(projectStoredPath)) {
     return projectStoredPath;
   }

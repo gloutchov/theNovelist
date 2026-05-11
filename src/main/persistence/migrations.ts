@@ -353,7 +353,7 @@ const MIGRATIONS: Migration[] = [
     statements: [
       `
       ALTER TABLE codex_settings
-      ADD COLUMN allow_external_memory_sharing INTEGER NOT NULL DEFAULT 1;
+      ADD COLUMN allow_external_memory_sharing INTEGER NOT NULL DEFAULT 0;
       `,
     ],
   },

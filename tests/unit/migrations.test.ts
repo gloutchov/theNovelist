@@ -55,11 +55,15 @@ describe('database migrations', () => {
 
       const codexSettingsColumns = db
         .prepare("PRAGMA table_info('codex_settings')")
-        .all() as Array<{ name: string }>;
+        .all() as Array<{ name: string; dflt_value: string | null }>;
       expect(codexSettingsColumns.map((row) => row.name)).toContain('fallback_provider');
       expect(codexSettingsColumns.map((row) => row.name)).toContain(
         'allow_external_memory_sharing',
       );
+      expect(
+        codexSettingsColumns.find((row) => row.name === 'allow_external_memory_sharing')
+          ?.dflt_value,
+      ).toBe('0');
       expect(codexSettingsColumns.map((row) => row.name)).toContain('ollama_model');
       expect(codexSettingsColumns.map((row) => row.name)).toContain('api_image_model');
 
