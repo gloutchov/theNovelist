@@ -1,0 +1,60 @@
+.modal-actions {
+  justify-content: flex-end;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+
+.modal-card {
+  width: min(520px, calc(100vw - 2rem));
+  background: var(--surface-primary);
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--modal-shadow);
+  padding: 0.9rem;
+}
+
+.modal-card h3 {
+  margin-top: 0;
+}
+
+.large-modal-card {
+  width: min(980px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+.settings-modal-card {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding-right: 0.75rem;
+}
+
+.grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.8rem;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-inline input {
+  width: auto;
+  margin: 0;
+}
+
+@media (max-width: 1080px) {
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
+}

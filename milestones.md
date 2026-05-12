@@ -190,6 +190,39 @@ Regola:
 
 - ogni estrazione deve essere piccola e verificata con typecheck e test mirati.
 
+Stato:
+
+- completata per il perimetro previsto: `App.tsx` ora orchestra la shell principale e `ChapterEditor.tsx` e' stato spezzato nei componenti editor principali senza cambiare UX.
+- avviata con estrazione a basso rischio dei formatter condivisi in `src/renderer/src/shared/formatters.ts`;
+- estratti stato, metriche e componenti puri della dashboard in `src/renderer/src/features/dashboard/dashboard-state.tsx`;
+- `App.tsx` mantiene orchestrazione e rendering principale, ma non contiene piu la logica pura di calcolo dashboard.
+- estratti stato e ordinamento puro dell'outline in `src/renderer/src/features/outline/outline-state.ts`.
+- estratti parser e renderer del documento in lettura in `src/renderer/src/features/outline/reading-document.tsx`.
+- estratto lo stato di sessione progetto, modali create/target e helper di planning in `src/renderer/src/features/project/project-session.ts`.
+- estratti stato, normalizzazione, label e salvataggio delle impostazioni AI in `src/renderer/src/features/ai/ai-settings.ts`.
+- estratti stato, normalizzazione, label e salvataggio delle preferenze app/autosave in `src/renderer/src/features/settings/app-preferences.ts`.
+- estratti stato, ricerca e sync della wiki/memoria progetto in `src/renderer/src/features/memory/wiki-state.ts`.
+- estratti stato, cache locale e generazione AI della sintesi memoria in `src/renderer/src/features/memory/memory-summary.ts`.
+- estratti helper puri per colore/label/ordinamento trame e mapping dei nodi canvas in `src/renderer/src/features/plot/plot-flow.ts`.
+- estratto parser JSON della struttura trama AI in `src/renderer/src/features/plot/plot-structure.ts`.
+- estratti stato e apertura della vista lettura in `src/renderer/src/features/outline/reading-view.ts`.
+- estratti stato draft/selezione/editor delle trame e relativi derivati in `src/renderer/src/features/plot/plot-session.ts`.
+- estratte modali progetto, obiettivi progetto e conferma chiusura in `src/renderer/src/features/project/project-modals.tsx`.
+- estratte modali creazione/modifica trame in `src/renderer/src/features/plot/plot-modals.tsx`.
+- estratte modali creazione/modifica blocchi in `src/renderer/src/features/story/story-node-modals.tsx`.
+- estratta modale impostazioni autosave/AI/consensi/segreti in `src/renderer/src/features/settings/settings-modal.tsx`.
+- estratti formatter e modale risultato memoria in `src/renderer/src/features/memory/wiki-formatters.ts` e `src/renderer/src/features/memory/memory-result-modal.tsx`.
+- estratto overlay della vista lettura in `src/renderer/src/features/outline/reading-view-overlay.tsx`.
+- estratta tab memoria in `src/renderer/src/features/memory/memory-workspace.tsx`.
+- estratta tab dashboard in `src/renderer/src/features/dashboard/dashboard-workspace.tsx`.
+- estratto pannello trova/sostituisci dell'editor in `src/renderer/src/features/editor/find-replace-panel.tsx`.
+- estratta modale diff selezione AI in `src/renderer/src/features/editor/selection-diff-modal.tsx`.
+- estratta toolbar dell'editor in `src/renderer/src/features/editor/editor-toolbar.tsx`.
+- estratta sidebar chat AI dell'editor in `src/renderer/src/features/editor/ai-chat-sidebar.tsx`.
+- estratta modale creazione riferimenti da selezione in `src/renderer/src/features/editor/create-reference-modal.tsx`.
+- estratto pannello riferimenti dell'editor in `src/renderer/src/features/editor/reference-panel.tsx`.
+- estratti menu riferimenti/autocomplete e menu contestuale selezione in `src/renderer/src/features/editor/mention-menu.tsx` e `src/renderer/src/features/editor/selection-context-menu.tsx`.
+
 ## Milestone 8 - CSS e componenti UI
 
 Obiettivo: ridurre il rischio di regressioni visive causate da un CSS globale troppo grande.
@@ -201,18 +234,39 @@ Interventi:
 - eliminare duplicazioni tra CharacterBoard e LocationBoard dove possibile;
 - aggiungere screenshot e2e per schermate principali.
 
+Stato:
+
+- chiusa: CSS globale modularizzato, duplicazioni UI principali ridotte e verifiche visuali/e2e aggiunte e passate;
+- avviata con separazione di token tema, base globale e shell app in `src/renderer/src/styles/tokens.css`, `src/renderer/src/styles/base.css` e `src/renderer/src/styles/shell.css`;
+- estratti stili comuni delle modali in `src/renderer/src/styles/modals.css`;
+- estratti stili della sezione revisioni in `src/renderer/src/styles/revisions.css`;
+- estratti stili dell'editor testo/AI in `src/renderer/src/styles/editor.css`;
+- estratti stili della timeline in `src/renderer/src/styles/timeline.css`;
+- estratti stili outline e vista lettura in `src/renderer/src/styles/outline.css`;
+- estratti stili dashboard in `src/renderer/src/styles/dashboard.css`;
+- estratti stili condivisi di pannelli, form, bottoni, stati e loader in `src/renderer/src/styles/components.css`;
+- estratti stili board/canvas e nodi React Flow in `src/renderer/src/styles/boards.css`;
+- estratti stili impostazioni, memoria/wiki, analisi e asset immagini in `src/renderer/src/styles/settings.css`, `src/renderer/src/styles/memory.css`, `src/renderer/src/styles/analysis.css` e `src/renderer/src/styles/assets.css`;
+- spostate le media query responsive residue nei rispettivi moduli CSS;
+- `src/renderer/src/styles.css` ora resta entrypoint e importa i moduli estratti.
+- avviata riduzione duplicazioni CharacterBoard/LocationBoard con pannelli condivisi per capitoli collegati, immagini associate e viewer immagine in `src/renderer/src/features/entities/entity-panels.tsx`.
+- aggiunti controlli visuali/e2e desktop e mobile per dashboard, editor, personaggi, location, memoria, revisioni e analisi in `tests/e2e/visual-layout.spec.ts`;
+- aggiunto controllo unitario sull'entrypoint CSS in `tests/unit/styles-entrypoint.test.ts`.
+- verifiche finali eseguite: `npm run typecheck`, `npm run test:e2e` e `npm run test:e2e:electron`.
+
 ## Milestone 9 - Sicurezza Electron produzione
 
-Obiettivo: rendere la build adatta a distribuzione reale.
+Obiettivo: rendere la build piu sicura e verificabile per una distribuzione open source non firmata.
 
 Interventi:
 
 - disabilitare DevTools, reload e force reload in produzione;
 - mantenere DevTools disponibili solo in dev o con flag esplicito;
 - verificare CSP finale con build pacchettizzata;
-- aggiungere firma Windows;
-- aggiungere firma e notarizzazione macOS;
-- documentare prerequisiti dei certificati e workflow release.
+- generare checksum SHA-256 degli artefatti compilati Windows/macOS;
+- includere i checksum accanto ai pacchetti di release pubblicati su GitHub;
+- documentare che le build non sono firmate ne notarizzate e possono mostrare warning del sistema operativo;
+- documentare il workflow release senza certificati e la procedura di verifica checksum.
 
 ## Milestone 10 - Verifica finale 4.5
 
@@ -228,12 +282,9 @@ Checklist:
 - verifica che nessuna API key venga restituita al renderer in chiaro;
 - verifica che i default privacy siano quelli documentati.
 
-## Decisioni aperte
-
-- Repository: mantenere una facciata a lungo termine o migrare i service direttamente ai repository specifici.
-
 ## Decisioni chiuse
 
 - Immagini remote non supportate: le immagini devono essere locali nella cartella del progetto. La CSP puo quindi essere irrigidita rimuovendo sorgenti remote per gli asset immagine.
 - Limite massimo immagini: 20 MB configurabili in `APP_CONFIG.images.maxUploadBytes`.
 - Memoria progetto verso provider esterni disabilitata di default: l'utente deve abilitarla esplicitamente nelle Impostazioni AI.
+- Repository: mantenere `NovelistRepository` come facciata stabile nel ciclo 4.5; i service possono usare repository specifici direttamente solo quando serve per nuova logica o test mirati.

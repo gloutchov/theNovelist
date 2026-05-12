@@ -13,6 +13,6 @@ test-results
 .env.*
 *.log
 GEMINI.md
-AGENTS.md
 agents.md
+!AGENTS.md
 llm-wiki-roadmap/

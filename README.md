@@ -203,7 +203,7 @@ Scorciatoie da tastiera nell'editor:
 
 Le due aree non sono molto differenti da quelle già viste. Sia il blocco personaggio, sia il blocco paesaggio permette di inserire delle caratteristiche specifiche, ed eventualmente generare una immagine del personaggio/paesaggio.
 Sia i blocchi personaggio, sia i blocchi location, sono dotati di 'maniglie', esattamente come avviene nel Canvas dells Struttura Progetto. Ciò permette di collegare tra loro personaggi che hanno un legame, o location legate tra loro.
-Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, alla pressione del tasto Nuove Trame.
+Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, tramite il tab `Trame` e il tasto `Nuova Trama`.
 
 Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
 
@@ -350,6 +350,7 @@ Nota per chi usa il repository sorgente:
 - `npm test` passa da `pretest` e lancia `npm run rebuild:node-native`.
 - Questo step serve a chi sviluppa o testa il sorgente localmente e puo richiedere toolchain Xcode configurata e licenza accettata.
 - Non impatta gli utenti finali che scaricano la build `.dmg` o l'app gia pacchettizzata.
+- Le istruzioni operative per agenti e manutentori sono raccolte in `AGENTS.md`.
 
 ## Comandi utili
 

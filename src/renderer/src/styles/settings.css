@@ -1,0 +1,16 @@
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.settings-section summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-strong);
+  list-style-position: inside;
+}
+
+.settings-section[open] summary {
+  margin-bottom: 0.55rem;
+}
