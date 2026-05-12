@@ -1,0 +1,257 @@
+.canvas-wrap {
+  min-height: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-primary);
+}
+
+.chapter-flow-node {
+  min-height: 115px;
+}
+
+.chapter-flow-node-meta {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-soft);
+}
+
+.chapter-flow-node-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+.chapter-flow-node-description {
+  margin: 0.4rem 0 0;
+  font-size: 0.83rem;
+  line-height: 1.4;
+  color: var(--text-body-strong);
+  white-space: pre-wrap;
+}
+
+.character-flow-node {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 96px;
+}
+
+.character-flow-node-avatar {
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.character-flow-node-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.character-flow-node-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.character-flow-node-content {
+  min-width: 0;
+}
+
+.character-flow-node-meta {
+  margin: 0 0 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-soft);
+}
+
+.character-flow-node-title {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+
+.character-flow-node-subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--text-body-strong);
+  word-break: break-word;
+}
+
+.scene-flow-node {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.scene-flow-node-meta,
+.scene-flow-node-subtitle,
+.scene-flow-node-excerpt {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.scene-flow-node-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.03rem;
+  line-height: 1.25;
+}
+
+.scene-flow-node-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.scene-rich-editor-shell {
+  min-height: 220px;
+  max-height: 42vh;
+  overflow: auto;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  padding: 0.65rem 0.8rem;
+}
+
+.location-flow-node {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 96px;
+}
+
+.location-flow-node-image {
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.location-flow-node-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.location-flow-node-image-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-soft);
+}
+
+.location-flow-node-content {
+  min-width: 0;
+}
+
+.location-flow-node-meta {
+  margin: 0 0 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-soft);
+}
+
+.location-flow-node-title {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+
+.location-flow-node-subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--text-body-strong);
+  word-break: break-word;
+}
+
+.plot-flow-node {
+  min-height: 126px;
+}
+
+.plot-flow-node-meta {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-soft);
+}
+
+.plot-flow-node-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+
+.plot-flow-node-description {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-body-strong);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.react-flow__controls {
+  box-shadow: var(--panel-shadow);
+}
+
+.react-flow__controls button {
+  background: var(--surface-primary);
+  color: var(--text-strong);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.react-flow__controls button:hover {
+  background: var(--surface-secondary);
+}
+
+.react-flow__minimap {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.react-flow__background pattern {
+  color: var(--border-soft);
+}
+
+@media (max-width: 1080px) {
+  .canvas-wrap {
+    min-height: 65vh;
+  }
+}

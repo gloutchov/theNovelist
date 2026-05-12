@@ -47,21 +47,44 @@ async function createProjectFromUi(window: Page, rootPath: string, name: string)
 
 async function createFakeCodexEnvironment(rootPath: string): Promise<NodeJS.ProcessEnv> {
   const homeRoot = await createTempDir('novelist-codex-home-');
+  const appDataRoot = await createTempDir('novelist-codex-appdata-');
+  const localAppDataRoot = await createTempDir('novelist-codex-localappdata-');
 
-  const binDir = path.join(homeRoot, '.local', 'bin');
+  const binDir = process.platform === 'win32'
+    ? path.join(appDataRoot, 'npm')
+    : path.join(homeRoot, '.local', 'bin');
   const commandPath = path.join(binDir, 'codex');
+  const windowsCommandPath = path.join(binDir, 'codex.cmd');
   await mkdir(binDir, { recursive: true });
   await writeFile(
     commandPath,
     '#!/bin/sh\nif [ "$1" = "exec" ]; then\n  echo "ok"\n  exit 0\nfi\necho "unsupported" >&2\nexit 1\n',
     'utf8',
   );
+  await writeFile(
+    windowsCommandPath,
+    '@echo off\r\nif "%1"=="exec" (\r\n  echo ok\r\n  exit /b 0\r\n)\r\necho unsupported 1>&2\r\nexit /b 1\r\n',
+    'utf8',
+  );
   await chmod(commandPath, 0o755);
+  await chmod(windowsCommandPath, 0o755);
+
+  const reducedPath =
+    process.platform === 'win32'
+      ? [
+          process.env['SystemRoot'] ? path.join(process.env['SystemRoot'], 'System32') : '',
+          process.env['SystemRoot'] ?? '',
+        ]
+          .filter(Boolean)
+          .join(path.delimiter)
+      : '/usr/bin:/bin:/usr/sbin:/sbin';
 
   return {
+    APPDATA: appDataRoot,
     HOME: homeRoot,
+    LOCALAPPDATA: localAppDataRoot,
     NOVELIST_TEST_PROJECT_DIRECTORY: rootPath,
-    PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
+    PATH: reducedPath,
   };
 }
 
@@ -92,7 +115,7 @@ test.describe('electron packaged Codex CLI smoke', () => {
           }
         ).novelistApi.codexStatus();
       });
-      expect(codexStatus.available).toBe(true);
+      expect(codexStatus.available, JSON.stringify(codexStatus)).toBe(true);
       expect(codexStatus.mode).toBe('cli');
       expect(codexStatus.command).toContain('codex');
     } finally {

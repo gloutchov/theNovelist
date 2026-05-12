@@ -25,6 +25,12 @@ import {
 } from './flow-minimap';
 import { getStatusTone } from './status-tone';
 import { toImageSource } from './image-path';
+import {
+  EntityImageSection,
+  ImageViewerModal,
+  LinkedChaptersPanel,
+  type EntityImageSize,
+} from './features/entities/entity-panels';
 
 type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
 type CharacterImage = Awaited<
@@ -38,6 +44,13 @@ type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentP
 type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
 type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 type CharacterCanvasNode = Node<CharacterFlowNodeData, 'character'>;
+
+const CHARACTER_IMAGE_TYPE_OPTIONS = [
+  { value: 'mezzo-busto', label: 'Mezzo busto' },
+  { value: 'intero-fronte', label: 'Intero fronte' },
+  { value: 'intero-lato', label: 'Intero lato' },
+  { value: 'posa-libera', label: 'Posa libera' },
+];
 
 interface CharacterDraft {
   firstName: string;
@@ -244,7 +257,7 @@ export default function CharacterBoard({
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [linkedChapterIds, setLinkedChapterIds] = useState<string[]>([]);
   const [imageType, setImageType] = useState<string>('mezzo-busto');
-  const [imageSize, setImageSize] = useState<'1024x1024' | '1536x1024' | '1024x1536'>('1024x1024');
+  const [imageSize, setImageSize] = useState<EntityImageSize>('1024x1024');
   const [imagePath, setImagePath] = useState<string>('');
   const [imagePrompt, setImagePrompt] = useState<string>('');
   const [imageGenerating, setImageGenerating] = useState<boolean>(false);
@@ -1453,143 +1466,39 @@ export default function CharacterBoard({
               </button>
             </div>
 
-            <div className="panel panel-subsection">
-              <h4>Capitoli Collegati</h4>
-              <div className="chapter-links-list">
-                {linkedChapters.length === 0 ? (
-                  <p className="muted">Nessun capitolo collegato.</p>
-                ) : null}
-                <div className="chapter-badge-list">
-                  {linkedChapters.map((chapter) => (
-                    <span key={chapter.id} className="chapter-link-badge">
-                      {formatChapterLabel(chapter)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <LinkedChaptersPanel
+              chapters={linkedChapters}
+              formatChapterLabel={formatChapterLabel}
+            />
 
-            <div className="panel panel-subsection">
-              <h4>Immagini Associate</h4>
-              <div className="grid-two">
-                <label>
-                  Tipo
-                  <select value={imageType} onChange={(event) => setImageType(event.target.value)}>
-                    <option value="mezzo-busto">Mezzo busto</option>
-                    <option value="intero-fronte">Intero fronte</option>
-                    <option value="intero-lato">Intero lato</option>
-                    <option value="posa-libera">Posa libera</option>
-                  </select>
-                </label>
-                <label>
-                  Path file immagine
-                  <div className="input-with-button">
-                    <input
-                      value={imagePath}
-                      onChange={(event) => setImagePath(event.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="button-secondary"
-                      onClick={() => void handleSelectImagePath()}
-                    >
-                      Sfoglia...
-                    </button>
-                  </div>
-                </label>
-                <label>
-                  Dimensione
-                  <select
-                    value={imageSize}
-                    onChange={(event) => setImageSize(event.target.value as typeof imageSize)}
-                  >
-                    <option value="1024x1024">Quadrata (1024x1024)</option>
-                    <option value="1536x1024">Orizzontale (1536x1024)</option>
-                    <option value="1024x1536">Verticale (1024x1536)</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                Prompt
-                <textarea
-                  rows={3}
-                  value={imagePrompt}
-                  onChange={(event) => setImagePrompt(event.target.value)}
-                />
-              </label>
-              <div className="row-buttons">
-                <button
-                  type="button"
-                  onClick={() => void handleCodexImagePrompt()}
-                  className={codexPrompting ? 'ai-working' : undefined}
-                  disabled={codexPrompting}
-                >
-                  {`Prompt Da ${aiAssistantLabel}`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateImageInApp()}
-                  disabled={imageGenerating || !imagePrompt.trim() || !imageGenerationReady}
-                  className={imageGenerating ? 'ai-working' : undefined}
-                >
-                  {imageGenerating ? 'Generazione...' : 'Genera In-App'}
-                </button>
-                <button type="button" onClick={() => void handleAddImage()}>
-                  Associa Immagine
-                </button>
-              </div>
-              {!imageGenerationReady ? (
-                <p className="muted">
-                  Genera In-App non disponibile: manca{' '}
-                  {missingImageGenerationRequirements.join(', ')}.
-                </p>
-              ) : null}
-              <div className="asset-list">
-                {images.length === 0 ? <p className="muted">Nessuna immagine associata.</p> : null}
-                {images.map((image) => (
-                  <div key={image.id} className="asset-item">
-                    <div className="asset-item-main">
-                      <div className="asset-preview">
-                        {previewErrors.includes(image.id) || !image.filePath.trim() ? (
-                          <div className="asset-preview-fallback">Anteprima non disponibile</div>
-                        ) : !imagePreviewSources[image.id] ? (
-                          <div className="asset-preview-fallback">Caricamento anteprima...</div>
-                        ) : (
-                          <img
-                            src={imagePreviewSources[image.id]}
-                            alt={`Anteprima ${image.imageType}`}
-                            onError={() =>
-                              setPreviewErrors((prev) =>
-                                prev.includes(image.id) ? prev : [...prev, image.id],
-                              )
-                            }
-                          />
-                        )}
-                      </div>
-                      <div className="asset-item-content">
-                        <p>
-                          <strong>{image.imageType}</strong>
-                        </p>
-                        <p className="muted">{image.filePath}</p>
-                      </div>
-                    </div>
-                    <div className="asset-item-actions">
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => handleViewImage(image)}
-                        disabled={!imagePreviewSources[image.id]}
-                      >
-                        Vedi
-                      </button>
-                      <button type="button" onClick={() => void handleDeleteImage(image.id)}>
-                        Elimina
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <EntityImageSection
+              aiAssistantLabel={aiAssistantLabel}
+              codexPrompting={codexPrompting}
+              imageGenerating={imageGenerating}
+              imageGenerationReady={imageGenerationReady}
+              imagePath={imagePath}
+              imagePreviewSources={imagePreviewSources}
+              imagePrompt={imagePrompt}
+              images={images}
+              imageSize={imageSize}
+              imageType={imageType}
+              imageTypeOptions={CHARACTER_IMAGE_TYPE_OPTIONS}
+              missingImageGenerationRequirements={missingImageGenerationRequirements}
+              previewErrors={previewErrors}
+              onAddImage={handleAddImage}
+              onCodexImagePrompt={handleCodexImagePrompt}
+              onDeleteImage={handleDeleteImage}
+              onGenerateImage={handleGenerateImageInApp}
+              onImagePathChange={setImagePath}
+              onImagePromptChange={setImagePrompt}
+              onImageSizeChange={setImageSize}
+              onImageTypeChange={setImageType}
+              onPreviewError={(imageId) =>
+                setPreviewErrors((prev) => (prev.includes(imageId) ? prev : [...prev, imageId]))
+              }
+              onSelectImagePath={handleSelectImagePath}
+              onViewImage={handleViewImage}
+            />
 
             <div className="row-buttons">
               <button type="button" onClick={() => void handleCloseEdit()} disabled={busy}>
@@ -1603,22 +1512,7 @@ export default function CharacterBoard({
         </div>
       ) : null}
 
-      {viewerImage ? (
-        <div className="modal-overlay image-viewer-overlay" onClick={() => setViewerImage(null)}>
-          <div
-            className="modal-card image-viewer-modal"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3>{viewerImage.label}</h3>
-            <img src={viewerImage.src} alt={viewerImage.label} className="image-viewer-full" />
-            <div className="row-buttons">
-              <button type="button" onClick={() => setViewerImage(null)}>
-                Chiudi
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ImageViewerModal viewerImage={viewerImage} onClose={() => setViewerImage(null)} />
     </section>
   );
 }

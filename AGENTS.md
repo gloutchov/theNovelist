@@ -1,0 +1,128 @@
+# AGENTS.md
+
+Istruzioni per agenti che lavorano su questo repository.
+
+## Progetto
+
+The Novelist e una app desktop Electron + React + TypeScript per la scrittura narrativa. Usa:
+
+- `electron-vite` per build/dev.
+- React 19 nel renderer.
+- `@xyflow/react` per canvas a nodi.
+- TipTap per editor rich text.
+- `better-sqlite3` per persistenza locale.
+- Playwright per e2e browser ed Electron.
+- Vitest per test unitari.
+
+## Regole operative
+
+- Prima di modificare, controlla lo stato del worktree con `git status --short`.
+- Non revertire modifiche non tue. Il repo puo essere sporco per lavoro utente in corso.
+- Mantieni gli interventi piccoli e coerenti con i pattern esistenti.
+- Usa `apply_patch` per edit manuali.
+- Non introdurre dipendenze senza una ragione concreta.
+- Evita refactor non richiesti, soprattutto nei file grandi come `src/renderer/src/App.tsx` e `src/renderer/src/ChapterEditor.tsx`.
+- Quando tocchi UI, verifica anche layout mobile/desktop se il cambiamento puo alterare overflow o modali.
+
+## Comandi principali
+
+```powershell
+npm run typecheck
+npm run test
+npm run test:e2e
+npm run test:e2e:electron
+npm run build
+```
+
+Playwright usa browser locali nel repo:
+
+```powershell
+npm run test:e2e:install
+```
+
+## Note importanti su native modules
+
+`better-sqlite3` viene rebuildato per target diversi:
+
+- `npm run rebuild:electron-native` prepara i moduli per Electron.
+- `npm run rebuild:node-native` ripristina i moduli per Node/Vitest.
+- `npm run test:e2e:electron` deve fare entrambi: Electron prima dei test, Node nel finally.
+
+Dopo test Electron o packaging, se devi eseguire unit test o tool Node, assicurati che sia stato eseguito `npm run rebuild:node-native`.
+
+## Test e2e
+
+Suite browser:
+
+```powershell
+npm run test:e2e
+```
+
+Questa suite:
+
+- esegue `npm run build`;
+- avvia `scripts/serve-static.mjs out/renderer 4173`;
+- esclude test Electron e performance via `playwright.config.ts`.
+
+Suite Electron:
+
+```powershell
+npm run test:e2e:electron
+```
+
+Questa suite:
+
+- usa `scripts/run-electron-e2e.mjs`;
+- fa rebuild native per Electron;
+- esegue build;
+- lancia Playwright con `playwright.electron.config.ts`;
+- ripristina native modules per Node.
+
+Non usare direttamente `npm run test:e2e:electron:run` se non hai gia rebuildato per Electron.
+
+## Convenzioni test
+
+- Per scorciatoie cross-platform usa `ControlOrMeta+A`, non `Meta+A`.
+- Nei test React Flow, quando il doppio click reale e flaky, preferisci `dispatchEvent('dblclick')` se il test sta verificando il comportamento del handler, non il gesto fisico.
+- Nei test Electron evita dipendenze da CLI esterne come `sqlite3`; preferisci verifiche via IPC/API dell'app o helper interni gia disponibili.
+- Per fake CLI su Windows crea wrapper `.cmd` e isola `APPDATA`/`LOCALAPPDATA` se il resolver cerca percorsi npm comuni.
+
+## UI e frontend
+
+- L'app deve aprire direttamente l'esperienza, non landing page.
+- Usa componenti e stile esistenti: sidebar, panel, modal, canvas, status panel.
+- Evita card annidate e decorazioni gratuite.
+- Mantieni testi e pulsanti entro i contenitori su desktop e mobile.
+- Se modifichi layout o CSS globali, esegui almeno `npm run test:e2e` per i visual smoke.
+
+## AI e privacy
+
+Le funzionalita AI supportano Codex CLI, OpenAI API e Ollama. Rispetta le impostazioni di consenso gia presenti:
+
+- `enabled`
+- `provider`
+- `fallbackProvider`
+- `allowApiCalls`
+- `allowExternalMemorySharing`
+
+Non inviare contenuti esterni o introdurre nuove chiamate di rete senza passare dalle impostazioni esistenti.
+
+## Packaging
+
+Comandi disponibili:
+
+```powershell
+npm run pack
+npm run dist:win
+npm run dist:mac
+```
+
+Le build non sono firmate. Su Windows `signAndEditExecutable` e disabilitato.
+
+## Checklist prima di chiudere un task
+
+- `npm run typecheck`
+- Test mirati legati alla modifica.
+- `npm run test:e2e` se tocchi renderer, layout, editor, canvas o workflow browser.
+- `npm run test:e2e:electron` se tocchi IPC, main process, persistenza, packaging runtime, native modules o wrapper Electron.
+- Riporta sempre eventuali test non eseguiti e il motivo.

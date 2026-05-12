@@ -25,6 +25,15 @@ import {
   parseLocationCreationSuggestion,
   splitCharacterName,
 } from './card-extraction';
+import { AiChatSidebar } from './features/editor/ai-chat-sidebar';
+import { CloseEditorConfirmModal } from './features/editor/close-editor-confirm-modal';
+import { CreateReferenceModal } from './features/editor/create-reference-modal';
+import { EditorToolbar } from './features/editor/editor-toolbar';
+import { FindReplacePanel } from './features/editor/find-replace-panel';
+import { MentionMenu } from './features/editor/mention-menu';
+import { ReferencePanel } from './features/editor/reference-panel';
+import { SelectionContextMenu } from './features/editor/selection-context-menu';
+import { SelectionDiffModal } from './features/editor/selection-diff-modal';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -1093,6 +1102,8 @@ export default function ChapterEditor({
   const [replaceQuery, setReplaceQuery] = useState<string>('');
   const [activeFindIndex, setActiveFindIndex] = useState<number>(-1);
   const [documentVersion, setDocumentVersion] = useState<number>(0);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState<boolean>(false);
+  const [closingAfterSave, setClosingAfterSave] = useState<boolean>(false);
 
   const [chatInput, setChatInput] = useState<string>('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -1120,6 +1131,9 @@ export default function ChapterEditor({
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef<boolean>(false);
+  const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
+  const isDirtyRef = useRef<boolean>(false);
+  const documentVersionRef = useRef<number>(0);
   const editorRef = useRef<NonNullable<ReturnType<typeof useEditor>> | null>(null);
   const hydratingDocumentRef = useRef<boolean>(false);
   const mentionMenuRef = useRef<MentionMenuState | null>(null);
@@ -1441,8 +1455,13 @@ export default function ChapterEditor({
       editor: NonNullable<ReturnType<typeof useEditor>>;
     }) => {
       syncDocumentStateFromEditor(activeEditor);
-      setDocumentVersion((previous) => previous + 1);
+      setDocumentVersion((previous) => {
+        const nextVersion = previous + 1;
+        documentVersionRef.current = nextVersion;
+        return nextVersion;
+      });
       if (!hydratingDocumentRef.current) {
+        isDirtyRef.current = true;
         setIsDirty(true);
       }
     };
@@ -1484,6 +1503,7 @@ export default function ChapterEditor({
           setMentionedIds(extractMentionIds(content));
           setWordCount(getWordCountFromDocument(content));
           setMentionMenu(null);
+          isDirtyRef.current = false;
           setIsDirty(false);
           onStatus(`Editor aperto: ${sceneCard.name}`);
           setLoading(false);
@@ -1545,6 +1565,7 @@ export default function ChapterEditor({
         setMentionedIds(extractMentionIds(document));
         setWordCount(getWordCountFromDocument(document));
         setMentionMenu(null);
+        isDirtyRef.current = false;
         setIsDirty(false);
         onStatus(`Editor aperto: ${chapterTitle}`);
         setLoading(false);
@@ -1829,6 +1850,7 @@ export default function ChapterEditor({
     }
 
     editor.chain().focus().insertContentAt({ from: match.from, to: match.to }, replaceQuery).run();
+    isDirtyRef.current = true;
     setIsDirty(true);
     onStatus('Occorrenza sostituita');
   }
@@ -1847,6 +1869,7 @@ export default function ChapterEditor({
       chain = chain.insertContentAt({ from: match.from, to: match.to }, replaceQuery);
     }
     chain.run();
+    isDirtyRef.current = true;
     setIsDirty(true);
     onStatus(`Sostituite ${matches.length} occorrenze`);
   }
@@ -2058,50 +2081,95 @@ export default function ChapterEditor({
 
   const handleSave = useCallback(
     async (options?: { successStatus?: string; silent?: boolean }): Promise<boolean> => {
+      if (activeSavePromiseRef.current) {
+        return activeSavePromiseRef.current;
+      }
+
       if (!editor) {
         return false;
       }
 
-      if (wordCountTimeoutRef.current) {
-        clearTimeout(wordCountTimeoutRef.current);
-        wordCountTimeoutRef.current = null;
-      }
+      const savePromise = (async (): Promise<boolean> => {
+        if (wordCountTimeoutRef.current) {
+          clearTimeout(wordCountTimeoutRef.current);
+          wordCountTimeoutRef.current = null;
+        }
 
-      const document = editor.getJSON() as RichTextDocumentJson;
-      const currentWordCount = getWordCountFromDocument(document);
-      setWordCount(currentWordCount);
+        const document = editor.getJSON() as RichTextDocumentJson;
+        const savedDocumentVersion = documentVersionRef.current;
+        const currentWordCount = getWordCountFromDocument(document);
+        setWordCount(currentWordCount);
 
-      setSaving(true);
-      setError(null);
+        setSaving(true);
+        setError(null);
 
-      try {
-        const contentJson = JSON.stringify(document);
-        if (isSceneEditor) {
-          const activeScene = sceneRecord ?? sceneCard;
-          if (!activeScene) {
-            throw new Error('Scene card not found');
+        try {
+          const contentJson = JSON.stringify(document);
+          if (isSceneEditor) {
+            const activeScene = sceneRecord ?? sceneCard;
+            if (!activeScene) {
+              throw new Error('Scene card not found');
+            }
+
+            const updated = await window.novelistApi.updateSceneCard({
+              id: activeScene.id,
+              chapterNodeId: activeScene.chapterNodeId,
+              name: activeScene.name,
+              text: getPlainTextFromDocument(document).trim(),
+              contentJson,
+              notes: activeScene.notes,
+              plotNumber: activeScene.plotNumber,
+              positionX: activeScene.positionX,
+              positionY: activeScene.positionY,
+            });
+
+            setSceneRecord(updated);
+            setDocumentRecord(null);
+            if (documentVersionRef.current === savedDocumentVersion) {
+              isDirtyRef.current = false;
+              setIsDirty(false);
+            }
+            let referenceSyncFailed = false;
+            let chapterTextReplaced = true;
+            try {
+              chapterTextReplaced = await syncSceneEditorContentToChapter(updated.id, document);
+              await syncSceneReferencesToParentChapter(document);
+              await refreshChapterReferences();
+            } catch (caughtReferenceError) {
+              referenceSyncFailed = true;
+              const message =
+                caughtReferenceError instanceof Error
+                  ? caughtReferenceError.message
+                  : 'Errore sincronizzazione riferimenti';
+              setError(`Scena salvata, ma sincronizzazione riferimenti fallita: ${message}`);
+              onStatus('Scena salvata, ma sincronizzazione riferimenti fallita');
+            }
+            await onSceneSaved?.(updated);
+            if (!referenceSyncFailed && !options?.silent) {
+              onStatus(
+                chapterTextReplaced
+                  ? (options?.successStatus ?? `Scena salvata (${currentWordCount} parole)`)
+                  : 'Scena salvata, ma i badge nel capitolo non sono stati trovati.',
+              );
+            }
+            return true;
           }
 
-          const updated = await window.novelistApi.updateSceneCard({
-            id: activeScene.id,
-            chapterNodeId: activeScene.chapterNodeId,
-            name: activeScene.name,
-            text: getPlainTextFromDocument(document).trim(),
+          const saved = await window.novelistApi.saveChapterDocument({
+            chapterNodeId,
             contentJson,
-            notes: activeScene.notes,
-            plotNumber: activeScene.plotNumber,
-            positionX: activeScene.positionX,
-            positionY: activeScene.positionY,
+            wordCount: currentWordCount,
           });
 
-          setSceneRecord(updated);
-          setDocumentRecord(null);
-          setIsDirty(false);
+          setDocumentRecord(saved);
+          if (documentVersionRef.current === savedDocumentVersion) {
+            isDirtyRef.current = false;
+            setIsDirty(false);
+          }
           let referenceSyncFailed = false;
-          let chapterTextReplaced = true;
           try {
-            chapterTextReplaced = await syncSceneEditorContentToChapter(updated.id, document);
-            await syncSceneReferencesToParentChapter(document);
+            await syncSceneCardsFromDocument(document);
+            await syncChapterReferences(document);
             await refreshChapterReferences();
           } catch (caughtReferenceError) {
             referenceSyncFailed = true;
@@ -2109,54 +2177,31 @@ export default function ChapterEditor({
               caughtReferenceError instanceof Error
                 ? caughtReferenceError.message
                 : 'Errore sincronizzazione riferimenti';
-            setError(`Scena salvata, ma sincronizzazione riferimenti fallita: ${message}`);
-            onStatus('Scena salvata, ma sincronizzazione riferimenti fallita');
+            setError(`Capitolo salvato, ma sincronizzazione riferimenti fallita: ${message}`);
+            onStatus('Capitolo salvato, ma sincronizzazione riferimenti fallita');
           }
-          await onSceneSaved?.(updated);
+          await onChapterSaved?.();
           if (!referenceSyncFailed && !options?.silent) {
-            onStatus(
-              chapterTextReplaced
-                ? (options?.successStatus ?? `Scena salvata (${currentWordCount} parole)`)
-                : 'Scena salvata, ma i badge nel capitolo non sono stati trovati.',
-            );
+            onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
           }
           return true;
+        } catch (caughtError) {
+          const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+          setError(message);
+          onStatus(isSceneEditor ? 'Errore salvataggio scena' : 'Errore salvataggio capitolo');
+          return false;
+        } finally {
+          setSaving(false);
         }
+      })();
 
-        const saved = await window.novelistApi.saveChapterDocument({
-          chapterNodeId,
-          contentJson,
-          wordCount: currentWordCount,
-        });
-
-        setDocumentRecord(saved);
-        setIsDirty(false);
-        let referenceSyncFailed = false;
-        try {
-          await syncSceneCardsFromDocument(document);
-          await syncChapterReferences(document);
-          await refreshChapterReferences();
-        } catch (caughtReferenceError) {
-          referenceSyncFailed = true;
-          const message =
-            caughtReferenceError instanceof Error
-              ? caughtReferenceError.message
-              : 'Errore sincronizzazione riferimenti';
-          setError(`Capitolo salvato, ma sincronizzazione riferimenti fallita: ${message}`);
-          onStatus('Capitolo salvato, ma sincronizzazione riferimenti fallita');
-        }
-        await onChapterSaved?.();
-        if (!referenceSyncFailed && !options?.silent) {
-          onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
-        }
-        return true;
-      } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
-        setError(message);
-        onStatus(isSceneEditor ? 'Errore salvataggio scena' : 'Errore salvataggio capitolo');
-        return false;
+      activeSavePromiseRef.current = savePromise;
+      try {
+        return await savePromise;
       } finally {
-        setSaving(false);
+        if (activeSavePromiseRef.current === savePromise) {
+          activeSavePromiseRef.current = null;
+        }
       }
     },
     [
@@ -2178,14 +2223,62 @@ export default function ChapterEditor({
 
   const flushDirtyDocument = useCallback(
     async (options?: { successStatus?: string; silent?: boolean }): Promise<boolean> => {
-      if (!isDirty || saving || loading || !editor) {
+      if (activeSavePromiseRef.current) {
+        const activeSavePromise = activeSavePromiseRef.current;
+        const saved = await activeSavePromise;
+        if (activeSavePromiseRef.current === activeSavePromise) {
+          activeSavePromiseRef.current = null;
+        }
+        if (!saved) {
+          return !isDirtyRef.current;
+        }
+      }
+
+      if (!isDirtyRef.current) {
+        return true;
+      }
+
+      if (loading || !editor) {
         return false;
       }
 
       return handleSave(options);
     },
-    [editor, handleSave, isDirty, loading, saving],
+    [editor, handleSave, loading],
   );
+
+  async function handleRequestClose(): Promise<void> {
+    if (isDirtyRef.current) {
+      const saved = await flushDirtyDocument({ silent: true });
+      if (saved && !isDirtyRef.current) {
+        await onClose();
+        return;
+      }
+      setCloseConfirmOpen(true);
+      return;
+    }
+
+    await onClose();
+  }
+
+  async function handleSaveAndClose(): Promise<void> {
+    setClosingAfterSave(true);
+    const saved = await flushDirtyDocument({ silent: true });
+    if (!saved) {
+      setClosingAfterSave(false);
+      onStatus('Salvataggio non riuscito. Editor ancora aperto.');
+      return;
+    }
+
+    if (isDirtyRef.current) {
+      setClosingAfterSave(false);
+      onStatus('Nuove modifiche non salvate rilevate. Salva di nuovo prima di chiudere.');
+      return;
+    }
+
+    setCloseConfirmOpen(false);
+    await onClose();
+  }
 
   async function handleCreateManualVersion(): Promise<void> {
     if (!editor || saving) {
@@ -2225,6 +2318,7 @@ export default function ChapterEditor({
   }
 
   useEffect(() => {
+    isDirtyRef.current = isDirty;
     onDirtyChange?.(isDirty);
     return () => {
       onDirtyChange?.(false);
@@ -2982,444 +3076,118 @@ export default function ChapterEditor({
             <h3>{editorHeading}</h3>
             <p>{currentDocumentTitle}</p>
           </div>
-          <button type="button" onClick={() => void onClose()}>
+          <button type="button" onClick={() => void handleRequestClose()}>
             Chiudi
           </button>
         </header>
 
-        <section className="editor-toolbar">
-          <select
-            className="toolbar-select toolbar-select-style"
-            value={activeStyle}
-            onChange={(event) => applyBlockStyle(event.target.value as BlockStyle)}
-          >
-            <option value="paragraph">Testo normale</option>
-            <option value="heading">Sottotitolo</option>
-            <option value="blockquote">Citazione</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-            className={editor?.isActive('bold') ? 'is-active' : ''}
-          >
-            Grassetto
-          </button>
-          <button
-            type="button"
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-            className={editor?.isActive('italic') ? 'is-active' : ''}
-          >
-            Corsivo
-          </button>
-
-          <select
-            className="toolbar-select toolbar-select-font"
-            value={activeFontFamily ?? ''}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (!value) {
-                editor?.chain().focus().unsetFontFamily().run();
-                return;
-              }
-              editor?.chain().focus().setFontFamily(value).run();
-            }}
-          >
-            <option value="">Font default</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Arial">Arial</option>
-            <option value="Verdana">Verdana</option>
-          </select>
-
-          <select
-            className="toolbar-select toolbar-select-size"
-            value={activeFontSize ?? ''}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (!value) {
-                editor?.chain().focus().unsetFontSize().run();
-                return;
-              }
-              editor?.chain().focus().setFontSize(value).run();
-            }}
-          >
-            <option value="">Dimensione</option>
-            <option value="12">12</option>
-            <option value="14">14</option>
-            <option value="16">16</option>
-            <option value="18">18</option>
-            <option value="22">22</option>
-          </select>
-
-          <button type="button" onClick={() => editor?.chain().focus().setTextAlign('left').run()}>
-            Sinistra
-          </button>
-          <button
-            type="button"
-            onClick={() => editor?.chain().focus().setTextAlign('center').run()}
-          >
-            Centro
-          </button>
-          <button type="button" onClick={() => editor?.chain().focus().setTextAlign('right').run()}>
-            Destra
-          </button>
-          <button
-            type="button"
-            onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
-          >
-            Giustifica
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFindReplaceMode('find');
-              setFindPanelOpen(true);
-            }}
-            disabled={!editor}
-          >
-            Trova
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFindReplaceMode('replace');
-              setFindPanelOpen(true);
-            }}
-            disabled={!editor}
-          >
-            Sostituisci
-          </button>
-        </section>
+        <EditorToolbar
+          activeFontFamily={activeFontFamily ?? null}
+          activeFontSize={activeFontSize ?? null}
+          activeStyle={activeStyle}
+          canSearch={Boolean(editor)}
+          isBoldActive={Boolean(editor?.isActive('bold'))}
+          isItalicActive={Boolean(editor?.isActive('italic'))}
+          onBoldToggle={() => editor?.chain().focus().toggleBold().run()}
+          onFontFamilyChange={(value) => {
+            if (!value) {
+              editor?.chain().focus().unsetFontFamily().run();
+              return;
+            }
+            editor?.chain().focus().setFontFamily(value).run();
+          }}
+          onFontSizeChange={(value) => {
+            if (!value) {
+              editor?.chain().focus().unsetFontSize().run();
+              return;
+            }
+            editor?.chain().focus().setFontSize(value).run();
+          }}
+          onItalicToggle={() => editor?.chain().focus().toggleItalic().run()}
+          onOpenFind={() => {
+            setFindReplaceMode('find');
+            setFindPanelOpen(true);
+          }}
+          onOpenReplace={() => {
+            setFindReplaceMode('replace');
+            setFindPanelOpen(true);
+          }}
+          onStyleChange={applyBlockStyle}
+          onTextAlignChange={(alignment) => editor?.chain().focus().setTextAlign(alignment).run()}
+        />
 
         {findPanelOpen ? (
-          <section className="find-replace-panel">
-            <form
-              className="find-replace-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                handleFindSubmit('next');
-              }}
-            >
-              <label>
-                Trova
-                <input
-                  ref={findInputRef}
-                  value={findQuery}
-                  onChange={(event) => {
-                    setFindQuery(event.target.value);
-                    setActiveFindIndex(-1);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') {
-                      return;
-                    }
-                    event.preventDefault();
-                    handleFindSubmit(event.shiftKey ? 'previous' : 'next');
-                  }}
-                  placeholder="Testo da cercare"
-                />
-              </label>
-              {findReplaceMode === 'replace' ? (
-                <label>
-                  Sostituisci con
-                  <input
-                    value={replaceQuery}
-                    onChange={(event) => setReplaceQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                        event.preventDefault();
-                        handleReplaceCurrent();
-                      }
-                    }}
-                    placeholder="Nuovo testo"
-                  />
-                </label>
-              ) : null}
-              <div className="find-replace-actions">
-                <span className="find-replace-count">
-                  {findQuery.trim()
-                    ? `${activeFindIndex >= 0 ? activeFindIndex + 1 : 0}/${findMatches.length}`
-                    : '0/0'}
-                </span>
-                <button type="button" onClick={() => handleFindSubmit('previous')}>
-                  Precedente
-                </button>
-                <button type="submit">Successivo</button>
-                {findReplaceMode === 'replace' ? (
-                  <>
-                    <button type="button" onClick={handleReplaceCurrent}>
-                      Sostituisci
-                    </button>
-                    <button type="button" onClick={handleReplaceAll}>
-                      Sostituisci tutto
-                    </button>
-                  </>
-                ) : (
-                  <button type="button" onClick={() => setFindReplaceMode('replace')}>
-                    Mostra sostituzione
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={() => setFindPanelOpen(false)}
-                >
-                  Chiudi
-                </button>
-              </div>
-            </form>
-          </section>
+          <FindReplacePanel
+            activeFindIndex={activeFindIndex}
+            findInputRef={findInputRef}
+            findMatchCount={findMatches.length}
+            findQuery={findQuery}
+            mode={findReplaceMode}
+            onClose={() => setFindPanelOpen(false)}
+            onFindQueryChange={(value) => {
+              setFindQuery(value);
+              setActiveFindIndex(-1);
+            }}
+            onFindSubmit={handleFindSubmit}
+            onModeChange={setFindReplaceMode}
+            onReplaceAll={handleReplaceAll}
+            onReplaceCurrent={handleReplaceCurrent}
+            onReplaceQueryChange={setReplaceQuery}
+            replaceQuery={replaceQuery}
+          />
         ) : null}
 
         <section className="editor-main">
           <div className="editor-body">
             {loading ? <p>{`Caricamento ${isSceneEditor ? 'scena' : 'capitolo'}...`}</p> : null}
-            <div
-              className={
-                isSceneEditor
-                  ? 'chapter-reference-panel scene-reference-panel'
-                  : 'chapter-reference-panel'
-              }
-            >
-              <h4>{referencePanelTitle}</h4>
-              <div
-                className={
-                  isSceneEditor
-                    ? 'chapter-reference-columns scene-reference-columns'
-                    : 'chapter-reference-columns'
-                }
-              >
-                <div>
-                  <p className="muted">Personaggi collegati o citati</p>
-                  {displayedCharacters.length === 0 ? (
-                    <p className="muted">Nessun personaggio collegato.</p>
-                  ) : null}
-                  <div className="reference-chip-list">
-                    {displayedCharacters.map((card) => (
-                      <button
-                        key={card.id}
-                        type="button"
-                        className="reference-chip"
-                        onClick={() => insertCharacterReference(card)}
-                        disabled={!editor}
-                      >
-                        @{getCharacterLabel(card)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="muted">Location collegate o citate</p>
-                  {displayedLocations.length === 0 ? (
-                    <p className="muted">Nessuna location collegata.</p>
-                  ) : null}
-                  <div className="reference-chip-list">
-                    {displayedLocations.map((card) => (
-                      <button
-                        key={card.id}
-                        type="button"
-                        className="reference-chip"
-                        onClick={() => insertLocationReference(card)}
-                        disabled={!editor}
-                      >
-                        @{card.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {allowSceneReferenceCreation ? (
-                  <div>
-                    <p className="muted">Scene collegate o citate</p>
-                    {displayedScenes.length === 0 ? (
-                      <p className="muted">Nessuna scena collegata.</p>
-                    ) : null}
-                    <div className="reference-chip-list">
-                      {displayedScenes.map((card) => (
-                        <button
-                          key={card.id}
-                          type="button"
-                          className="reference-chip"
-                          onClick={() => insertSceneReference(card)}
-                          disabled={!editor}
-                        >
-                          #{card.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="row-buttons">
-                <button type="button" onClick={() => void refreshChapterReferences()}>
-                  Aggiorna Riferimenti
-                </button>
-              </div>
-            </div>
+            <ReferencePanel
+              allowSceneReferenceCreation={allowSceneReferenceCreation}
+              canInsert={Boolean(editor)}
+              characters={displayedCharacters}
+              getCharacterLabel={getCharacterLabel}
+              isSceneEditor={isSceneEditor}
+              locations={displayedLocations}
+              onInsertCharacter={insertCharacterReference}
+              onInsertLocation={insertLocationReference}
+              onInsertScene={insertSceneReference}
+              onRefresh={() => void refreshChapterReferences()}
+              scenes={displayedScenes}
+              title={referencePanelTitle}
+            />
             <div onContextMenu={handleEditorContextMenu}>
               {editor ? <EditorContent editor={editor} /> : null}
             </div>
-            {mentionMenu ? (
-              <div
-                className="mention-menu"
-                style={{
-                  left: `${mentionMenu.left}px`,
-                  top: `${mentionMenu.top}px`,
-                }}
-              >
-                {mentionMenu.items.length === 0 ? (
-                  <p className="muted">Nessun riferimento trovato.</p>
-                ) : null}
-                {mentionMenu.items.map((item, index) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={
-                      index === mentionMenu.selectedIndex
-                        ? 'mention-menu-item is-active'
-                        : 'mention-menu-item'
-                    }
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      insertReference(item, {
-                        from: mentionMenu.from,
-                        to: mentionMenu.to,
-                      });
-                    }}
-                  >
-                    <span>{`${item.trigger}${item.label}`}</span>
-                    <small>
-                      {item.type === 'character'
-                        ? 'Personaggio'
-                        : item.type === 'location'
-                          ? 'Location'
-                          : 'Scena'}
-                    </small>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            {mentionMenu ? <MentionMenu menu={mentionMenu} onSelect={insertReference} /> : null}
             {selectionContextMenu ? (
-              <div
-                className="selection-context-menu"
-                style={{
-                  left: `${selectionContextMenu.left}px`,
-                  top: `${selectionContextMenu.top}px`,
+              <SelectionContextMenu
+                allowSceneReferenceCreation={allowSceneReferenceCreation}
+                menu={selectionContextMenu}
+                onCreateReference={(type, selection) => {
+                  setSelectionContextMenu(null);
+                  setCreateReferenceModal({
+                    type,
+                    text: selection.text,
+                    range: selection.range,
+                    name: '',
+                    submitting: false,
+                  });
                 }}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectionContextMenu(null);
-                    setCreateReferenceModal({
-                      type: 'character',
-                      text: selectionContextMenu.text,
-                      range: selectionContextMenu.range,
-                      name: '',
-                      submitting: false,
-                    });
-                  }}
-                >
-                  Crea personaggio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectionContextMenu(null);
-                    setCreateReferenceModal({
-                      type: 'location',
-                      text: selectionContextMenu.text,
-                      range: selectionContextMenu.range,
-                      name: '',
-                      submitting: false,
-                    });
-                  }}
-                >
-                  Crea location
-                </button>
-                {allowSceneReferenceCreation ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectionContextMenu(null);
-                      setCreateReferenceModal({
-                        type: 'scene',
-                        text: selectionContextMenu.text,
-                        range: selectionContextMenu.range,
-                        name: '',
-                        submitting: false,
-                      });
-                    }}
-                  >
-                    Crea scena
-                  </button>
-                ) : null}
-              </div>
+              />
             ) : null}
           </div>
 
-          <aside className="codex-sidebar">
-            <div className="codex-status">
-              <h4>{`Assistente AI (${aiAssistantLabel})`}</h4>
-              <p>
-                Stato:{' '}
-                <strong>
-                  {codexStatus
-                    ? codexStatus.available
-                      ? 'Disponibile'
-                      : 'Fallback'
-                    : 'Verifica...'}
-                </strong>
-              </p>
-            </div>
-
-            <div className="codex-chat" ref={chatScrollRef}>
-              {chatMessages.length === 0 ? (
-                <p className="muted">
-                  Chat pronta. Chiedi brainstorming, revisione o ricerche narrative.
-                </p>
-              ) : null}
-              {chatMessages.map((message) => (
-                <div key={message.id} className={`chat-msg chat-msg-${message.role}`}>
-                  <p>{message.content}</p>
-                  {message.mode ? <span className="chat-mode">{message.mode}</span> : null}
-                </div>
-              ))}
-            </div>
-
-            <div className="codex-chat-input">
-              <textarea
-                rows={4}
-                value={chatInput}
-                onChange={(event) => setChatInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault();
-                    void handleSendChat();
-                  }
-                }}
-                placeholder={`Chiedi a ${aiAssistantLabel}: brainstorming, revisioni, idee di trama...`}
-              />
-              <div className="codex-chat-actions">
-                <button
-                  type="button"
-                  onClick={() => void handleSendChat()}
-                  disabled={codexBusy || !chatInput.trim() || !codexEnabled}
-                  className={codexBusy ? 'ai-working' : undefined}
-                >
-                  Invia
-                </button>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={() => void handleCancelCodexRequest()}
-                  disabled={!codexBusy}
-                >
-                  Annulla richiesta
-                </button>
-              </div>
-            </div>
-          </aside>
+          <AiChatSidebar
+            aiAssistantLabel={aiAssistantLabel}
+            chatInput={chatInput}
+            chatMessages={chatMessages}
+            chatScrollRef={chatScrollRef}
+            codexBusy={codexBusy}
+            codexEnabled={codexEnabled}
+            codexStatus={codexStatus}
+            onCancelRequest={() => void handleCancelCodexRequest()}
+            onChatInputChange={setChatInput}
+            onSendChat={() => void handleSendChat()}
+          />
         </section>
 
         <footer className="editor-footer">
@@ -3504,125 +3272,34 @@ export default function ChapterEditor({
         ) : null}
 
         {pendingSelectionDiff && pendingDiffChunks ? (
-          <div className="modal-overlay codex-diff-overlay">
-            <div className="modal-card codex-diff-card">
-              <h3>Anteprima modifica AI</h3>
-              <p className="muted">
-                Azione: <strong>{pendingSelectionDiff.action}</strong> | Modalita:{' '}
-                <strong>{pendingSelectionDiff.mode}</strong>
-              </p>
-              <div className="codex-diff-grid">
-                <div className="codex-diff-column">
-                  <h4>Originale</h4>
-                  <pre className="codex-diff-text">
-                    {pendingDiffChunks.prefix}
-                    {pendingDiffChunks.removed ? (
-                      <span className="codex-diff-removed">{pendingDiffChunks.removed}</span>
-                    ) : null}
-                    {pendingDiffChunks.suffix}
-                  </pre>
-                </div>
-                <div className="codex-diff-column">
-                  <h4>Proposto</h4>
-                  <pre className="codex-diff-text">
-                    {pendingDiffChunks.prefix}
-                    {pendingDiffChunks.added ? (
-                      <span className="codex-diff-added">{pendingDiffChunks.added}</span>
-                    ) : null}
-                    {pendingDiffChunks.suffix}
-                  </pre>
-                </div>
-              </div>
-              {pendingDiffChunks.identical ? (
-                <p className="muted">La proposta coincide con il testo originale.</p>
-              ) : null}
-              <div className="row-buttons">
-                <button
-                  type="button"
-                  onClick={() => void handleApplySelectionDiff()}
-                  disabled={applyingSelectionDiff}
-                >
-                  Applica
-                </button>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={handleDiscardSelectionDiff}
-                  disabled={applyingSelectionDiff}
-                >
-                  Scarta
-                </button>
-              </div>
-            </div>
-          </div>
+          <SelectionDiffModal
+            action={pendingSelectionDiff.action}
+            applying={applyingSelectionDiff}
+            chunks={pendingDiffChunks}
+            mode={pendingSelectionDiff.mode}
+            onApply={() => void handleApplySelectionDiff()}
+            onDiscard={handleDiscardSelectionDiff}
+          />
         ) : null}
 
         {createReferenceModal ? (
-          <div
-            className="modal-overlay"
-            onClick={() => {
-              if (!createReferenceModal.submitting) {
-                setCreateReferenceModal(null);
-              }
-            }}
-          >
-            <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-              <h3>
-                {createReferenceModal.type === 'character'
-                  ? 'Crea Scheda Personaggio'
-                  : createReferenceModal.type === 'location'
-                    ? 'Crea Scheda Location'
-                    : 'Crea Scheda Scena'}
-              </h3>
-              <label>
-                {createReferenceModal.type === 'character'
-                  ? 'Nome personaggio'
-                  : createReferenceModal.type === 'location'
-                    ? 'Nome location'
-                    : 'Nome scena'}
-                <input
-                  autoFocus
-                  value={createReferenceModal.name}
-                  onChange={(event) =>
-                    setCreateReferenceModal((prev) =>
-                      prev ? { ...prev, name: event.target.value } : prev,
-                    )
-                  }
-                />
-              </label>
-              <label>
-                Testo selezionato
-                <textarea rows={6} value={createReferenceModal.text} readOnly />
-              </label>
-              <p className="muted">
-                {createReferenceModal.type === 'scene'
-                  ? 'Il testo selezionato verra salvato nella scheda scena e marcato nel capitolo.'
-                  : 'La descrizione verra salvata nelle note. Se l&apos;AI e disponibile, prova anche a compilare i campi deducibili.'}
-              </p>
-              <div className="row-buttons">
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={() => setCreateReferenceModal(null)}
-                  disabled={createReferenceModal.submitting}
-                >
-                  Annulla
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleSubmitReferenceCreation()}
-                  disabled={createReferenceModal.submitting}
-                  className={createReferenceModal.submitting ? 'ai-working' : undefined}
-                >
-                  {createReferenceModal.submitting
-                    ? 'Creazione...'
-                    : createReferenceModal.type === 'scene'
-                      ? 'Crea e inserisci #'
-                      : 'Crea e inserisci @'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <CreateReferenceModal
+            modal={createReferenceModal}
+            onCancel={() => setCreateReferenceModal(null)}
+            onNameChange={(name) =>
+              setCreateReferenceModal((prev) => (prev ? { ...prev, name } : prev))
+            }
+            onSubmit={() => void handleSubmitReferenceCreation()}
+          />
+        ) : null}
+
+        {closeConfirmOpen ? (
+          <CloseEditorConfirmModal
+            documentLabel={currentDocumentTitle}
+            isSaving={closingAfterSave}
+            onCancel={() => setCloseConfirmOpen(false)}
+            onSaveAndClose={() => void handleSaveAndClose()}
+          />
         ) : null}
       </div>
     </div>

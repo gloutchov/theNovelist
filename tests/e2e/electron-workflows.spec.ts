@@ -1,13 +1,20 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { expect, test, type Page } from '@playwright/test';
 import { _electron as electron, type ElectronApplication } from 'playwright';
 
 const tempDirs: string[] = [];
-const execFileAsync = promisify(execFile);
+
+type ElectronNovelistApi = {
+  getStoryState: () => Promise<{ nodes: Array<{ id: string; title: string }> }>;
+  getChapterDocument: (payload: { chapterNodeId: string }) => Promise<{
+    contentJson: string;
+    wordCount: number;
+  }>;
+  listCharacterCards: () => Promise<unknown[]>;
+  listLocationCards: () => Promise<unknown[]>;
+};
 
 async function createTempProjectRoot(prefix: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), prefix));
@@ -40,7 +47,7 @@ async function createProjectFromUi(window: Page, rootPath: string, name: string)
   });
   await expect(createProjectModal).toBeVisible({ timeout: 10_000 });
   await createProjectModal.getByRole('button', { name: 'Sfoglia...' }).click();
-  await expect(createProjectModal.getByPlaceholder('Seleziona la cartella del progetto')).toHaveValue(rootPath);
+  await expect(createProjectModal.getByPlaceholder(/Seleziona la cartella/)).toHaveValue(rootPath);
   await createProjectModal.getByLabel('Nome progetto').fill(name);
   const createAndOpenButton = createProjectModal.getByRole('button', { name: 'Crea e Apri' });
   await expect(createAndOpenButton).toBeEnabled();
@@ -57,26 +64,15 @@ async function createProjectFromUi(window: Page, rootPath: string, name: string)
 }
 
 async function createDefaultPlotFromUi(window: Page): Promise<void> {
-  await window.getByRole('button', { name: 'Nuove Trame' }).click();
+  await window.getByRole('button', { name: 'Trame' }).click();
+  await window.getByRole('button', { name: 'Nuova Trama' }).click();
   const plotModal = window.locator('.modal-card').filter({
-    has: window.getByRole('heading', { name: 'Nuove Trame' }),
+    has: window.getByRole('heading', { name: 'Nuova Trama' }),
   });
   await expect(plotModal).toBeVisible({ timeout: 10_000 });
   await plotModal.getByRole('button', { name: 'Crea Trama' }).click();
   await expect(window.locator('.status-panel .status')).toContainText(/Trama creata:/, { timeout: 10_000 });
-}
-
-function toSqlLiteral(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-async function querySqliteJson<T>(dbPath: string, sql: string): Promise<T[]> {
-  const { stdout } = await execFileAsync('sqlite3', ['-json', dbPath, sql], { maxBuffer: 1024 * 1024 * 5 });
-  const trimmed = stdout.trim();
-  if (!trimmed) {
-    return [];
-  }
-  return JSON.parse(trimmed) as T[];
+  await window.getByRole('button', { name: 'Capitoli' }).click();
 }
 
 test.describe('electron real e2e workflows', () => {
@@ -120,22 +116,23 @@ test.describe('electron real e2e workflows', () => {
       await window.getByRole('button', { name: 'Chiudi', exact: true }).click();
       await expect(window.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
 
-      const dbPath = path.join(rootPath, 'project.db');
-      const nodeRows = await querySqliteJson<{ id: string; title: string }>(
-        dbPath,
-        `SELECT id, title FROM chapter_nodes WHERE title = ${toSqlLiteral('Capitolo DB Reale')} LIMIT 1;`,
-      );
-      const nodeRow = nodeRows[0];
+      const storyState = await window.evaluate(() => {
+        const api = (globalThis as unknown as { novelistApi: ElectronNovelistApi }).novelistApi;
+        return api.getStoryState();
+      });
+      const nodeRow = storyState.nodes.find((node) => node.title === 'Capitolo DB Reale');
       expect(nodeRow?.title).toBe('Capitolo DB Reale');
 
-      const documentRows = await querySqliteJson<{ content_json: string; word_count: number }>(
-        dbPath,
-        `SELECT content_json, word_count FROM chapter_documents WHERE chapter_node_id = ${toSqlLiteral(nodeRow?.id ?? '')} LIMIT 1;`,
+      const documentRow = await window.evaluate(
+        (chapterNodeId) => {
+          const api = (globalThis as unknown as { novelistApi: ElectronNovelistApi }).novelistApi;
+          return api.getChapterDocument({ chapterNodeId });
+        },
+        nodeRow?.id ?? '',
       );
-      const documentRow = documentRows[0];
       expect(documentRow).toBeDefined();
-      expect(documentRow?.content_json ?? '').toContain('Questo testo viene scritto su DB reale');
-      expect(documentRow?.word_count ?? 0).toBeGreaterThan(0);
+      expect(documentRow?.contentJson ?? '').toContain('Questo testo viene scritto su DB reale');
+      expect(documentRow?.wordCount ?? 0).toBeGreaterThan(0);
     } finally {
       await app.close();
     }
@@ -184,12 +181,17 @@ test.describe('electron real e2e workflows', () => {
       await locationPanel.getByRole('button', { name: 'Crea Scheda' }).click();
       await expect(window.locator('.canvas-wrap').getByText('Porto Vecchio')).toBeVisible();
 
-      const dbPath = path.join(rootPath, 'project.db');
-      const characterRows = await querySqliteJson<{ count: number }>(dbPath, 'SELECT COUNT(*) as count FROM character_cards;');
-      const locationRows = await querySqliteJson<{ count: number }>(dbPath, 'SELECT COUNT(*) as count FROM location_cards;');
+      const characterRows = await window.evaluate(() => {
+        const api = (globalThis as unknown as { novelistApi: ElectronNovelistApi }).novelistApi;
+        return api.listCharacterCards();
+      });
+      const locationRows = await window.evaluate(() => {
+        const api = (globalThis as unknown as { novelistApi: ElectronNovelistApi }).novelistApi;
+        return api.listLocationCards();
+      });
 
-      expect(characterRows[0]?.count ?? 0).toBe(1);
-      expect(locationRows[0]?.count ?? 0).toBe(1);
+      expect(characterRows).toHaveLength(1);
+      expect(locationRows).toHaveLength(1);
     } finally {
       await app.close();
     }

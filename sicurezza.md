@@ -1,6 +1,6 @@
 # Sicurezza - The Novelist
 
-Stato documentato al **9 maggio 2026**.
+Stato documentato al **12 maggio 2026**.
 
 Questo documento riepiloga le misure di sicurezza implementate in The Novelist e i limiti residui noti. L'applicazione e una app desktop locale: non ha un backend proprietario remoto, ma puo comunicare con provider AI esterni se l'utente li abilita.
 
