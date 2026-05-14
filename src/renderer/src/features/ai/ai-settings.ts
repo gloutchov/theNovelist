@@ -22,11 +22,7 @@ export function getAiProviderLabel(provider: CodexSettings['provider']): string 
     return 'OpenAI API';
   }
 
-  if (provider === 'ollama') {
-    return 'Ollama';
-  }
-
-  return 'Codex CLI';
+  return 'Ollama';
 }
 
 export function getAiFallbackLabel(fallbackProvider: CodexSettings['fallbackProvider']): string {
@@ -38,7 +34,7 @@ export function getAiFallbackLabel(fallbackProvider: CodexSettings['fallbackProv
 }
 
 function aiProviderCanLeaveDevice(provider: CodexSettings['provider']): boolean {
-  return provider === 'codex_cli' || provider === 'openai_api';
+  return provider === 'openai_api';
 }
 
 function aiSettingsMaySendPromptExternally(settings: CodexSettings): boolean {
@@ -68,7 +64,7 @@ export function getAiFallbackOptions(
 ): Array<{ value: CodexSettings['fallbackProvider']; label: string }> {
   return [
     { value: 'none', label: 'Non AI' },
-    ...(['codex_cli', 'openai_api', 'ollama'] as const)
+    ...(['openai_api', 'ollama'] as const)
       .filter((candidate) => candidate !== provider)
       .map((candidate) => ({
         value: candidate,

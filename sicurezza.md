@@ -14,7 +14,6 @@ Questo documento riepiloga le misure di sicurezza implementate in The Novelist e
   - `wiki/`: memoria Markdown locale derivata dal database.
 - Dalla release 4.x il database include anche scene, timeline, revisioni delle entita, obiettivi di scrittura e sessioni di scrittura.
 - Provider AI supportati:
-  - `Codex CLI`;
   - `OpenAI API`;
   - `Ollama`.
 - `project.db` resta la fonte di verita. La wiki e un artefatto derivato, app-managed e rigenerabile.
@@ -149,7 +148,7 @@ Riferimenti:
 ## 10. AI runtime, timeout e cancellazione
 
 - Le richieste AI passano dal main process.
-- Codex CLI usa timeout configurabile tramite `NOVELIST_CODEX_TIMEOUT_MS`.
+- Le chiamate OpenAI API e Ollama usano timeout configurabile tramite `NOVELIST_CODEX_TIMEOUT_MS`.
 - E disponibile cancellazione della richiesta AI attiva.
 - Provider fallback configurabile, incluso `none`.
 - In caso di errore AI, i flussi principali di scrittura non devono dipendere dalla riuscita della wiki o del provider.
@@ -222,9 +221,9 @@ Endpoint possibili:
 Variabili ambiente rilevanti:
 
 - `OPENAI_API_KEY`
-- `NOVELIST_CODEX_COMMAND`
 - `NOVELIST_CODEX_TIMEOUT_MS`
 - `NOVELIST_IMAGE_MODEL`
+- `NOVELIST_ENABLE_DEVTOOLS`
 - `OLLAMA_HOST`
 
 ## 15. Limiti residui noti
@@ -244,8 +243,9 @@ Variabili ambiente rilevanti:
 - `npm test`
 - `npm run test:e2e`
 - `npm run test:e2e:electron`
-- `npm run test:smoke:electron:codex`
+- `npm run test:smoke:electron`
 - `npm run pack`
+- `npm run release:checksums`
 
 Per modifiche UI o Electron reali, verificare anche visivamente l'app pacchettizzata o l'ambiente Electron reale.
 

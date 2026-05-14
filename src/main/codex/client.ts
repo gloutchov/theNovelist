@@ -1,12 +1,8 @@
-import { spawn } from 'node:child_process';
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { APP_CONFIG } from '../config/app-config';
 import { appFetch, toExternalRequestError } from '../network/http';
 
 export type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
-export type AiProvider = 'codex_cli' | 'openai_api' | 'ollama';
+export type AiProvider = 'openai_api' | 'ollama';
 export type AiFallbackProvider = AiProvider | 'none';
 
 export interface CodexRuntimeSettings {
@@ -22,7 +18,7 @@ export interface CodexRuntimeSettings {
 export interface CodexStatus {
   available: boolean;
   command: string;
-  mode: 'cli' | 'api' | 'fallback';
+  mode: 'api' | 'fallback';
   reason?: string;
   activeRequest: boolean;
   queuedRequests: number;
@@ -37,7 +33,6 @@ export interface CodexTransformRequest {
   chapterTitle?: string;
   projectName?: string;
   chapterText?: string;
-  workspaceRoot?: string;
 }
 
 export interface CodexChatRequest {
@@ -46,12 +41,11 @@ export interface CodexChatRequest {
   projectName?: string;
   chapterText?: string;
   projectMemoryContext?: string;
-  workspaceRoot?: string;
 }
 
 export interface CodexResult {
   output: string;
-  mode: 'cli' | 'api' | 'fallback';
+  mode: 'api' | 'fallback';
   usedCommand?: string;
   error?: string;
   cancelled?: boolean;
@@ -65,7 +59,7 @@ interface ActiveRequest {
 interface ProviderProbe {
   available: boolean;
   command: string;
-  mode: 'cli' | 'api' | 'fallback';
+  mode: 'api' | 'fallback';
   reason?: string;
 }
 
@@ -78,11 +72,6 @@ const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   ollamaModel: APP_CONFIG.ai.defaultOllamaModel,
   timeoutMs: APP_CONFIG.ai.defaultTimeoutMs,
 };
-const resolvedCommandCache = new Map<string, Promise<string>>();
-const resolvedPathCache = new Map<string, Promise<string | null>>();
-
-type RuntimePlatform = NodeJS.Platform;
-
 function normalizeRequestTimeoutMs(value: unknown, fallback: number): number {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue) || numericValue < APP_CONFIG.ai.minTimeoutMs) {
@@ -101,11 +90,9 @@ function normalizeSettings(
     provider:
       settings?.provider === 'openai_api' || settings?.provider === 'ollama'
         ? settings.provider
-        : 'codex_cli',
+        : DEFAULT_AI_SETTINGS.provider,
     fallbackProvider:
-      fallbackProvider === 'codex_cli' ||
-      fallbackProvider === 'openai_api' ||
-      fallbackProvider === 'ollama'
+      fallbackProvider === 'openai_api' || fallbackProvider === 'ollama'
         ? fallbackProvider
         : 'none',
     allowApiCalls: Boolean(settings?.allowApiCalls),
@@ -126,400 +113,6 @@ function getActiveFallbackProvider(runtime: CodexRuntimeSettings): AiProvider | 
 
 function combineFallbackErrors(primaryError?: string, fallbackError?: string): string | undefined {
   return [primaryError, fallbackError].filter(Boolean).join(' | ') || undefined;
-}
-
-function resolveCommandName(): string {
-  return process.env['NOVELIST_CODEX_COMMAND']?.trim() || 'codex';
-}
-
-function isExplicitCommandPath(commandName: string): boolean {
-  return commandName.includes(path.sep) || (path.sep === '/' && commandName.includes('\\'));
-}
-
-function shellEscape(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function getHomePath(env: NodeJS.ProcessEnv = process.env): string {
-  return env['HOME']?.trim() || env['USERPROFILE']?.trim() || '';
-}
-
-function getPathValue(env: NodeJS.ProcessEnv = process.env): string {
-  return env['PATH']?.trim() || env['Path']?.trim() || '';
-}
-
-function getWindowsAppDataPath(env: NodeJS.ProcessEnv = process.env): string {
-  const explicit = env['APPDATA']?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  const homePath = getHomePath(env);
-  return homePath ? path.join(homePath, 'AppData', 'Roaming') : '';
-}
-
-function getWindowsLocalAppDataPath(env: NodeJS.ProcessEnv = process.env): string {
-  const explicit = env['LOCALAPPDATA']?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  const homePath = getHomePath(env);
-  return homePath ? path.join(homePath, 'AppData', 'Local') : '';
-}
-
-function getWindowsExecutableExtensions(env: NodeJS.ProcessEnv = process.env): string[] {
-  const configured = env['PATHEXT']?.trim() || '.COM;.EXE;.BAT;.CMD';
-  const extensions = configured
-    .split(';')
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean)
-    .map((entry) => (entry.startsWith('.') ? entry : `.${entry}`));
-
-  return [...new Set(extensions)].sort((left, right) => {
-    return (
-      rankWindowsCommandCandidate(`command${left}`) - rankWindowsCommandCandidate(`command${right}`)
-    );
-  });
-}
-
-function getCommandCandidateNames(
-  commandName: string,
-  platform: RuntimePlatform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  if (platform !== 'win32' || path.extname(commandName)) {
-    return [commandName];
-  }
-
-  return [
-    ...getWindowsExecutableExtensions(env).map((extension) => `${commandName}${extension}`),
-    commandName,
-  ];
-}
-
-function getLoginShellCandidates(
-  platform: RuntimePlatform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  const envShell = env['SHELL']?.trim() || '';
-  const defaults =
-    platform === 'darwin'
-      ? ['/bin/zsh', '/bin/bash', '/bin/sh']
-      : ['/bin/bash', '/bin/sh', '/usr/bin/bash', '/usr/bin/sh'];
-
-  return [...new Set([envShell, ...defaults].filter(Boolean))];
-}
-
-function getCommonCommandCandidates(
-  commandName: string,
-  env: NodeJS.ProcessEnv = process.env,
-  platform: RuntimePlatform = process.platform,
-): string[] {
-  const pathModule = platform === 'win32' ? path.win32 : path.posix;
-  const homePath = getHomePath(env);
-  const commandCandidates = getCommandCandidateNames(commandName, platform, env);
-  const directories =
-    platform === 'win32'
-      ? [
-          pathModule.join(getWindowsAppDataPath(env), 'npm'),
-          pathModule.join(getWindowsLocalAppDataPath(env), 'Programs', 'nodejs'),
-          env['ProgramFiles']?.trim() ? pathModule.join(env['ProgramFiles'].trim(), 'nodejs') : '',
-          env['ProgramFiles(x86)']?.trim()
-            ? pathModule.join(env['ProgramFiles(x86)'].trim(), 'nodejs')
-            : '',
-          homePath ? pathModule.join(homePath, '.local', 'bin') : '',
-        ]
-      : [
-          homePath ? pathModule.join(homePath, '.local', 'bin') : '',
-          homePath ? pathModule.join(homePath, '.npm-global', 'bin') : '',
-          '/opt/homebrew/bin',
-          '/usr/local/bin',
-          '/usr/bin',
-          '/bin',
-          '/snap/bin',
-        ];
-
-  return directories
-    .filter(Boolean)
-    .flatMap((directory) =>
-      commandCandidates.map((candidate) => pathModule.join(directory, candidate)),
-    );
-}
-
-function shouldUseShellForSpawn(
-  commandName: string,
-  platform: RuntimePlatform = process.platform,
-): boolean {
-  if (platform !== 'win32') {
-    return false;
-  }
-
-  const extension = path.extname(commandName).toLowerCase();
-  if (!extension) {
-    return false;
-  }
-
-  return extension === '.cmd' || extension === '.bat';
-}
-
-function rankWindowsCommandCandidate(filePath: string): number {
-  const extension = path.extname(filePath).toLowerCase();
-  switch (extension) {
-    case '.exe':
-      return 0;
-    case '.cmd':
-      return 1;
-    case '.bat':
-      return 2;
-    case '.com':
-      return 3;
-    default:
-      return 10;
-  }
-}
-
-function selectWindowsCommandCandidate(output: string): string | null {
-  const matches = output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .sort((left, right) => rankWindowsCommandCandidate(left) - rankWindowsCommandCandidate(right));
-
-  return matches[0] ?? null;
-}
-
-async function resolveCommandViaWindowsWhere(commandName: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const child = spawn('where.exe', [commandName], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: process.env,
-      shell: false,
-    });
-
-    let stdout = '';
-    child.stdout.on('data', (chunk: Buffer | string) => {
-      stdout += chunk.toString();
-    });
-    child.on('error', () => resolve(null));
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve(selectWindowsCommandCandidate(stdout));
-        return;
-      }
-
-      resolve(null);
-    });
-  });
-}
-
-async function resolveCommandViaShellLookup(
-  commandName: string,
-  platform: RuntimePlatform = process.platform,
-): Promise<string | null> {
-  if (platform === 'win32') {
-    return resolveCommandViaWindowsWhere(commandName);
-  }
-
-  return resolveCommandViaLoginShell(commandName);
-}
-
-function getFallbackPathEntries(
-  commandPath: string,
-  env: NodeJS.ProcessEnv = process.env,
-  platform: RuntimePlatform = process.platform,
-): string[] {
-  const homePath = getHomePath(env);
-  const commandDirectory = isExplicitCommandPath(commandPath) ? path.dirname(commandPath) : '';
-  const windowsEntries =
-    platform === 'win32'
-      ? [
-          path.join(getWindowsAppDataPath(env), 'npm'),
-          path.join(getWindowsLocalAppDataPath(env), 'Programs', 'nodejs'),
-          env['ProgramFiles']?.trim() ? path.join(env['ProgramFiles'].trim(), 'nodejs') : '',
-          env['ProgramFiles(x86)']?.trim()
-            ? path.join(env['ProgramFiles(x86)'].trim(), 'nodejs')
-            : '',
-          homePath ? path.join(homePath, '.local', 'bin') : '',
-        ]
-      : [
-          homePath ? path.join(homePath, '.local', 'bin') : '',
-          homePath ? path.join(homePath, '.npm-global', 'bin') : '',
-          '/opt/homebrew/bin',
-          '/usr/local/bin',
-          '/usr/bin',
-          '/bin',
-          '/usr/sbin',
-          '/sbin',
-          '/snap/bin',
-        ];
-
-  return [commandDirectory, ...windowsEntries].filter(Boolean);
-}
-
-function getEnvironmentPathKey(env: NodeJS.ProcessEnv = process.env): 'PATH' | 'Path' {
-  return env['Path'] && !env['PATH'] ? 'Path' : 'PATH';
-}
-
-function buildPathEnvironment(
-  mergedPath: string,
-  env: NodeJS.ProcessEnv = process.env,
-): NodeJS.ProcessEnv {
-  const pathKey = getEnvironmentPathKey(env);
-  return {
-    ...env,
-    PATH: mergedPath,
-    Path: mergedPath,
-    [pathKey]: mergedPath,
-  };
-}
-
-async function normalizeSpawnCommand(
-  commandPath: string,
-  platform: RuntimePlatform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<string> {
-  if (platform !== 'win32') {
-    return commandPath;
-  }
-
-  const extension = path.extname(commandPath).toLowerCase();
-  if (platform === 'win32' && path.extname(commandPath).toLowerCase() === '.ps1') {
-    const cmdPath = commandPath.slice(0, -4) + '.cmd';
-    if (await fileIsExecutable(cmdPath)) {
-      return cmdPath;
-    }
-  }
-
-  if (!extension) {
-    for (const candidateExtension of getWindowsExecutableExtensions(env)) {
-      const candidatePath = `${commandPath}${candidateExtension}`;
-      if (await fileIsExecutable(candidatePath)) {
-        return candidatePath;
-      }
-    }
-  }
-
-  return commandPath;
-}
-
-async function fileIsExecutable(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function resolveCommandViaPosixShell(
-  commandName: string,
-  shellPath: string,
-): Promise<string | null> {
-  return new Promise((resolve) => {
-    const child = spawn(shellPath, ['-lc', `command -v ${shellEscape(commandName)}`], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: process.env,
-    });
-
-    let stdout = '';
-    child.stdout.on('data', (chunk: Buffer | string) => {
-      stdout += chunk.toString();
-    });
-    child.on('error', () => resolve(null));
-    child.on('close', (code) => {
-      const resolvedPath =
-        stdout
-          .trim()
-          .split('\n')
-          .find((line) => line.trim())
-          ?.trim() ?? '';
-      if (code === 0 && resolvedPath) {
-        resolve(resolvedPath);
-        return;
-      }
-
-      resolve(null);
-    });
-  });
-}
-
-async function resolveCommandViaLoginShell(commandName: string): Promise<string | null> {
-  for (const shellPath of getLoginShellCandidates()) {
-    const resolved = await resolveCommandViaPosixShell(commandName, shellPath);
-    if (resolved) {
-      return resolved;
-    }
-  }
-
-  return null;
-}
-
-function resolveSearchPathEntry(commandName: string): Promise<string | null> {
-  const trimmed = commandName.trim();
-  const cached = resolvedPathCache.get(trimmed);
-  if (cached) {
-    return cached;
-  }
-
-  const resolution = resolveCommandViaShellLookup(trimmed);
-  resolvedPathCache.set(trimmed, resolution);
-  return resolution;
-}
-
-function clearResolvedCommandCaches(): void {
-  resolvedCommandCache.clear();
-  resolvedPathCache.clear();
-}
-
-async function resolveCommandFromCommonPaths(commandName: string): Promise<string | null> {
-  for (const candidate of getCommonCommandCandidates(commandName)) {
-    if (await fileIsExecutable(candidate)) {
-      return normalizeSpawnCommand(candidate);
-    }
-  }
-
-  return null;
-}
-
-function resolveRunnableCommandName(commandName: string): Promise<string> {
-  const trimmed = commandName.trim() || 'codex';
-  const cached = resolvedCommandCache.get(trimmed);
-  if (cached) {
-    return cached;
-  }
-
-  const resolution = (async () => {
-    if (isExplicitCommandPath(trimmed)) {
-      return normalizeSpawnCommand(trimmed);
-    }
-
-    const commonPathResolved = await resolveCommandFromCommonPaths(trimmed);
-    if (commonPathResolved) {
-      return commonPathResolved;
-    }
-
-    const shellResolved = await resolveCommandViaShellLookup(trimmed);
-    if (shellResolved) {
-      return normalizeSpawnCommand(shellResolved);
-    }
-
-    return trimmed;
-  })();
-
-  resolvedCommandCache.set(trimmed, resolution);
-  return resolution;
-}
-
-async function buildCliEnvironment(commandPath: string): Promise<NodeJS.ProcessEnv> {
-  const currentPath = getPathValue(process.env);
-  const pathEntries = currentPath ? currentPath.split(path.delimiter).filter(Boolean) : [];
-  const resolvedNodePath = await resolveSearchPathEntry('node');
-  const nodeDirectory = resolvedNodePath?.trim() ? path.dirname(resolvedNodePath.trim()) : '';
-  const fallbackEntries = [...getFallbackPathEntries(commandPath), nodeDirectory].filter(Boolean);
-
-  const mergedPath = [...new Set([...fallbackEntries, ...pathEntries])].join(path.delimiter);
-  return buildPathEnvironment(mergedPath, process.env);
 }
 
 function resolveTimeoutMs(): number {
@@ -570,7 +163,7 @@ function fallbackChatResponse(message: string, error?: string): string {
     'Modalita fallback locale attiva: AI non raggiungibile.',
     `Richiesta ricevuta: "${clean}".`,
     error ? `Dettaglio tecnico: ${error}` : null,
-    'Suggerimento: verifica impostazioni provider (Codex CLI, OpenAI API o Ollama).',
+    'Suggerimento: verifica impostazioni provider (OpenAI API o Ollama).',
   ]
     .filter(Boolean)
     .join('\n');
@@ -916,210 +509,20 @@ async function probeOllama(
   }
 }
 
-function runCodexCli(
-  commandName: string,
-  prompt: string,
-  timeoutMs: number,
-  options?: {
-    cwd?: string;
-  },
-  signal?: AbortSignal,
-): Promise<CodexResult> {
-  return new Promise((resolve) => {
-    void (async () => {
-      if (signal?.aborted) {
-        resolve({
-          output: '',
-          mode: 'fallback',
-          usedCommand: commandName,
-          error: 'Richiesta annullata',
-          cancelled: true,
-        });
-        return;
-      }
-
-      let outputRoot: string | null = null;
-      let outputPath: string | null = null;
-      try {
-        outputRoot = await mkdtemp(path.join(tmpdir(), 'novelist-codex-'));
-        outputPath = path.join(outputRoot, 'last-message.txt');
-      } catch {
-        outputRoot = null;
-        outputPath = null;
-      }
-
-      const args = ['exec', '--skip-git-repo-check'] as string[];
-      if (options?.cwd?.trim()) {
-        args.push('--cd', options.cwd.trim());
-      }
-      if (outputPath) {
-        args.push('--output-last-message', outputPath);
-      }
-      args.push('-');
-      const cliEnv = await buildCliEnvironment(commandName);
-
-      const child = spawn(commandName, args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: cliEnv,
-        cwd: options?.cwd?.trim() || process.cwd(),
-        shell: shouldUseShellForSpawn(commandName),
-      });
-
-      let stdout = '';
-      let stderr = '';
-      let settled = false;
-
-      const cleanupOutputDir = async (): Promise<void> => {
-        if (outputRoot) {
-          await rm(outputRoot, { recursive: true, force: true }).catch(() => undefined);
-        }
-      };
-
-      const cleanupTimers = (): void => {
-        clearTimeout(timeout);
-        signal?.removeEventListener('abort', onAbort);
-      };
-
-      const timeout = setTimeout(() => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        child.kill('SIGTERM');
-        cleanupTimers();
-        void cleanupOutputDir();
-        resolve({
-          output: '',
-          mode: 'fallback',
-          usedCommand: commandName,
-          error: `Timeout Codex CLI (${timeoutMs}ms)`,
-        });
-      }, timeoutMs);
-
-      const onAbort = (): void => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        child.kill('SIGTERM');
-        cleanupTimers();
-        void cleanupOutputDir();
-        resolve({
-          output: '',
-          mode: 'fallback',
-          usedCommand: commandName,
-          error: 'Richiesta annullata',
-          cancelled: true,
-        });
-      };
-
-      signal?.addEventListener('abort', onAbort, { once: true });
-      child.stdin.write(prompt);
-      child.stdin.end();
-
-      child.stdout.on('data', (chunk: Buffer | string) => {
-        stdout += chunk.toString();
-      });
-
-      child.stderr.on('data', (chunk: Buffer | string) => {
-        stderr += chunk.toString();
-      });
-
-      child.on('error', (error) => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        cleanupTimers();
-        void cleanupOutputDir();
-        resolve({
-          output: '',
-          mode: 'fallback',
-          usedCommand: commandName,
-          error: error.message,
-        });
-      });
-
-      child.on('close', async (code) => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        cleanupTimers();
-
-        if (signal?.aborted) {
-          await cleanupOutputDir();
-          resolve({
-            output: '',
-            mode: 'fallback',
-            usedCommand: commandName,
-            error: 'Richiesta annullata',
-            cancelled: true,
-          });
-          return;
-        }
-
-        const out = stdout.trim();
-        const err = stderr.trim();
-        let outputFromFile = '';
-        if (outputPath) {
-          try {
-            outputFromFile = (await readFile(outputPath, 'utf8')).trim();
-          } catch {
-            // Ignore file output errors and fallback to stdout parsing.
-          }
-        }
-        await cleanupOutputDir();
-
-        const outputText = outputFromFile || out;
-        if (code === 0 && outputText) {
-          resolve({
-            output: outputText,
-            mode: 'cli',
-            usedCommand: commandName,
-          });
-          return;
-        }
-
-        resolve({
-          output: '',
-          mode: 'fallback',
-          usedCommand: commandName,
-          error: err || `Codex CLI exited with code ${code ?? -1}`,
-        });
-      });
-    })();
-  });
-}
-
 export const __testing = {
   buildChatPrompt,
-  clearResolvedCommandCaches,
-  getLoginShellCandidates,
-  getCommonCommandCandidates,
-  resolveRunnableCommandName,
-  selectWindowsCommandCandidate,
-  shouldUseShellForSpawn,
 };
 
 export class CodexCliService {
-  private readonly commandName = resolveCommandName();
   private readonly timeoutMs = resolveTimeoutMs();
   private queue: Promise<void> = Promise.resolve();
   private queuedRequests = 0;
   private nextRequestId = 1;
   private activeRequest: ActiveRequest | null = null;
 
-  async getStatus(
-    settings?: Partial<CodexRuntimeSettings>,
-    workspaceRoot?: string,
-  ): Promise<CodexStatus> {
+  async getStatus(settings?: Partial<CodexRuntimeSettings>): Promise<CodexStatus> {
     const runtime = normalizeSettings(settings, this.timeoutMs);
-    const primaryProbe = await this.probeProvider(runtime.provider, runtime, workspaceRoot);
+    const primaryProbe = await this.probeProvider(runtime.provider, runtime);
     if (primaryProbe.available) {
       return this.toStatus(primaryProbe, runtime);
     }
@@ -1129,7 +532,7 @@ export class CodexCliService {
       return this.toStatus(primaryProbe, runtime);
     }
 
-    const fallbackProbe = await this.probeProvider(fallbackProvider, runtime, workspaceRoot);
+    const fallbackProbe = await this.probeProvider(fallbackProvider, runtime);
     if (fallbackProbe.available) {
       return this.toStatus(
         {
@@ -1166,7 +569,6 @@ export class CodexCliService {
   private async probeProvider(
     provider: AiProvider,
     runtime: CodexRuntimeSettings,
-    workspaceRoot?: string,
   ): Promise<ProviderProbe> {
     if (provider === 'openai_api') {
       if (!runtime.allowApiCalls) {
@@ -1214,21 +616,11 @@ export class CodexCliService {
       };
     }
 
-    const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
-    const probe = await runCodexCli(
-      resolvedCommandName,
-      'Rispondi solo con: ok',
-      Math.min(this.timeoutMs, 10_000),
-      {
-        cwd: workspaceRoot,
-      },
-    );
-
     return {
-      available: probe.mode === 'cli',
-      command: resolvedCommandName,
-      mode: probe.mode === 'cli' ? 'cli' : 'fallback',
-      reason: probe.mode === 'cli' ? undefined : (probe.error ?? 'Codex CLI non raggiungibile'),
+      available: false,
+      command: String(provider),
+      mode: 'fallback',
+      reason: 'Provider AI non supportato.',
     };
   }
 
@@ -1246,10 +638,10 @@ export class CodexCliService {
     settings?: Partial<CodexRuntimeSettings>,
   ): Promise<CodexResult> {
     const prompt = buildTransformPrompt(request);
-    return this.enqueuePrompt(prompt, request.workspaceRoot, settings, (error) => ({
+    return this.enqueuePrompt(prompt, settings, (error) => ({
       output: fallbackTransform(request.action, request.selectedText),
       mode: 'fallback',
-      usedCommand: this.commandName,
+      usedCommand: 'fallback',
       error,
     }));
   }
@@ -1259,17 +651,16 @@ export class CodexCliService {
     settings?: Partial<CodexRuntimeSettings>,
   ): Promise<CodexResult> {
     const prompt = buildChatPrompt(request);
-    return this.enqueuePrompt(prompt, request.workspaceRoot, settings, (error) => ({
+    return this.enqueuePrompt(prompt, settings, (error) => ({
       output: fallbackChatResponse(request.message, error),
       mode: 'fallback',
-      usedCommand: this.commandName,
+      usedCommand: 'fallback',
       error,
     }));
   }
 
   private enqueuePrompt(
     prompt: string,
-    workspaceRoot: string | undefined,
     settings: Partial<CodexRuntimeSettings> | undefined,
     fallbackBuilder: (error?: string) => CodexResult,
   ): Promise<CodexResult> {
@@ -1287,13 +678,9 @@ export class CodexCliService {
           runtime.provider,
           runtime,
           prompt,
-          workspaceRoot,
           abortController.signal,
         );
-        if (
-          (primaryResult.mode === 'cli' || primaryResult.mode === 'api') &&
-          primaryResult.output.trim()
-        ) {
+        if (primaryResult.mode === 'api' && primaryResult.output.trim()) {
           return primaryResult;
         }
         if (primaryResult.cancelled) {
@@ -1309,13 +696,9 @@ export class CodexCliService {
           fallbackProvider,
           runtime,
           prompt,
-          workspaceRoot,
           abortController.signal,
         );
-        if (
-          (fallbackResult.mode === 'cli' || fallbackResult.mode === 'api') &&
-          fallbackResult.output.trim()
-        ) {
+        if (fallbackResult.mode === 'api' && fallbackResult.output.trim()) {
           return fallbackResult;
         }
         if (fallbackResult.cancelled) {
@@ -1343,7 +726,6 @@ export class CodexCliService {
     provider: AiProvider,
     runtime: CodexRuntimeSettings,
     prompt: string,
-    workspaceRoot: string | undefined,
     signal: AbortSignal,
   ): Promise<CodexResult> {
     if (provider === 'openai_api') {
@@ -1382,15 +764,11 @@ export class CodexCliService {
       return runOllamaApi(runtime.ollamaModel, prompt, runtime.timeoutMs, signal);
     }
 
-    const resolvedCommandName = await resolveRunnableCommandName(this.commandName);
-    return runCodexCli(
-      resolvedCommandName,
-      prompt,
-      runtime.timeoutMs,
-      {
-        cwd: workspaceRoot,
-      },
-      signal,
-    );
+    return {
+      output: '',
+      mode: 'fallback',
+      usedCommand: String(provider),
+      error: 'Provider AI non supportato.',
+    };
   }
 }

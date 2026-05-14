@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { registerIpcHandlers } from './ipc';
 import { ProjectSessionManager } from './projects/session';
+import { isBlockedProductionShortcut, isDevToolsEnabled } from './security/debug-policy';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectSessionManager = new ProjectSessionManager();
@@ -140,9 +141,12 @@ function showAppInfo(parentWindow?: BrowserWindow): void {
   void openAboutWindow(parentWindow);
 }
 
-function installApplicationMenu(): void {
+function installApplicationMenu(debugToolsEnabled: boolean): void {
   const template: Electron.MenuItemConstructorOptions[] = [];
-  const windowSubmenu: Electron.MenuItemConstructorOptions[] = [{ role: 'minimize' }, { role: 'zoom' }];
+  const windowSubmenu: Electron.MenuItemConstructorOptions[] = [
+    { role: 'minimize' },
+    { role: 'zoom' },
+  ];
 
   if (process.platform === 'darwin') {
     windowSubmenu.push({ role: 'front' });
@@ -152,7 +156,8 @@ function installApplicationMenu(): void {
         {
           label: 'Info',
           click: () => {
-            const focusedWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+            const focusedWindow =
+              BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
             showAppInfo(focusedWindow);
           },
         },
@@ -185,10 +190,14 @@ function installApplicationMenu(): void {
         { role: 'selectAll' },
       ],
     },
-    {
-      label: 'View',
-      submenu: [{ role: 'reload' }, { role: 'forceReload' }, { role: 'toggleDevTools' }],
-    },
+    ...(debugToolsEnabled
+      ? [
+          {
+            label: 'View',
+            submenu: [{ role: 'reload' }, { role: 'forceReload' }, { role: 'toggleDevTools' }],
+          } satisfies Electron.MenuItemConstructorOptions,
+        ]
+      : []),
     {
       label: 'Window',
       submenu: windowSubmenu,
@@ -199,7 +208,8 @@ function installApplicationMenu(): void {
         {
           label: 'Info',
           click: () => {
-            const focusedWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+            const focusedWindow =
+              BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
             showAppInfo(focusedWindow);
           },
         },
@@ -222,6 +232,11 @@ function installWindowSecurityGuards(mainWindow: BrowserWindow, appEntryUrl: str
 }
 
 function createWindow(): void {
+  const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
+  const debugToolsEnabled = isDevToolsEnabled({
+    env: process.env,
+    rendererUrl: devServerUrl,
+  });
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
@@ -232,15 +247,28 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: debugToolsEnabled,
     },
   });
 
-  const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
+  if (!debugToolsEnabled) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (isBlockedProductionShortcut(input)) {
+        event.preventDefault();
+      }
+    });
+
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools();
+    });
+  }
 
   if (devServerUrl) {
     installWindowSecurityGuards(mainWindow, devServerUrl);
     void mainWindow.loadURL(devServerUrl);
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    if (debugToolsEnabled) {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    }
     mainWindow.webContents.on('will-prevent-unload', (event) => {
       const choice = dialog.showMessageBoxSync(mainWindow, {
         type: 'warning',
@@ -288,7 +316,12 @@ app.whenReady().then(() => {
   });
 
   registerIpcHandlers(ipcMain, projectSessionManager);
-  installApplicationMenu();
+  installApplicationMenu(
+    isDevToolsEnabled({
+      env: process.env,
+      rendererUrl: process.env['ELECTRON_RENDERER_URL'],
+    }),
+  );
   createWindow();
 
   app.on('activate', () => {

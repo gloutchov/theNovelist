@@ -4,7 +4,7 @@ import { APP_CONFIG } from '../../src/main/config/app-config';
 describe('APP_CONFIG', () => {
   it('centralizes AI defaults used by new projects', () => {
     expect(APP_CONFIG.ai.enabledByDefault).toBe(false);
-    expect(APP_CONFIG.ai.defaultProvider).toBe('codex_cli');
+    expect(APP_CONFIG.ai.defaultProvider).toBe('ollama');
     expect(APP_CONFIG.ai.defaultFallbackProvider).toBe('none');
     expect(APP_CONFIG.ai.allowApiCallsByDefault).toBe(false);
     expect(APP_CONFIG.ai.allowExternalMemorySharingByDefault).toBe(false);

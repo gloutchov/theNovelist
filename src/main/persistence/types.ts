@@ -68,8 +68,8 @@ export interface ChapterDocumentRecord {
 export interface CodexSettingsRecord {
   projectId: string;
   enabled: boolean;
-  provider: 'codex_cli' | 'openai_api' | 'ollama';
-  fallbackProvider: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
+  provider: 'openai_api' | 'ollama';
+  fallbackProvider: 'openai_api' | 'ollama' | 'none';
   allowApiCalls: boolean;
   allowExternalMemorySharing: boolean;
   autoSummarizeDescriptions: boolean;
@@ -264,8 +264,8 @@ export interface UpsertChapterDocumentInput {
 
 export interface UpsertCodexSettingsInput {
   enabled?: boolean;
-  provider?: 'codex_cli' | 'openai_api' | 'ollama';
-  fallbackProvider?: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
+  provider?: 'openai_api' | 'ollama';
+  fallbackProvider?: 'openai_api' | 'ollama' | 'none';
   allowApiCalls?: boolean;
   allowExternalMemorySharing?: boolean;
   autoSummarizeDescriptions?: boolean;

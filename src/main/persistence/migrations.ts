@@ -207,7 +207,7 @@ const MIGRATIONS: Migration[] = [
     statements: [
       `
       ALTER TABLE codex_settings
-      ADD COLUMN provider TEXT NOT NULL DEFAULT 'codex_cli';
+      ADD COLUMN provider TEXT NOT NULL DEFAULT 'ollama';
       `,
       `
       ALTER TABLE codex_settings

@@ -9,7 +9,9 @@ export interface NovelistApiMockBootstrap {
 }
 
 export interface NovelistApiMockOptions {
+  autosaveMode?: 'manual' | 'interval' | 'auto';
   bootstrap?: NovelistApiMockBootstrap;
+  chapterSaveDelayMs?: number;
   wikiSyncDelayMs?: number;
 }
 
@@ -108,8 +110,8 @@ export async function installNovelistApiMock(
       codexSettings: {
         projectId: '',
         enabled: true,
-        provider: 'codex_cli' as 'codex_cli' | 'openai_api' | 'ollama',
-        fallbackProvider: 'none' as 'codex_cli' | 'openai_api' | 'ollama' | 'none',
+        provider: 'ollama' as 'openai_api' | 'ollama',
+        fallbackProvider: 'none' as 'openai_api' | 'ollama' | 'none',
         allowApiCalls: false,
         allowExternalMemorySharing: false,
         autoSummarizeDescriptions: true,
@@ -124,7 +126,7 @@ export async function installNovelistApiMock(
         updatedAt: nowIso(),
       },
       appPreferences: {
-        autosaveMode: 'auto' as 'manual' | 'interval' | 'auto',
+        autosaveMode: (inputOptions.autosaveMode ?? 'auto') as 'manual' | 'interval' | 'auto',
         autosaveIntervalMinutes: 5,
         updatedAt: nowIso(),
       },
@@ -923,6 +925,9 @@ export async function installNovelistApiMock(
         contentJson: string;
         wordCount?: number;
       }) => {
+        if (inputOptions.chapterSaveDelayMs) {
+          await delay(inputOptions.chapterSaveDelayMs);
+        }
         const project = ensureProject();
         const existing = await api.getChapterDocument({ chapterNodeId: payload.chapterNodeId });
         const nextWordCount = payload.wordCount ?? existing.wordCount;
@@ -1454,8 +1459,8 @@ export async function installNovelistApiMock(
 
       codexUpdateSettings: async (payload: {
         enabled?: boolean;
-        provider?: 'codex_cli' | 'openai_api' | 'ollama';
-        fallbackProvider?: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
+        provider?: 'openai_api' | 'ollama';
+        fallbackProvider?: 'openai_api' | 'ollama' | 'none';
         allowApiCalls?: boolean;
         allowExternalMemorySharing?: boolean;
         autoSummarizeDescriptions?: boolean;
@@ -1526,7 +1531,7 @@ export async function installNovelistApiMock(
               },
             }),
             mode: 'fallback' as const,
-            usedCommand: 'mock-codex',
+            usedCommand: 'mock-ai',
           };
         }
 
@@ -1539,14 +1544,14 @@ export async function installNovelistApiMock(
               },
             }),
             mode: 'fallback' as const,
-            usedCommand: 'mock-codex',
+            usedCommand: 'mock-ai',
           };
         }
 
         return {
           output: `Suggerimento mock: ${payload.message}`,
           mode: 'fallback' as const,
-          usedCommand: 'mock-codex',
+          usedCommand: 'mock-ai',
         };
       },
 
@@ -1571,7 +1576,7 @@ export async function installNovelistApiMock(
         return {
           output,
           mode: 'fallback' as const,
-          usedCommand: 'mock-codex',
+          usedCommand: 'mock-ai',
         };
       },
 
@@ -1605,7 +1610,7 @@ export async function installNovelistApiMock(
         return {
           output: assistantMessage.content,
           mode: 'fallback' as const,
-          usedCommand: 'mock-codex',
+          usedCommand: 'mock-ai',
           memorySources: await api.wikiSearch({ query: payload.message, limit: 6 }),
         };
       },

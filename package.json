@@ -17,6 +17,7 @@
     "dist": "npm run dist:mac",
     "dist:mac": "node scripts/run-electron-package.mjs --mac",
     "dist:win": "node scripts/run-electron-package.mjs --win",
+    "release:checksums": "node scripts/generate-checksums.mjs",
     "rebuild:electron-native": "node scripts/rebuild-electron-native.mjs",
     "rebuild:node-native": "node scripts/rebuild-node-native.mjs",
     "lint": "eslint .",
@@ -31,7 +32,7 @@
     "test:e2e": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test",
     "test:perf": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test -c playwright.perf.config.ts",
     "test:e2e:electron": "node scripts/run-electron-e2e.mjs",
-    "test:smoke:electron:codex": "node scripts/run-electron-codex-smoke.mjs",
+    "test:smoke:electron": "node scripts/run-electron-smoke.mjs",
     "test:e2e:electron:run": "cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test -c playwright.electron.config.ts",
     "test:e2e:headed": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test --headed",
     "test:e2e:ui": "npm run build && cross-env PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test --ui"

@@ -31,8 +31,8 @@ interface ChapterCodexRuntime {
   settings: {
     autoSummarizeDescriptions: boolean;
     enabled: boolean;
-    provider: 'codex_cli' | 'openai_api' | 'ollama';
-    fallbackProvider: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
+    provider: 'openai_api' | 'ollama';
+    fallbackProvider: 'openai_api' | 'ollama' | 'none';
     allowApiCalls: boolean;
     apiModel: string;
     ollamaModel: string;

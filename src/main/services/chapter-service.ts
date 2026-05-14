@@ -30,8 +30,8 @@ export interface ChapterServiceDependencies {
     settings: {
       autoSummarizeDescriptions: boolean;
       enabled: boolean;
-      provider: 'codex_cli' | 'openai_api' | 'ollama';
-      fallbackProvider: 'codex_cli' | 'openai_api' | 'ollama' | 'none';
+      provider: 'openai_api' | 'ollama';
+      fallbackProvider: 'openai_api' | 'ollama' | 'none';
       allowApiCalls: boolean;
       apiModel: string;
       ollamaModel: string;
@@ -416,7 +416,6 @@ export class ChapterService {
       return;
     }
 
-    const workspaceRoot = this.sessionManager.getOpenedProject()?.rootPath;
     const summaryRequest = buildSummaryPrompt(node.title, plainText);
     let summaryText = '';
 
@@ -428,7 +427,6 @@ export class ChapterService {
             chapterTitle: node.title,
             projectName: this.sessionManager.getOpenedProject()?.project.name,
             chapterText: plainText,
-            workspaceRoot,
           },
           {
             provider: codexSettings.provider,

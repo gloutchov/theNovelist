@@ -71,7 +71,7 @@ export function toCodexSettingsResponse(resolved: ResolvedCodexRuntime): CodexSe
 }
 
 function providerCanLeaveDevice(provider: CodexSettingsRecord['provider']): boolean {
-  return provider === 'codex_cli' || provider === 'openai_api';
+  return provider === 'openai_api';
 }
 
 function settingsMaySendPromptExternally(

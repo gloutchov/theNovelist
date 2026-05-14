@@ -106,7 +106,7 @@ function getAiAssistantLabel(settings: CodexSettings | null): string {
   if (settings?.provider === 'openai_api') {
     return 'OpenAI';
   }
-  return 'Codex';
+  return 'AI';
 }
 
 function colorFromPlotNumber(plotNumber: number): string {
@@ -962,12 +962,12 @@ export default function CharacterBoard({
     }
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
     if (!currentSettings?.enabled) {
-      onStatus('Abilita prima il consenso Codex nelle Impostazioni AI.');
+      onStatus('Abilita prima il consenso AI nelle Impostazioni AI.');
       return;
     }
 
     setCodexSuggesting(true);
-    onStatus('Codex sta elaborando suggerimenti personaggio...');
+    onStatus(`${aiAssistantLabel} sta elaborando suggerimenti personaggio...`);
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
@@ -976,18 +976,18 @@ export default function CharacterBoard({
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
-        onStatus('Richiesta Codex annullata');
+        onStatus('Richiesta AI annullata');
         return;
       }
       setEditDraft((prev) => ({
         ...prev,
         notes: prev.notes ? `${prev.notes}\n\n${response.output}` : response.output,
       }));
-      onStatus(`Suggerimento Codex ricevuto (${response.mode})`);
+      onStatus(`Suggerimento AI ricevuto (${response.mode})`);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore richiesta Codex');
+      onStatus('Errore richiesta AI');
     } finally {
       setCodexSuggesting(false);
     }
@@ -999,12 +999,12 @@ export default function CharacterBoard({
     }
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
     if (!currentSettings?.enabled) {
-      onStatus('Abilita prima il consenso Codex nelle Impostazioni AI.');
+      onStatus('Abilita prima il consenso AI nelle Impostazioni AI.');
       return;
     }
 
     setCodexPrompting(true);
-    onStatus('Codex sta creando il prompt immagine...');
+    onStatus(`${aiAssistantLabel} sta creando il prompt immagine...`);
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
@@ -1013,7 +1013,7 @@ export default function CharacterBoard({
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
-        onStatus('Richiesta Codex annullata');
+        onStatus('Richiesta AI annullata');
         return;
       }
       setImagePrompt(response.output);
@@ -1021,7 +1021,7 @@ export default function CharacterBoard({
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      onStatus('Errore richiesta Codex');
+      onStatus('Errore richiesta AI');
     } finally {
       setCodexPrompting(false);
     }

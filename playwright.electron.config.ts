@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: ['**/electron-workflows.spec.ts', '**/electron-codex-smoke.spec.ts'],
+  testMatch: ['**/electron-workflows.spec.ts', '**/electron-smoke.spec.ts'],
   fullyParallel: false,
   retries: 0,
   reporter: 'list',
