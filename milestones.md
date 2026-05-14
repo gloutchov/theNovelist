@@ -268,6 +268,18 @@ Interventi:
 - documentare che le build non sono firmate ne notarizzate e possono mostrare warning del sistema operativo;
 - documentare il workflow release senza certificati e la procedura di verifica checksum.
 
+Stato:
+
+- chiusa: hardening produzione, documentazione distribuzione non firmata, build Windows reale e checksum SHA-256 completati;
+- avviata con policy debug centralizzata in `src/main/security/debug-policy.ts`;
+- menu reload/force reload/DevTools e scorciatoie correlate disabilitati quando DevTools non sono abilitati;
+- DevTools disponibili solo con dev server o variabile `NOVELIST_ENABLE_DEVTOOLS`;
+- aggiunto script `npm run release:checksums` per generare `release/SHA256SUMS.txt`;
+- aggiunti test unitari per policy produzione, CSP immagini locali e checksum release.
+- verifiche Electron eseguite: `npm run test:e2e:electron` e `npm run test:e2e:electron:run`.
+- build reale Windows eseguita con `npm run dist:win`;
+- checksum 4.5.0 generati in `release/SHA256SUMS.txt`.
+
 ## Milestone 10 - Verifica finale 4.5
 
 Obiettivo: chiudere la release con controlli ripetibili.
@@ -281,6 +293,17 @@ Checklist:
 - controllo manuale: creazione progetto, apertura progetto, editor capitolo, import immagine, generazione immagine, export DOCX/ePUB, AI con memoria disabilitata e abilitata;
 - verifica che nessuna API key venga restituita al renderer in chiaro;
 - verifica che i default privacy siano quelli documentati.
+
+Stato:
+
+- `npm run typecheck` passato;
+- `npx vitest run tests/unit` passato: 24 file, 80 test passati;
+- `npm run test:e2e` passato: 27 test renderer;
+- `npm run test:e2e:electron` passato: 3 test Electron reali;
+- `npm run test:smoke:electron` passato: 1 smoke Electron reale;
+- controllo manuale finale superato: creazione progetto, apertura progetto, editor capitolo, import immagine, generazione immagine, export DOCX/ePUB, AI con memoria disabilitata e abilitata, API key non esposta al renderer, default privacy verificati;
+- moduli nativi ripristinati con `npm run rebuild:node-native`;
+- chiusa: milestone 10 completata.
 
 ## Decisioni chiuse
 

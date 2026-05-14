@@ -59,6 +59,18 @@ async function openChapterEditorWithText(
   await expect(editorContent).toContainText(chapterText);
 }
 
+async function closeChapterEditorSavingIfPrompted(page: Page): Promise<void> {
+  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+  const confirmModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Modifiche non salvate' }),
+  });
+  await confirmModal.waitFor({ state: 'visible', timeout: 500 }).catch(() => undefined);
+  if (await confirmModal.isVisible()) {
+    await confirmModal.getByRole('button', { name: 'Salva e chiudi' }).click();
+  }
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
+}
+
 async function expectMiniMapHasColoredContent(page: Page): Promise<void> {
   await expect(page.locator('.react-flow__minimap')).toBeVisible();
   await expect(page.locator('.react-flow__minimap-node').first()).toBeVisible();
@@ -88,7 +100,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('story workflow with Codex preview discard', async ({ page }) => {
+test('story workflow with AI preview discard', async ({ page }) => {
   await openChapterEditorWithText(page, 'E2E Story Discard');
   const editorContent = page.locator('.novelist-editor-content');
   await editorContent.click({ position: { x: 24, y: 18 } });
@@ -101,7 +113,7 @@ test('story workflow with Codex preview discard', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Anteprima modifica AI' })).toBeHidden();
 });
 
-test('story workflow with Codex preview apply', async ({ page }) => {
+test('story workflow with AI preview apply', async ({ page }) => {
   await openChapterEditorWithText(page, 'E2E Story Apply');
   const editorContent = page.locator('.novelist-editor-content');
   await editorContent.click({ position: { x: 24, y: 18 } });
@@ -332,7 +344,7 @@ test('character board create and edit card', async ({ page }) => {
     has: page.getByRole('heading', { name: 'Modifica Personaggio' }),
   });
   await expect(modal).toBeVisible();
-  await modal.getByRole('button', { name: 'Prompt Da Codex' }).click();
+  await modal.getByRole('button', { name: 'Prompt Da Ollama' }).click();
 
   const prompt = modal.getByLabel('Prompt');
   await expect(prompt).toHaveValue(/Suggerimento mock:/);
@@ -370,7 +382,7 @@ test('location board create and edit card', async ({ page }) => {
     has: page.getByRole('heading', { name: 'Modifica Location' }),
   });
   await expect(modal).toBeVisible();
-  await modal.getByRole('button', { name: 'Prompt Da Codex' }).click();
+  await modal.getByRole('button', { name: 'Prompt Da Ollama' }).click();
 
   const prompt = modal.getByLabel('Prompt');
   await expect(prompt).toHaveValue(/Suggerimento mock:/);
@@ -406,7 +418,7 @@ test('create character card from editor selection', async ({ page }) => {
   await createModal.getByRole('button', { name: 'Crea e inserisci @' }).click();
 
   await expect(editorContent).toContainText(sourceText);
-  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+  await closeChapterEditorSavingIfPrompted(page);
 
   await page.getByRole('button', { name: 'Personaggi', exact: true }).click();
   const canvas = page.locator('.canvas-wrap');
@@ -454,7 +466,7 @@ test('create location card from editor selection', async ({ page }) => {
   await createModal.getByRole('button', { name: 'Crea e inserisci @' }).click();
 
   await expect(editorContent).toContainText(sourceText);
-  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+  await closeChapterEditorSavingIfPrompted(page);
 
   await page.getByRole('button', { name: 'Location', exact: true }).click();
   const canvas = page.locator('.canvas-wrap');
@@ -522,7 +534,6 @@ test('memory tab shows sources from last AI response', async ({ page }) => {
   await expect(page.getByText('Risposta mock: magazzino')).toBeVisible();
 
   await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
-  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
 
   await page.getByRole('button', { name: 'Memoria', exact: true }).click();
 
@@ -544,11 +555,35 @@ test('closing chapter editor does not wait for automatic memory sync', async ({ 
     'testo da salvare prima della chiusura',
   );
 
-  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
-
-  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
+  await closeChapterEditorSavingIfPrompted(page);
   await expect(page.getByText('aggiornamento memoria in corso...')).toBeVisible();
   await expect(page.getByText('memoria aggiornata')).toBeVisible();
+});
+
+test('closing dirty chapter editor opens save confirmation immediately', async ({ page }) => {
+  await installNovelistApiMock(page, { autosaveMode: 'manual', chapterSaveDelayMs: 1200 });
+  await page.goto('/');
+
+  await openChapterEditorWithText(
+    page,
+    'E2E Close Confirmation',
+    'testo non ancora salvato prima della chiusura',
+  );
+
+  const editorContent = page.locator('.novelist-editor-content');
+  await editorContent.click({ position: { x: 24, y: 18 } });
+  await editorContent.pressSequentially(' aggiunta finale');
+  await expect(editorContent).toContainText('aggiunta finale');
+
+  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+
+  const confirmModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Modifiche non salvate' }),
+  });
+  await expect(confirmModal).toBeVisible({ timeout: 500 });
+
+  await confirmModal.getByRole('button', { name: 'Salva e chiudi' }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
 });
 
 test('saving plot does not wait for automatic memory sync', async ({ page }) => {

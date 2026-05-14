@@ -78,7 +78,7 @@ interface ChatMessage {
 
 interface PendingSelectionDiff {
   action: CodexTransformAction;
-  mode: 'cli' | 'api' | 'fallback';
+  mode: 'api' | 'fallback';
   originalText: string;
   transformedText: string;
   selectionRange: {
@@ -341,7 +341,7 @@ function getAiAssistantLabel(settings: CodexSettings | null): string {
   if (settings?.provider === 'openai_api') {
     return 'OpenAI';
   }
-  return 'Codex';
+  return 'AI';
 }
 
 function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
@@ -2249,11 +2249,6 @@ export default function ChapterEditor({
 
   async function handleRequestClose(): Promise<void> {
     if (isDirtyRef.current) {
-      const saved = await flushDirtyDocument({ silent: true });
-      if (saved && !isDirtyRef.current) {
-        await onClose();
-        return;
-      }
       setCloseConfirmOpen(true);
       return;
     }
@@ -3215,7 +3210,7 @@ export default function ChapterEditor({
                 <button
                   type="button"
                   onClick={() => void handleExportDocx()}
-                  disabled={saving || !editor}
+                  disabled={!editor}
                 >
                   Esporta DOCX
                 </button>

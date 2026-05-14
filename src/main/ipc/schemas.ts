@@ -305,8 +305,8 @@ export const codexChatRequestSchema = z.object({
 
 export const codexUpdateSettingsRequestSchema = z.object({
   enabled: z.boolean().optional(),
-  provider: z.enum(['codex_cli', 'openai_api', 'ollama']).optional(),
-  fallbackProvider: z.enum(['codex_cli', 'openai_api', 'ollama', 'none']).optional(),
+  provider: z.enum(['openai_api', 'ollama']).optional(),
+  fallbackProvider: z.enum(['openai_api', 'ollama', 'none']).optional(),
   allowApiCalls: z.boolean().optional(),
   allowExternalMemorySharing: z.boolean().optional(),
   autoSummarizeDescriptions: z.boolean().optional(),
@@ -556,18 +556,18 @@ export const exportResponseSchema = z.object({
 export const codexStatusResponseSchema = z.object({
   available: z.boolean(),
   command: z.string(),
-  mode: z.enum(['cli', 'api', 'fallback']),
+  mode: z.enum(['api', 'fallback']),
   reason: z.string().optional(),
   activeRequest: z.boolean(),
   queuedRequests: z.number().int().min(0),
-  provider: z.enum(['codex_cli', 'openai_api', 'ollama']),
-  fallbackProvider: z.enum(['codex_cli', 'openai_api', 'ollama', 'none']),
+  provider: z.enum(['openai_api', 'ollama']),
+  fallbackProvider: z.enum(['openai_api', 'ollama', 'none']),
   apiCallsEnabled: z.boolean(),
 });
 
 export const codexResultResponseSchema = z.object({
   output: z.string(),
-  mode: z.enum(['cli', 'api', 'fallback']),
+  mode: z.enum(['api', 'fallback']),
   usedCommand: z.string().optional(),
   error: z.string().optional(),
   cancelled: z.boolean().optional(),
@@ -587,8 +587,8 @@ export const codexResultResponseSchema = z.object({
 export const codexSettingsResponseSchema = z.object({
   projectId: z.string(),
   enabled: z.boolean(),
-  provider: z.enum(['codex_cli', 'openai_api', 'ollama']),
-  fallbackProvider: z.enum(['codex_cli', 'openai_api', 'ollama', 'none']),
+  provider: z.enum(['openai_api', 'ollama']),
+  fallbackProvider: z.enum(['openai_api', 'ollama', 'none']),
   allowApiCalls: z.boolean(),
   allowExternalMemorySharing: z.boolean(),
   autoSummarizeDescriptions: z.boolean(),

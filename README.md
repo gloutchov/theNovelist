@@ -19,7 +19,7 @@ The Novelist nasce da diverse esigenze:
 2. Volevo poter gestire meglio le trame parallele: L'interfaccia a blocchi è perfetta. I blocchi di una trama hanno tutti lo stesso colore. Se genero un altro percorso narrativo, ho un colore differente.
 3. Volevo le schede personaggi: Anche qui, interfaccia a blocchi. Ogni blocco è una scheda personaggio in stile identikit. Nella scheda e persino possibile indicare in quali capitoli il personaggio è presente. E con la AI posso persino generare una immagine del personaggio.
 4. Volevo le schede paesaggi: Anche qui, interfaccia a blocchi. Identiche in tutto e per tutto a quelle dei personaggi, ma dedicate alle location.
-5. Intervento della AI: Ho pensato di usare Codex CLI con chiamate a riga di comando. Ma per le funzionalità complete è necessario usare una API Key di OpenAI. E ho inserito anche la possibilità di usare una AI locale, con un connettore per Ollama. Unica pecca? Con Codex CLI e Ollama non è possibile generare le immagini in-app. Però si può generare un prompt ad hoc, darlo in pasto a un chatbot capace di generare immagini, scaricare l'immagine, e allegarla.
+5. Intervento della AI: per l'assistenza testuale l'app usa OpenAI API oppure Ollama. Per le funzionalità cloud complete, inclusa la generazione immagini in-app, è necessario usare una API Key di OpenAI. Ollama resta disponibile come provider locale per chi vuole tenere il testo sul proprio computer.
 
 Tutto ciò ha portato a The Novelist.
 
@@ -68,7 +68,6 @@ Funzionalità principali:
 
 Funzionalità secondarie:
 
-- Abbinamento a Codex CLI
 - Abbinamento a modelli cloud tramite API Key
 - Abbinamento a modelli locali con Ollama
 
@@ -245,7 +244,7 @@ Il programma permette di scegliere tra:
 
 ### Impostazioni AI
 
-Qui si può scegliere il modello AI da usare (Codex CLI, OperAI API KEY, Ollama), il fallback nel caso la AI scelta abbia problemi (tra cui anche No AI), e impostare i modelli a cui fare le richieste (prima di cambiare quelli di default, verificare i costi per token).
+Qui si può scegliere il modello AI da usare (OpenAI API Key oppure Ollama), il fallback nel caso la AI scelta abbia problemi (tra cui anche No AI), e impostare i modelli a cui fare le richieste (prima di cambiare quelli di default, verificare i costi per token).
 
 ### Consensi
 
@@ -255,10 +254,6 @@ Qui sono presenti le box per abilitare le varie funzionalità AI previste dall'a
 
 Qui va inserita la API KEY per i servizi cloud.
 
-#### Codex CLI
-
-Codex CLI è il command line interface di OpenAI. Viene installato localmente, ma utilizza i modelli di OpenAI, di conseguenza è necessario un abbonamento a chatGPT (minimo il Plus), o una API KEY da associare.
-
 #### API KEY
 
 Questo è l'unico sistema che permette di generare le immagini In-App, sempre che il servizio associato alla vostra chiave API lo permetta. E' prevista la compatibilità alle API KEY di OpenAI, che sono un po' uno standard de facto.
@@ -267,7 +262,7 @@ Questo è l'unico sistema che permette di generare le immagini In-App, sempre ch
 
 Ollama è un tool che, una volta installato sul proprio computer, permette di scaricare dei modelli AI locali (misurati sulle prestazioni del PC), o di usare dei modelli Open Source in Cloud. Questa soluzione è utile per chi vuole la massima tutela della privacy, a scapito delle prestazioni dei modelli.
 
-Attenzione: le soluzioni Codex CLI e Ollama prevedono che sul computer siano installati i programmi. In caso contrario il servizio AI non sarà attivo.
+Attenzione: Ollama deve essere installato e in esecuzione sul computer. In caso contrario il provider locale non sarà attivo.
 
 Il menù impostazioni presenta anche quattro check box importanti:
 
@@ -276,7 +271,7 @@ Il menù impostazioni presenta anche quattro check box importanti:
 3. Auto-riassunto della descrizione blocco al salvataggio: Senza questo consenso non si avrà il riassunto automatico dei capitoli in descrizione al blocco.
 4. Consenso invio memoria progetto a provider esterni: se disattivato, la AI non riceverà la memoria Wiki quando il provider o il fallback possono inviare il prompt fuori dal computer.
 
-E' inoltre presente un Fallback nel caso il servizio AI scelto non sia operativo per qualche motivo. Questo fallback può ridirigere le richieste a uno degli altri due modelli disponibili, o essere completamente 'Non AI'.
+E' inoltre presente un Fallback nel caso il servizio AI scelto non sia operativo per qualche motivo. Questo fallback può ridirigere le richieste all'altro provider disponibile, o essere completamente 'Non AI'.
 
 _Nota:_ Le impostazioni AI sono salvate all'interno dei singoli progetti. Le preferenze di autosave invece sono globali utente, quindi restano valide anche quando si apre o si crea un altro progetto.
 
@@ -360,6 +355,7 @@ Nota per chi usa il repository sorgente:
 - `npm run dist`: crea gli artefatti macOS ufficiali.
 - `npm run dist:mac`: crea artefatti macOS (`dmg`, `zip`).
 - `npm run dist:win`: crea artefatti Windows (`installer .exe`, `portable .exe`).
+- `npm run release:checksums`: genera `release/SHA256SUMS.txt` per gli artefatti compilati.
 - `npm run rebuild:electron-native`: rebuild moduli nativi (es. `better-sqlite3`) per Electron.
 - `npm run rebuild:node-native`: rebuild moduli nativi per runtime Node locale.
 - `npm run lint`: lint.
@@ -369,7 +365,7 @@ Nota per chi usa il repository sorgente:
 - `npm run test:e2e`: suite e2e renderer.
 - `npm run test:perf`: benchmark e2e performance.
 - `npm run test:e2e:electron`: suite e2e Electron reale (IPC + DB).
-- `npm run test:smoke:electron:codex`: smoke Electron reale su build pacchettizzata per verificare preload sandboxato, `Crea/Apri progetto` e rilevamento Codex CLI con `PATH` ridotto.
+- `npm run test:smoke:electron`: smoke Electron reale su build pacchettizzata.
 
 Nota su `pack`, `dist:mac` e `dist:win`:
 
@@ -381,7 +377,6 @@ Nota su `pack`, `dist:mac` e `dist:win`:
 
 Nelle Impostazioni AI puoi scegliere il provider:
 
-- `Codex CLI (locale)`
 - `OpenAI API`
 - `Ollama (locale)`
 
@@ -389,7 +384,7 @@ Note operative:
 
 - Prompt/suggerimenti/chat/creazione struttura trama usano il provider selezionato.
 - L'app controlla lo stato del provider e puo bloccare una nuova analisi se esiste gia una richiesta AI attiva o in coda.
-- Il fallback provider puo essere `Codex CLI`, `OpenAI API`, `Ollama` oppure `none`.
+- Il fallback provider puo essere `OpenAI API`, `Ollama` oppure `none`.
 - La chat AI puo ricevere un blocco "Memoria progetto" costruito dalla wiki locale. Questo avviene solo se il consenso AI e attivo e, quando provider o fallback possono uscire dal computer, se e attivo anche il consenso "Invio memoria progetto a provider esterni".
 - La generazione immagini in-app usa OpenAI Images API, quindi richiede:
   - consenso AI attivo;
@@ -401,55 +396,6 @@ Note operative:
 ## Setup provider AI
 
 Questa sezione serve solo se si vuole usare l'assistenza AI. The Novelist puo funzionare anche senza provider esterni, ma le funzioni AI restano disattivate o limitate.
-
-### Codex CLI
-
-Codex CLI e il provider locale-via-terminal usato dall'app quando nelle Impostazioni AI si seleziona `Codex CLI`.
-
-Prerequisiti:
-
-- Node.js/npm disponibili se si installa via npm.
-- In alternativa, Homebrew su macOS se si preferisce installare con `brew`.
-
-Installazione:
-
-```bash
-npm install -g @openai/codex
-```
-
-Su macOS, in alternativa:
-
-```bash
-brew install --cask codex
-```
-
-Verifica:
-
-```bash
-codex --version
-codex
-```
-
-Autenticazione:
-
-- Avvia `codex` e usa il login con account ChatGPT quando disponibile.
-- In alternativa, usa una API key OpenAI esportandola nell'ambiente:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-
-Su Windows PowerShell:
-
-```powershell
-$env:OPENAI_API_KEY="sk-..."
-```
-
-Note per The Novelist:
-
-- Se il comando non si chiama `codex` o non e nel `PATH`, imposta `NOVELIST_CODEX_COMMAND`.
-- Dopo una nuova installazione del CLI, riavvia The Novelist per far rileggere il `PATH`.
-- Codex CLI puo leggere il contesto che l'app gli passa. L'invio della memoria progetto a provider esterni resta governato dai consensi AI.
 
 ### OpenAI API Key
 
@@ -543,8 +489,6 @@ Note operative:
 
 Riferimenti ufficiali:
 
-- Codex CLI: <https://developers.openai.com/codex/cli>
-- Repository Codex CLI: <https://github.com/openai/codex>
 - OpenAI API Keys: <https://platform.openai.com/api-keys>
 - Sicurezza API key OpenAI: <https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key>
 - Ollama docs: <https://docs.ollama.com/>
@@ -570,8 +514,7 @@ Riferimenti ufficiali:
 
 ## Variabili ambiente
 
-- `NOVELIST_CODEX_COMMAND`: comando CLI (default: `codex`).
-- `NOVELIST_CODEX_TIMEOUT_MS`: timeout richieste CLI in ms (default: `45000`).
+- `NOVELIST_CODEX_TIMEOUT_MS`: timeout richieste AI in ms.
 - `OPENAI_API_KEY`: chiave OpenAI usata come fallback se non salvata in-app.
 - `NOVELIST_IMAGE_MODEL`: override modello immagini (default runtime: `gpt-image-1`).
 - `OLLAMA_HOST`: endpoint Ollama (default: `http://127.0.0.1:11434`).
@@ -585,7 +528,7 @@ Per verifiche locali affidabili prima del rilascio conviene eseguire almeno:
 - `npm run lint`
 - `npm run typecheck`
 - `npm run build`
-- `npm run test:smoke:electron:codex`
+- `npm run test:smoke:electron`
 
 ### Build macOS
 
@@ -627,31 +570,20 @@ Il workflow supporta anche avvio manuale (`workflow_dispatch`) passando il tag d
 Nota:
 
 - la build locale e non firmata/notarizzata; al primo avvio potrebbe essere necessario `tasto destro > Apri`.
-- senza un certificato Apple `Developer ID Application` non e possibile firmare e notarizzare correttamente il pacchetto macOS.
+- non e previsto l'uso di certificati Apple/Windows per questa app personale distribuita come open source.
 - il workflow genera anche `SHA256SUMS.txt` dagli artifact pubblicati e lo allega alla release.
 
 ### Checksum manuali
 
 Se la release viene preparata localmente, genera un file checksum prima di caricare gli artifact su GitHub.
 
-Su Windows PowerShell:
-
-```powershell
-Get-ChildItem release -File |
-  Where-Object { $_.Name -match '\.(exe|dmg|zip|blockmap|yml)$' } |
-  Sort-Object Name |
-  ForEach-Object {
-    $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
-    "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), $_.Name
-  } | Set-Content release\SHA256SUMS.txt
-```
-
-Su macOS/Linux:
+Comando consigliato, valido su Windows/macOS/Linux:
 
 ```bash
-cd release
-shasum -a 256 *.dmg *.zip *.exe *.blockmap *.yml > SHA256SUMS.txt
+npm run release:checksums
 ```
+
+Il comando scrive `release/SHA256SUMS.txt` con hash SHA-256 ordinati per percorso relativo. Per impostazione predefinita include gli artefatti della versione corrente indicata in `package.json` e i metadata `latest*.yml`; se serve includere tutto il contenuto top-level di `release`, usa `node scripts/generate-checksums.mjs --all`. Per verificare manualmente un file scaricato, calcola il suo SHA-256 e confrontalo con la riga corrispondente in `SHA256SUMS.txt`.
 
 ## Struttura repository
 

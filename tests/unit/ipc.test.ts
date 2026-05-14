@@ -44,7 +44,7 @@ describe('shouldAttachProjectMemoryForSettings', () => {
       shouldAttachProjectMemoryForSettings({
         allowExternalMemorySharing: false,
         provider: 'ollama',
-        fallbackProvider: 'codex_cli',
+        fallbackProvider: 'openai_api',
       }),
     ).toBe(false);
   });

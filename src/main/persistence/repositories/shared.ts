@@ -32,11 +32,9 @@ export function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettin
   const apiImageModel = row.api_image_model;
   const ollamaModel = row.ollama_model;
   const normalizedProvider =
-    provider === 'openai_api' || provider === 'ollama' ? provider : 'codex_cli';
+    provider === 'openai_api' || provider === 'ollama' ? provider : APP_CONFIG.ai.defaultProvider;
   const normalizedFallbackProvider =
-    fallbackProvider === 'codex_cli' ||
-    fallbackProvider === 'openai_api' ||
-    fallbackProvider === 'ollama'
+    fallbackProvider === 'openai_api' || fallbackProvider === 'ollama'
       ? fallbackProvider
       : 'none';
 

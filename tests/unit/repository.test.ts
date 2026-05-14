@@ -116,7 +116,7 @@ describe('NovelistRepository', () => {
 
       const codexSettings = repo.getOrCreateCodexSettings(project.id);
       expect(codexSettings.enabled).toBe(false);
-      expect(codexSettings.provider).toBe('codex_cli');
+      expect(codexSettings.provider).toBe('ollama');
       expect(codexSettings.fallbackProvider).toBe('none');
       expect(codexSettings.allowApiCalls).toBe(false);
       expect(codexSettings.allowExternalMemorySharing).toBe(false);

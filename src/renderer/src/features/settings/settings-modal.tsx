@@ -115,13 +115,13 @@ export function SettingsModal({
           <label>
             Provider
             <select
-              value={aiSettings?.provider ?? 'codex_cli'}
+              value={aiSettings?.provider ?? 'ollama'}
               onChange={(event) =>
                 setAiSettings((prev) =>
                   prev
                     ? {
                         ...prev,
-                        provider: event.target.value as 'codex_cli' | 'openai_api' | 'ollama',
+                        provider: event.target.value as 'openai_api' | 'ollama',
                         fallbackProvider:
                           prev.fallbackProvider === event.target.value
                             ? 'none'
@@ -132,7 +132,6 @@ export function SettingsModal({
               }
               disabled={!aiSettings}
             >
-              <option value="codex_cli">Codex CLI (locale)</option>
               <option value="openai_api">OpenAI API (opzionale)</option>
               <option value="ollama">Ollama (locale)</option>
             </select>
@@ -153,7 +152,7 @@ export function SettingsModal({
               }
               disabled={!aiSettings}
             >
-              {getAiFallbackOptions(aiSettings?.provider ?? 'codex_cli').map((option) => (
+              {getAiFallbackOptions(aiSettings?.provider ?? 'ollama').map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -161,7 +160,7 @@ export function SettingsModal({
             </select>
           </label>
           <p className="muted">
-            Provider primario: {getAiProviderLabel(aiSettings?.provider ?? 'codex_cli')}. Fallback:{' '}
+            Provider primario: {getAiProviderLabel(aiSettings?.provider ?? 'ollama')}. Fallback:{' '}
             {getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none')}. Chiamate API esterne:{' '}
             {aiSettings?.allowApiCalls ? 'abilitate' : 'disabilitate'}.
             {getAiMemorySharingLabel(aiSettings)}

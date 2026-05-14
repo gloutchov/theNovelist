@@ -76,21 +76,17 @@ export class CodexApplicationService {
 
   async getStatus(): Promise<CodexStatus> {
     const { repository, projectId } = getStoryContext(this.sessionManager);
-    const workspaceRoot = this.sessionManager.getOpenedProject()?.rootPath;
     const runtime = await resolveCodexRuntime(repository, projectId);
     const settings = runtime.settings;
 
-    return this.codexService.getStatus(
-      {
-        provider: settings.provider,
-        fallbackProvider: settings.fallbackProvider,
-        allowApiCalls: settings.allowApiCalls,
-        apiKey: runtime.runtimeApiKey,
-        apiModel: settings.apiModel,
-        ollamaModel: settings.ollamaModel,
-      },
-      workspaceRoot,
-    );
+    return this.codexService.getStatus({
+      provider: settings.provider,
+      fallbackProvider: settings.fallbackProvider,
+      allowApiCalls: settings.allowApiCalls,
+      apiKey: runtime.runtimeApiKey,
+      apiModel: settings.apiModel,
+      ollamaModel: settings.ollamaModel,
+    });
   }
 
   async getSettings(): Promise<CodexSettingsView> {
@@ -147,11 +143,10 @@ export class CodexApplicationService {
 
   async assist(input: CodexAssistInput): Promise<CodexResult> {
     const { repository, projectId } = getStoryContext(this.sessionManager);
-    const workspaceRoot = this.sessionManager.getOpenedProject()?.rootPath;
     const runtime = await resolveCodexRuntime(repository, projectId);
     const settings = runtime.settings;
     if (!settings.enabled) {
-      throw new Error('Consenso Codex non abilitato per questo progetto.');
+      throw new Error('Consenso AI non abilitato per questo progetto.');
     }
 
     const message = input.context
@@ -161,7 +156,6 @@ export class CodexApplicationService {
       {
         message,
         projectName: input.projectName,
-        workspaceRoot,
       },
       {
         provider: settings.provider,
@@ -177,11 +171,10 @@ export class CodexApplicationService {
 
   async transformSelection(input: CodexTransformSelectionInput): Promise<CodexResult> {
     const { repository, projectId } = getStoryContext(this.sessionManager);
-    const workspaceRoot = this.sessionManager.getOpenedProject()?.rootPath;
     const runtime = await resolveCodexRuntime(repository, projectId);
     const settings = runtime.settings;
     if (!settings.enabled) {
-      throw new Error('Consenso Codex non abilitato per questo progetto.');
+      throw new Error('Consenso AI non abilitato per questo progetto.');
     }
 
     return this.codexService.transformSelection(
@@ -191,7 +184,6 @@ export class CodexApplicationService {
         chapterTitle: input.chapterTitle,
         projectName: input.projectName,
         chapterText: input.chapterText,
-        workspaceRoot,
       },
       {
         provider: settings.provider,
@@ -206,11 +198,10 @@ export class CodexApplicationService {
 
   async chat(input: CodexChatInput): Promise<CodexChatResult> {
     const { repository, projectId } = getStoryContext(this.sessionManager);
-    const workspaceRoot = this.sessionManager.getOpenedProject()?.rootPath;
     const runtime = await resolveCodexRuntime(repository, projectId);
     const settings = runtime.settings;
     if (!settings.enabled) {
-      throw new Error('Consenso Codex non abilitato per questo progetto.');
+      throw new Error('Consenso AI non abilitato per questo progetto.');
     }
 
     const node = repository.getChapterNodeById(input.chapterNodeId);
@@ -241,7 +232,6 @@ export class CodexApplicationService {
         projectName: input.projectName,
         chapterText: input.chapterText,
         projectMemoryContext,
-        workspaceRoot,
       },
       {
         provider: settings.provider,

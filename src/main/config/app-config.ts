@@ -36,7 +36,7 @@ export const APP_CONFIG = {
   },
   ai: {
     enabledByDefault: false,
-    defaultProvider: 'codex_cli',
+    defaultProvider: 'ollama',
     defaultFallbackProvider: 'none',
     allowApiCallsByDefault: false,
     allowExternalMemorySharingByDefault: false,
