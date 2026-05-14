@@ -23,7 +23,7 @@ The Novelist nasce da diverse esigenze:
 
 Tutto ciò ha portato a The Novelist.
 
-L'applicazione è stata interamente generata da Codex CLI. L'interfaccia è un po' 'techie', ma non mi dispiace, anche se avrei potuto insistere un po' di più per renderla maggiormente user-friendly.
+L'applicazione è stata interamente realizzata con assistenza AI. L'interfaccia è un po' 'techie', ma non mi dispiace, anche se avrei potuto insistere un po' di più per renderla maggiormente user-friendly.
 
 E' perfetta?
 Diciamo che funziona, e non mi pare che abbia bug evidenti. Al momento il progetto viene mantenuto con build verificate localmente su macOS e Windows, cosi da allineare supporto dichiarato e supporto realmente verificato.

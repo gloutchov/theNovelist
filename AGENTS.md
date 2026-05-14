@@ -85,7 +85,7 @@ Non usare direttamente `npm run test:e2e:electron:run` se non hai gia rebuildato
 - Per scorciatoie cross-platform usa `ControlOrMeta+A`, non `Meta+A`.
 - Nei test React Flow, quando il doppio click reale e flaky, preferisci `dispatchEvent('dblclick')` se il test sta verificando il comportamento del handler, non il gesto fisico.
 - Nei test Electron evita dipendenze da CLI esterne come `sqlite3`; preferisci verifiche via IPC/API dell'app o helper interni gia disponibili.
-- Per fake CLI su Windows crea wrapper `.cmd` e isola `APPDATA`/`LOCALAPPDATA` se il resolver cerca percorsi npm comuni.
+- Per fake provider AI nei test, usa helper IPC/API locali e isola eventuale stato applicativo temporaneo.
 
 ## UI e frontend
 
@@ -97,7 +97,7 @@ Non usare direttamente `npm run test:e2e:electron:run` se non hai gia rebuildato
 
 ## AI e privacy
 
-Le funzionalita AI supportano Codex CLI, OpenAI API e Ollama. Rispetta le impostazioni di consenso gia presenti:
+Le funzionalita AI supportano OpenAI API e Ollama. Rispetta le impostazioni di consenso gia presenti:
 
 - `enabled`
 - `provider`
