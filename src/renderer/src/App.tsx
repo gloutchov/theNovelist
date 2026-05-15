@@ -51,7 +51,6 @@ import {
   formatLocationName,
   formatSceneName,
   type DashboardCharacterCard,
-  type DashboardChapterMetric,
   type DashboardLocationCard,
   type DashboardSceneCard,
   type DashboardState,
@@ -102,7 +101,6 @@ import { parseTime } from './shared/formatters';
 import { getStatusTone } from './status-tone';
 
 type StoryState = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>;
-type StoryNodeRecord = StoryState['nodes'][number];
 type StoryEdgeRecord = StoryState['edges'][number];
 type PlotRecord = StoryState['plots'][number];
 type CreatedChapterNode = Awaited<ReturnType<(typeof window.novelistApi)['createStoryNode']>>;
