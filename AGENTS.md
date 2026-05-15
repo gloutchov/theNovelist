@@ -24,6 +24,13 @@ The Novelist e una app desktop Electron + React + TypeScript per la scrittura na
 - Evita refactor non richiesti, soprattutto nei file grandi come `src/renderer/src/App.tsx` e `src/renderer/src/ChapterEditor.tsx`.
 - Quando tocchi UI, verifica anche layout mobile/desktop se il cambiamento puo alterare overflow o modali.
 
+## Architettura e manutenibilita
+
+- Evita soluzioni monolitiche: nuove funzionalita non devono essere accumulate in file gia grandi se possono essere isolate in moduli, componenti, hook o helper dedicati.
+- Mantieni i file leggibili e di dimensioni ragionevoli. Quando una modifica rende un file difficile da seguire, estrai responsabilita coese in file separati.
+- Separa logica di dominio, accesso ai dati, stato UI e presentazione quando la separazione riduce complessita o duplicazione.
+- Non creare astrazioni premature: estrai solo quando migliora concretamente manutenzione, testabilita o chiarezza del codice.
+
 ## Comandi principali
 
 ```powershell
