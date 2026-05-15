@@ -37,8 +37,8 @@ jobs:
       - name: E2E tests
         run: npm run test:e2e
 
-  codex-cli-smoke:
-    name: Codex CLI Smoke (macOS)
+  electron-smoke:
+    name: Electron Smoke (macOS)
     runs-on: macos-latest
 
     steps:
@@ -58,5 +58,5 @@ jobs:
         run: PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install chromium
         shell: bash
 
-      - name: Codex CLI smoke on macOS
-        run: npm run test:smoke:electron:codex
+      - name: Electron smoke on macOS
+        run: npm run test:smoke:electron
