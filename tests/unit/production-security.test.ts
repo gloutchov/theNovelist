@@ -75,7 +75,7 @@ describe('release checksum generation', () => {
       expect(checksumFile).not.toContain('notes.txt');
       expect(checksumFile).not.toContain('win-unpacked');
       expect(checksumFile.trim().split('\n')).toHaveLength(3);
-      expect(checksumFile.trim().split('\n')[0]).toMatch(/^[a-f0-9]{64}  /);
+      expect(checksumFile.trim().split('\n')[0]).toMatch(/^[a-f0-9]{64} {2}/);
     } finally {
       await rm(releaseDir, { recursive: true, force: true });
     }
