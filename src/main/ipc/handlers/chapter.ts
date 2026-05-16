@@ -10,6 +10,7 @@ import {
   getDefaultExportName,
 } from '../../chapters/exporters';
 import type { CodexCliService } from '../../codex/client';
+import { getMainLanguage, translateMain } from '../../i18n';
 import type { ProjectSessionManager } from '../../projects/session';
 import { ChapterService } from '../../services/chapter-service';
 import {
@@ -65,7 +66,7 @@ async function printHtmlContent(html: string): Promise<boolean> {
         },
         (success, errorType) => {
           if (!success && errorType && !errorType.toLowerCase().includes('cancel')) {
-            reject(new Error(`Errore stampa: ${errorType}`));
+            reject(new Error(translateMain('error.print', { error: errorType })));
             return;
           }
           resolve(success);
@@ -110,10 +111,12 @@ export function registerChapterIpcHandlers(
     const project = sessionManager.getOpenedProject();
     const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const saveDialogOptions = {
+      title: translateMain('dialog.export.chapterDocx.title'),
+      buttonLabel: translateMain('dialog.export.save'),
       defaultPath: project
         ? `${project.assetsPath}/${getDefaultExportName(node.title, 'docx')}`
         : getDefaultExportName(node.title, 'docx'),
-      filters: [{ name: 'Word Document', extensions: ['docx'] }],
+      filters: [{ name: translateMain('dialog.filter.wordDocument'), extensions: ['docx'] }],
     };
     const saveResult = browserWindow
       ? await dialog.showSaveDialog(browserWindow, saveDialogOptions)
@@ -143,6 +146,7 @@ export function registerChapterIpcHandlers(
       title: node.title,
       projectTitle: chapterService.getProjectPrintTitle(),
       document,
+      language: getMainLanguage(),
     });
     const printed = await printHtmlContent(html);
     return printed ? successResponseSchema.parse({ ok: true }) : null;
@@ -151,13 +155,15 @@ export function registerChapterIpcHandlers(
   ipcMain.handle(IPC_CHANNELS.manuscriptExportEpub, async (event) => {
     const chapters = chapterService.getManuscriptChapters();
     if (chapters.length === 0) {
-      throw new Error('Nessun blocco disponibile per esportare il documento completo.');
+      throw new Error(translateMain('error.manuscriptExport.empty'));
     }
 
     const manuscriptTitle = chapterService.getManuscriptTitle();
     const project = sessionManager.getOpenedProject();
     const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const saveDialogOptions = {
+      title: translateMain('dialog.export.manuscriptEpub.title'),
+      buttonLabel: translateMain('dialog.export.save'),
       defaultPath: project
         ? `${project.assetsPath}/${getDefaultExportName(manuscriptTitle, 'epub')}`
         : getDefaultExportName(manuscriptTitle, 'epub'),
@@ -174,6 +180,7 @@ export function registerChapterIpcHandlers(
       title: manuscriptTitle,
       chapters,
       outputPath: saveResult.filePath,
+      language: getMainLanguage(),
     });
     return exportResponseSchema.parse({ filePath: saveResult.filePath });
   });
@@ -181,17 +188,19 @@ export function registerChapterIpcHandlers(
   ipcMain.handle(IPC_CHANNELS.manuscriptExportDocx, async (event) => {
     const chapters = chapterService.getManuscriptChapters();
     if (chapters.length === 0) {
-      throw new Error('Nessun blocco disponibile per esportare il documento completo.');
+      throw new Error(translateMain('error.manuscriptExport.empty'));
     }
 
     const manuscriptTitle = chapterService.getManuscriptTitle();
     const project = sessionManager.getOpenedProject();
     const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const saveDialogOptions = {
+      title: translateMain('dialog.export.manuscriptDocx.title'),
+      buttonLabel: translateMain('dialog.export.save'),
       defaultPath: project
         ? `${project.assetsPath}/${getDefaultExportName(manuscriptTitle, 'docx')}`
         : getDefaultExportName(manuscriptTitle, 'docx'),
-      filters: [{ name: 'Word Document', extensions: ['docx'] }],
+      filters: [{ name: translateMain('dialog.filter.wordDocument'), extensions: ['docx'] }],
     };
     const saveResult = browserWindow
       ? await dialog.showSaveDialog(browserWindow, saveDialogOptions)
@@ -212,13 +221,14 @@ export function registerChapterIpcHandlers(
   ipcMain.handle(IPC_CHANNELS.manuscriptPrint, async () => {
     const chapters = chapterService.getManuscriptChapters();
     if (chapters.length === 0) {
-      throw new Error('Nessun blocco disponibile per la stampa del documento completo.');
+      throw new Error(translateMain('error.manuscriptPrint.empty'));
     }
 
     const html = buildManuscriptPrintHtml({
       title: chapterService.getManuscriptTitle(),
       projectTitle: chapterService.getProjectPrintTitle(),
       chapters,
+      language: getMainLanguage(),
     });
     const printed = await printHtmlContent(html);
     return printed ? successResponseSchema.parse({ ok: true }) : null;

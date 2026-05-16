@@ -46,8 +46,12 @@ export function getPlotColor(plotNumber: number, plots: PlotFlowRecord[]): strin
   return plots.find((plot) => plot.number === plotNumber)?.color ?? colorFromPlotNumber(plotNumber);
 }
 
-export function normalizePlotLabel(plotNumber: number, label: string): string {
-  return label.trim() || `Trama ${plotNumber}`;
+export function normalizePlotLabel(
+  plotNumber: number,
+  label: string,
+  fallbackPrefix = 'Trama',
+): string {
+  return label.trim() || `${fallbackPrefix} ${plotNumber}`;
 }
 
 export function sortPlots<T extends { number: number }>(records: T[]): T[] {

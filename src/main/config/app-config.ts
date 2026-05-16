@@ -3,6 +3,7 @@ export const APP_CONFIG = {
     fileName: 'app-preferences.json',
     defaultAutosaveMode: 'auto',
     defaultAutosaveIntervalMinutes: 5,
+    defaultLanguageMode: 'auto',
     minAutosaveIntervalMinutes: 1,
     maxAutosaveIntervalMinutes: 120,
   },

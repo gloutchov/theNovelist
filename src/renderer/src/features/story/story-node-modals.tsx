@@ -1,3 +1,4 @@
+import type { Translate } from '../../i18n';
 import { normalizePlotLabel } from '../plot/plot-flow';
 
 interface StoryNodePlotOption {
@@ -20,6 +21,7 @@ interface CreateStoryNodeModalProps {
   setNewNodeDescription: (value: string) => void;
   setNewNodePlotNumber: (value: number) => void;
   setNewNodeTitle: (value: string) => void;
+  t: Translate;
 }
 
 interface EditStoryNodeModalProps {
@@ -37,6 +39,7 @@ interface EditStoryNodeModalProps {
   setEditDescription: (value: string) => void;
   setEditPlotNumber: (value: number) => void;
   setEditTitle: (value: string) => void;
+  t: Translate;
 }
 
 export function CreateStoryNodeModal({
@@ -53,30 +56,31 @@ export function CreateStoryNodeModal({
   setNewNodeDescription,
   setNewNodePlotNumber,
   setNewNodeTitle,
+  t,
 }: CreateStoryNodeModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Nuovo Capitolo</h3>
+        <h3>{t('story.modal.newTitle')}</h3>
         <label>
-          Titolo
+          {t('story.modal.title')}
           <input
             value={newNodeTitle}
             onChange={(event) => setNewNodeTitle(event.target.value)}
-            placeholder="Titolo capitolo"
+            placeholder={t('story.modal.titlePlaceholder')}
           />
         </label>
         <label>
-          Descrizione
+          {t('story.modal.description')}
           <textarea
             value={newNodeDescription}
             onChange={(event) => setNewNodeDescription(event.target.value)}
-            placeholder="Descrizione capitolo"
+            placeholder={t('story.modal.descriptionPlaceholder')}
             rows={3}
           />
         </label>
         <label>
-          Trama
+          {t('story.modal.plot')}
           <select
             value={newNodePlotNumber}
             onChange={(event) => setNewNodePlotNumber(Math.max(1, Number(event.target.value) || 1))}
@@ -84,16 +88,18 @@ export function CreateStoryNodeModal({
             {plots.length > 0 ? (
               plots.map((plot) => (
                 <option key={plot.id} value={plot.number}>
-                  {normalizePlotLabel(plot.number, plot.label)}
+                  {normalizePlotLabel(plot.number, plot.label, t('common.plot'))}
                 </option>
               ))
             ) : (
-              <option value={newNodePlotNumber}>{`Trama ${newNodePlotNumber}`}</option>
+              <option
+                value={newNodePlotNumber}
+              >{`${t('common.plot')} ${newNodePlotNumber}`}</option>
             )}
           </select>
         </label>
         <label>
-          Numero blocco (opzionale)
+          {t('story.modal.blockNumberOptional')}
           <input
             type="number"
             min={1}
@@ -104,10 +110,10 @@ export function CreateStoryNodeModal({
         </label>
         <div className="row-buttons modal-actions">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={busy}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button type="button" onClick={onCreateNode} disabled={!canCreateNode}>
-            Crea Blocco
+            {t('story.modal.createBlock')}
           </button>
         </div>
       </div>
@@ -130,17 +136,18 @@ export function EditStoryNodeModal({
   setEditDescription,
   setEditPlotNumber,
   setEditTitle,
+  t,
 }: EditStoryNodeModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Modifica Blocco</h3>
+        <h3>{t('story.modal.editTitle')}</h3>
         <label>
-          Titolo blocco
+          {t('story.modal.titleBlock')}
           <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
         </label>
         <label>
-          Descrizione
+          {t('story.modal.description')}
           <textarea
             value={editDescription}
             onChange={(event) => setEditDescription(event.target.value)}
@@ -148,7 +155,8 @@ export function EditStoryNodeModal({
           />
         </label>
         <label>
-          Numero trama{editPlotLabel ? ` (${editPlotLabel})` : ''}
+          {t('story.modal.plotNumber')}
+          {editPlotLabel ? ` (${editPlotLabel})` : ''}
           <input
             type="number"
             min={1}
@@ -157,7 +165,7 @@ export function EditStoryNodeModal({
           />
         </label>
         <label>
-          Numero blocco
+          {t('story.modal.blockNumber')}
           <input
             type="number"
             min={1}
@@ -167,13 +175,13 @@ export function EditStoryNodeModal({
         </label>
         <div className="row-buttons">
           <button type="button" onClick={() => onOpenChapterEditor(editNodeId)}>
-            Apri editor capitolo
+            {t('story.modal.openChapterEditor')}
           </button>
           <button type="button" onClick={onCancel}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button type="button" onClick={onSaveNodeEdit} disabled={busy}>
-            Salva
+            {t('common.save')}
           </button>
         </div>
       </div>

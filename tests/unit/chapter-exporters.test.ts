@@ -44,6 +44,7 @@ describe('chapter exporters manuscript formatting', () => {
     });
 
     expect(html).toContain('@page');
+    expect(html).toContain('<html lang="it">');
     expect(html).toContain('size: A4');
     expect(html).toContain('width: 80ch');
     expect(html).toContain('line-height: 2');
@@ -124,6 +125,8 @@ describe('chapter exporters manuscript formatting', () => {
     expect(mimetype).toBe('application/epub+zip');
     expect(containerXml).toContain('OEBPS/content.opf');
     expect(opfXml).toContain('<dc:title>Romanzo Test - Documento completo</dc:title>');
+    expect(opfXml).toContain('<dc:language>it</dc:language>');
+    expect(navXml).toContain('lang="it"');
     expect(opfXml).toContain('chapters/001-capitolo-uno.xhtml');
     expect(opfXml).toContain('chapters/002-capitolo-due.xhtml');
     expect(navXml).toContain('Capitolo Uno');
@@ -132,8 +135,38 @@ describe('chapter exporters manuscript formatting', () => {
     expect(stylesheet).toContain('line-height: 2');
     expect(stylesheet).toContain('break-before: page');
     expect(firstChapter).toContain('<h1>Capitolo Uno</h1>');
+    expect(firstChapter).toContain('lang="it"');
     expect(firstChapter).toContain('Primo testo.');
     expect(secondChapter).toContain('<h1>Capitolo Due</h1>');
     expect(secondChapter).toContain('Secondo testo.');
+  });
+
+  it('can mark generated print and EPUB containers as English', async () => {
+    const html = buildManuscriptPrintHtml({
+      title: 'Test Novel',
+      projectTitle: 'Test Novel',
+      language: 'en',
+      chapters: [{ title: 'Chapter One', document: createDocument('First text.') }],
+    });
+    expect(html).toContain('<html lang="en">');
+
+    const tempDir = await createTempDir('novelist-exporters-');
+    const outputPath = path.join(tempDir, 'manuscript.epub');
+
+    await exportManuscriptToEpub({
+      title: 'Test Novel',
+      outputPath,
+      language: 'en',
+      chapters: [{ title: 'Chapter One', document: createDocument('First text.') }],
+    });
+
+    const zip = await JSZip.loadAsync(await readFile(outputPath));
+    const opfXml = await zip.file('OEBPS/content.opf')?.async('string');
+    const navXml = await zip.file('OEBPS/nav.xhtml')?.async('string');
+    const firstChapter = await zip.file('OEBPS/chapters/001-chapter-one.xhtml')?.async('string');
+
+    expect(opfXml).toContain('<dc:language>en</dc:language>');
+    expect(navXml).toContain('lang="en"');
+    expect(firstChapter).toContain('lang="en"');
   });
 });

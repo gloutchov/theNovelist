@@ -1,5 +1,6 @@
 import { getAiFallbackLabel, getAiProviderLabel, type CodexSettings } from '../ai/ai-settings';
 import { formatAutosaveLabel, type AppPreferences } from '../settings/app-preferences';
+import { createTranslator, resolveRendererLanguage } from '../../i18n';
 import { formatDate, formatDateTime, formatInteger } from '../../shared/formatters';
 import {
   DeliveryBars,
@@ -70,18 +71,21 @@ export function DashboardWorkspace({
   wikiStatus,
   workspaceNotice,
 }: DashboardWorkspaceProps) {
+  const language = resolveRendererLanguage(appPreferences);
+  const t = createTranslator(language);
+
   return (
     <section className="dashboard-workspace">
       <section className="panel dashboard-project-panel">
         <div>
-          <h2>Cruscotto</h2>
+          <h2>{t('dashboard.title')}</h2>
           <p className="muted project-summary">
             {currentProject ? (
               <>
-                Progetto aperto: <strong>{currentProject.name}</strong>
+                {t('dashboard.project.openPrefix')} <strong>{currentProject.name}</strong>
               </>
             ) : (
-              'Nessun progetto aperto.'
+              t('dashboard.project.none')
             )}
           </p>
         </div>
@@ -92,7 +96,7 @@ export function DashboardWorkspace({
             onClick={onCreateProject}
             disabled={Boolean(currentProject) || busy}
           >
-            Crea
+            {t('dashboard.actions.create')}
           </button>
           <button
             type="button"
@@ -100,7 +104,7 @@ export function DashboardWorkspace({
             onClick={onOpenProject}
             disabled={!canOpenProject}
           >
-            Apri
+            {t('dashboard.actions.open')}
           </button>
           <button
             type="button"
@@ -108,7 +112,7 @@ export function DashboardWorkspace({
             onClick={onSaveProject}
             disabled={!canSaveProject || !hasUnsavedChanges}
           >
-            Salva
+            {t('dashboard.actions.save')}
           </button>
           <button
             type="button"
@@ -116,7 +120,7 @@ export function DashboardWorkspace({
             onClick={onExportEpub}
             disabled={!currentProject || busy}
           >
-            Esporta ePUB
+            {t('dashboard.actions.exportEpub')}
           </button>
           <button
             type="button"
@@ -124,7 +128,7 @@ export function DashboardWorkspace({
             onClick={onExportDocx}
             disabled={!currentProject || busy}
           >
-            Esporta DOCX
+            {t('dashboard.actions.exportDocx')}
           </button>
           <button
             type="button"
@@ -132,7 +136,7 @@ export function DashboardWorkspace({
             onClick={onPrintManuscript}
             disabled={!currentProject || busy}
           >
-            Stampa
+            {t('dashboard.actions.print')}
           </button>
           <button
             type="button"
@@ -140,18 +144,15 @@ export function DashboardWorkspace({
             onClick={onCloseProject}
             disabled={!canCloseProject}
           >
-            Chiudi
+            {t('dashboard.actions.close')}
           </button>
         </div>
       </section>
 
       {!currentProject ? (
         <section className="panel dashboard-empty-panel">
-          <h2>Nessun progetto aperto</h2>
-          <p className="muted">
-            Crea un nuovo progetto o aprine uno esistente per vedere stato manoscritto, capitoli,
-            schede, memoria, snapshot e impostazioni.
-          </p>
+          <h2>{t('dashboard.empty.title')}</h2>
+          <p className="muted">{t('dashboard.empty.body')}</p>
           <p className={`status status-${statusTone}`}>
             <span>{status}</span>
           </p>
@@ -161,38 +162,46 @@ export function DashboardWorkspace({
         <>
           <section className="dashboard-summary-grid">
             <article className="panel dashboard-stat-card">
-              <span className="dashboard-stat-label">Parole totali</span>
+              <span className="dashboard-stat-label">{t('dashboard.cards.totalWords')}</span>
               <strong>{dashboard.totalWords}</strong>
-              <span className="muted">{dashboard.chapterMetrics.length} capitoli</span>
+              <span className="muted">
+                {dashboard.chapterMetrics.length} {t('dashboard.cards.chapters').toLowerCase()}
+              </span>
             </article>
             <article className="panel dashboard-stat-card">
-              <span className="dashboard-stat-label">Trame</span>
+              <span className="dashboard-stat-label">{t('dashboard.cards.plots')}</span>
               <strong>{plotsCount}</strong>
               <span className="muted">
-                {dashboard.disconnectedChapters.length} capitoli non collegati
+                {dashboard.disconnectedChapters.length} {t('dashboard.check.chaptersDisconnected')}
               </span>
             </article>
             <article className="panel dashboard-stat-card">
-              <span className="dashboard-stat-label">Capitoli</span>
+              <span className="dashboard-stat-label">{t('dashboard.cards.chapters')}</span>
               <strong>{dashboard.chapterMetrics.length}</strong>
               <span className="muted">
-                {dashboard.chaptersWithoutDescription.length} senza descrizione
+                {dashboard.chaptersWithoutDescription.length} {t('dashboard.check.noDescription')}
               </span>
             </article>
             <article className="panel dashboard-stat-card">
-              <span className="dashboard-stat-label">Scene</span>
+              <span className="dashboard-stat-label">{t('dashboard.cards.scenes')}</span>
               <strong>{dashboard.sceneCount}</strong>
-              <span className="muted">{dashboard.scenesWithoutText.length} senza testo</span>
+              <span className="muted">
+                {dashboard.scenesWithoutText.length} {t('dashboard.check.noText')}
+              </span>
             </article>
             <article className="panel dashboard-stat-card">
-              <span className="dashboard-stat-label">Personaggi</span>
+              <span className="dashboard-stat-label">{t('dashboard.cards.characters')}</span>
               <strong>{dashboard.characterCount}</strong>
-              <span className="muted">{dashboard.unusedCharacters.length} non usati</span>
+              <span className="muted">
+                {dashboard.unusedCharacters.length} {language === 'en' ? 'unused' : 'non usati'}
+              </span>
             </article>
             <article className="panel dashboard-stat-card">
-              <span className="dashboard-stat-label">Location</span>
+              <span className="dashboard-stat-label">{t('dashboard.cards.locations')}</span>
               <strong>{dashboard.locationCount}</strong>
-              <span className="muted">{dashboard.unusedLocations.length} non usate</span>
+              <span className="muted">
+                {dashboard.unusedLocations.length} {language === 'en' ? 'unused' : 'non usate'}
+              </span>
             </article>
           </section>
 
@@ -200,10 +209,8 @@ export function DashboardWorkspace({
             <section className="panel dashboard-goals-panel">
               <header>
                 <div>
-                  <h2>Obiettivi</h2>
-                  <p className="muted">
-                    Target e proiezioni calcolati sui salvataggi del manoscritto.
-                  </p>
+                  <h2>{t('dashboard.goals.title')}</h2>
+                  <p className="muted">{t('dashboard.goals.subtitle')}</p>
                 </div>
                 <div className="dashboard-goals-actions">
                   <button
@@ -220,7 +227,9 @@ export function DashboardWorkspace({
                     onClick={onRefreshDashboard}
                     disabled={dashboard.loading || busy}
                   >
-                    {dashboard.loading ? 'Aggiorno...' : 'Aggiorna Cruscotto'}
+                    {dashboard.loading
+                      ? t('dashboard.actions.refreshDashboardBusy')
+                      : t('dashboard.actions.refreshDashboard')}
                   </button>
                   <button
                     type="button"
@@ -228,61 +237,64 @@ export function DashboardWorkspace({
                     onClick={onWikiSync}
                     disabled={!wikiStatus?.derivedPending || wikiBusy || busy}
                   >
-                    {wikiBusy ? 'Aggiorno Memoria...' : 'Aggiorna Memoria'}
+                    {wikiBusy
+                      ? t('dashboard.actions.refreshMemoryBusy')
+                      : t('dashboard.actions.refreshMemory')}
                   </button>
                 </div>
               </header>
 
               <div className="dashboard-goals-grid">
                 <article className="dashboard-goal-metric">
-                  <span>Target progetto</span>
+                  <span>{t('dashboard.goals.projectTarget')}</span>
                   <strong>{formatInteger(dashboardGoalMetrics.targetWordCount)}</strong>
-                  <small>parole</small>
+                  <small>{t('common.words')}</small>
                 </article>
                 <article className="dashboard-goal-metric">
-                  <span>Target capitolo</span>
+                  <span>{t('dashboard.goals.chapterTarget')}</span>
                   <strong>{formatInteger(dashboardGoalMetrics.targetChapterWordCount)}</strong>
-                  <small>parole</small>
+                  <small>{t('common.words')}</small>
                 </article>
                 <article className="dashboard-goal-metric">
-                  <span>Completamento</span>
+                  <span>{t('dashboard.goals.completion')}</span>
                   <strong>{formatDate(dashboardGoalMetrics.plannedCompletionDate)}</strong>
-                  <small>data prevista</small>
+                  <small>{t('dashboard.goals.plannedDate')}</small>
                 </article>
                 <article className="dashboard-goal-metric">
-                  <span>Cartelle editoriali</span>
+                  <span>{t('dashboard.goals.editorialFolders')}</span>
                   <strong>{formatInteger(dashboardGoalMetrics.editorialFolders)}</strong>
-                  <small>stima 1.800 battute</small>
+                  <small>{t('dashboard.goals.foldersEstimate')}</small>
                 </article>
                 <article className="dashboard-goal-metric">
-                  <span>Ritmo richiesto</span>
+                  <span>{t('dashboard.goals.requiredPace')}</span>
                   <strong>{formatInteger(dashboardGoalMetrics.requiredWordsPerDay)}</strong>
-                  <small>parole/giorno</small>
+                  <small>{t('dashboard.goals.wordsPerDay')}</small>
                 </article>
                 <article className="dashboard-goal-metric">
-                  <span>Restanti</span>
+                  <span>{t('dashboard.goals.remaining')}</span>
                   <strong>{formatInteger(dashboardGoalMetrics.remainingWords)}</strong>
-                  <small>parole</small>
+                  <small>{t('common.words')}</small>
                 </article>
               </div>
 
               <div className="dashboard-chart-grid">
                 <article className="dashboard-chart-card">
-                  <h3>Avanzamento</h3>
+                  <h3>{t('dashboard.goals.progress')}</h3>
                   <ProgressPie percent={dashboardGoalMetrics.progressPercent} />
                 </article>
                 <article className="dashboard-chart-card">
-                  <h3>Parole per sessione</h3>
+                  <h3>{t('dashboard.goals.sessionWords')}</h3>
                   <SessionBars sessions={dashboard.writingSessions} />
                 </article>
                 <article className="dashboard-chart-card">
-                  <h3>Consegna</h3>
+                  <h3>{t('dashboard.goals.delivery')}</h3>
                   <DeliveryBars metrics={dashboardGoalMetrics} />
                   <p className="muted">
-                    Stima:{' '}
-                    {dashboardGoalMetrics.estimatedCompletionDate
-                      ? formatDate(dashboardGoalMetrics.estimatedCompletionDate)
-                      : '-'}
+                    {t('dashboard.goals.estimated', {
+                      date: dashboardGoalMetrics.estimatedCompletionDate
+                        ? formatDate(dashboardGoalMetrics.estimatedCompletionDate)
+                        : '-',
+                    })}
                   </p>
                 </article>
               </div>
@@ -291,10 +303,10 @@ export function DashboardWorkspace({
 
           <section className="dashboard-grid">
             <article className="panel dashboard-section dashboard-section-wide">
-              <h2>Riepilogo</h2>
+              <h2>{t('dashboard.sections.summary')}</h2>
               <dl className="dashboard-detail-list">
                 <div>
-                  <dt>Ultimo capitolo modificato</dt>
+                  <dt>{t('dashboard.summary.lastChapter')}</dt>
                   <dd>
                     {dashboard.lastModifiedChapter ? (
                       <>
@@ -307,7 +319,7 @@ export function DashboardWorkspace({
                   </dd>
                 </div>
                 <div>
-                  <dt>Ultimo snapshot</dt>
+                  <dt>{t('dashboard.summary.lastSnapshot')}</dt>
                   <dd>
                     {dashboard.latestSnapshot ? (
                       <>
@@ -315,37 +327,40 @@ export function DashboardWorkspace({
                         <span>{formatDateTime(dashboard.latestSnapshot.createdAt)}</span>
                       </>
                     ) : (
-                      'Nessuno snapshot'
+                      t('dashboard.summary.noSnapshot')
                     )}
                   </dd>
                 </div>
                 <div>
-                  <dt>Memoria Wiki</dt>
+                  <dt>{t('dashboard.summary.wikiMemory')}</dt>
                   <dd>
                     {wikiStatus ? (
                       <>
                         <strong>
-                          {wikiStatus.derivedPending ? 'Da aggiornare' : 'Aggiornata'}
+                          {wikiStatus.derivedPending
+                            ? t('dashboard.memory.needsUpdate')
+                            : t('dashboard.memory.updated')}
                         </strong>
                         <span>{formatDateTime(wikiStatus.updatedAt)}</span>
                       </>
                     ) : (
-                      'Non disponibile'
+                      t('common.unavailable')
                     )}
                   </dd>
                 </div>
                 <div>
-                  <dt>Autosave</dt>
-                  <dd>{formatAutosaveLabel(appPreferences)}</dd>
+                  <dt>{t('dashboard.summary.autosave')}</dt>
+                  <dd>{formatAutosaveLabel(appPreferences, language)}</dd>
                 </div>
                 <div>
-                  <dt>AI</dt>
+                  <dt>{t('dashboard.summary.ai')}</dt>
                   <dd>
                     {aiSettings?.enabled
-                      ? `${getAiProviderLabel(aiSettings.provider)} con fallback ${getAiFallbackLabel(
-                          aiSettings.fallbackProvider,
-                        )}`
-                      : 'Disattivata'}
+                      ? t('dashboard.ai.summary', {
+                          provider: getAiProviderLabel(aiSettings.provider),
+                          fallback: getAiFallbackLabel(aiSettings.fallbackProvider, language),
+                        })
+                      : t('dashboard.ai.disabled')}
                   </dd>
                 </div>
               </dl>
@@ -353,7 +368,7 @@ export function DashboardWorkspace({
             </article>
 
             <article className="panel dashboard-section">
-              <h2>Parole per Capitolo</h2>
+              <h2>{t('dashboard.sections.chapterWords')}</h2>
               {dashboard.chapterMetrics.length > 0 ? (
                 <div className="dashboard-chapter-list">
                   {dashboard.chapterMetrics.map((chapter) => (
@@ -366,39 +381,42 @@ export function DashboardWorkspace({
                   ))}
                 </div>
               ) : (
-                <p className="muted">Nessun capitolo creato.</p>
+                <p className="muted">{t('dashboard.wordStats.noChapters')}</p>
               )}
             </article>
 
             <article className="panel dashboard-section">
-              <h2>Capitoli da controllare</h2>
+              <h2>{t('dashboard.sections.chapterChecks')}</h2>
               <ul className="dashboard-check-list">
                 <li>
-                  <strong>{dashboard.chaptersWithoutDescription.length}</strong> senza descrizione
+                  <strong>{dashboard.chaptersWithoutDescription.length}</strong>{' '}
+                  {t('dashboard.check.noDescription')}
                 </li>
                 <li>
-                  <strong>{dashboard.chaptersWithStaleDescription.length}</strong> con descrizione
-                  potenzialmente vecchia
+                  <strong>{dashboard.chaptersWithStaleDescription.length}</strong>{' '}
+                  {t('dashboard.check.chaptersPotentiallyStale')}
                 </li>
                 <li>
-                  <strong>{dashboard.chaptersWithoutCharacters.length}</strong> senza personaggi
-                  collegati
+                  <strong>{dashboard.chaptersWithoutCharacters.length}</strong>{' '}
+                  {t('dashboard.check.noCharacters')}
                 </li>
                 <li>
-                  <strong>{dashboard.chaptersWithoutLocations.length}</strong> senza location
-                  collegate
+                  <strong>{dashboard.chaptersWithoutLocations.length}</strong>{' '}
+                  {t('dashboard.check.noLocations')}
                 </li>
                 <li>
-                  <strong>{dashboard.chaptersWithoutScenes.length}</strong> senza scene collegate
+                  <strong>{dashboard.chaptersWithoutScenes.length}</strong>{' '}
+                  {t('dashboard.check.noScenes')}
                 </li>
                 <li>
-                  <strong>{dashboard.disconnectedChapters.length}</strong> non collegati nel canvas
+                  <strong>{dashboard.disconnectedChapters.length}</strong>{' '}
+                  {t('dashboard.check.chaptersDisconnected')}
                 </li>
               </ul>
             </article>
 
             <article className="panel dashboard-section">
-              <h2>Parole per Scena</h2>
+              <h2>{t('dashboard.sections.sceneWords')}</h2>
               {dashboard.sceneMetrics.length > 0 ? (
                 <div className="dashboard-chapter-list">
                   {dashboard.sceneMetrics.map((scene) => (
@@ -412,30 +430,33 @@ export function DashboardWorkspace({
                   ))}
                 </div>
               ) : (
-                <p className="muted">Nessuna scena creata.</p>
+                <p className="muted">{t('dashboard.wordStats.noScenes')}</p>
               )}
             </article>
 
             <article className="panel dashboard-section">
-              <h2>Scene da controllare</h2>
+              <h2>{t('dashboard.sections.sceneChecks')}</h2>
               <ul className="dashboard-check-list">
                 <li>
-                  <strong>{dashboard.scenesWithoutText.length}</strong> senza testo
+                  <strong>{dashboard.scenesWithoutText.length}</strong>{' '}
+                  {t('dashboard.check.noText')}
                 </li>
                 <li>
-                  <strong>{dashboard.unusedScenes.length}</strong> senza capitolo valido
+                  <strong>{dashboard.unusedScenes.length}</strong>{' '}
+                  {t('dashboard.check.withoutValidChapter')}
                 </li>
                 <li>
-                  <strong>{dashboard.disconnectedScenes.length}</strong> non collegate nel canvas
+                  <strong>{dashboard.disconnectedScenes.length}</strong>{' '}
+                  {t('dashboard.check.scenesDisconnected')}
                 </li>
               </ul>
             </article>
 
             <article className="panel dashboard-section dashboard-section-wide">
-              <h2>Schede non usate</h2>
+              <h2>{t('dashboard.sections.unusedCards')}</h2>
               <div className="dashboard-unused-grid">
                 <div>
-                  <h3>Personaggi</h3>
+                  <h3>{t('dashboard.cards.characters')}</h3>
                   {dashboard.unusedCharacters.length > 0 ? (
                     <ul>
                       {dashboard.unusedCharacters.slice(0, 8).map((name) => (
@@ -443,11 +464,11 @@ export function DashboardWorkspace({
                       ))}
                     </ul>
                   ) : (
-                    <p className="muted">Nessuna scheda personaggio isolata.</p>
+                    <p className="muted">{t('dashboard.unused.noCharacters')}</p>
                   )}
                 </div>
                 <div>
-                  <h3>Location</h3>
+                  <h3>{t('dashboard.cards.locations')}</h3>
                   {dashboard.unusedLocations.length > 0 ? (
                     <ul>
                       {dashboard.unusedLocations.slice(0, 8).map((name) => (
@@ -455,11 +476,11 @@ export function DashboardWorkspace({
                       ))}
                     </ul>
                   ) : (
-                    <p className="muted">Nessuna scheda location isolata.</p>
+                    <p className="muted">{t('dashboard.unused.noLocations')}</p>
                   )}
                 </div>
                 <div>
-                  <h3>Scene</h3>
+                  <h3>{t('dashboard.cards.scenes')}</h3>
                   {dashboard.unusedScenes.length > 0 ? (
                     <ul>
                       {dashboard.unusedScenes.slice(0, 8).map((name) => (
@@ -469,11 +490,13 @@ export function DashboardWorkspace({
                   ) : dashboard.scenesWithoutText.length > 0 ? (
                     <ul>
                       {dashboard.scenesWithoutText.slice(0, 8).map((name) => (
-                        <li key={name}>{name} senza testo</li>
+                        <li key={name}>
+                          {name} {t('dashboard.check.noText')}
+                        </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="muted">Nessuna scheda scena isolata.</p>
+                    <p className="muted">{t('dashboard.unused.noScenes')}</p>
                   )}
                 </div>
               </div>

@@ -1,3 +1,5 @@
+import type { Translate } from '../../i18n';
+
 type ReferenceType = 'character' | 'location' | 'scene';
 
 interface CreateReferenceModalState {
@@ -16,30 +18,31 @@ interface CreateReferenceModalProps {
   onCancel: () => void;
   onNameChange: (name: string) => void;
   onSubmit: () => void;
+  t: Translate;
 }
 
-function getReferenceModalTitle(type: ReferenceType): string {
+function getReferenceModalTitle(type: ReferenceType, t: Translate): string {
   if (type === 'character') {
-    return 'Crea Scheda Personaggio';
+    return t('editor.createReference.characterTitle');
   }
 
   if (type === 'location') {
-    return 'Crea Scheda Location';
+    return t('editor.createReference.locationTitle');
   }
 
-  return 'Crea Scheda Scena';
+  return t('editor.createReference.sceneTitle');
 }
 
-function getReferenceNameLabel(type: ReferenceType): string {
+function getReferenceNameLabel(type: ReferenceType, t: Translate): string {
   if (type === 'character') {
-    return 'Nome personaggio';
+    return t('editor.createReference.characterName');
   }
 
   if (type === 'location') {
-    return 'Nome location';
+    return t('editor.createReference.locationName');
   }
 
-  return 'Nome scena';
+  return t('editor.createReference.sceneName');
 }
 
 export function CreateReferenceModal({
@@ -47,6 +50,7 @@ export function CreateReferenceModal({
   onCancel,
   onNameChange,
   onSubmit,
+  t,
 }: CreateReferenceModalProps) {
   return (
     <div
@@ -58,9 +62,9 @@ export function CreateReferenceModal({
       }}
     >
       <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-        <h3>{getReferenceModalTitle(modal.type)}</h3>
+        <h3>{getReferenceModalTitle(modal.type, t)}</h3>
         <label>
-          {getReferenceNameLabel(modal.type)}
+          {getReferenceNameLabel(modal.type, t)}
           <input
             autoFocus
             value={modal.name}
@@ -68,13 +72,13 @@ export function CreateReferenceModal({
           />
         </label>
         <label>
-          Testo selezionato
+          {t('editor.createReference.selectedText')}
           <textarea rows={6} value={modal.text} readOnly />
         </label>
         <p className="muted">
           {modal.type === 'scene'
-            ? 'Il testo selezionato verra salvato nella scheda scena e marcato nel capitolo.'
-            : "La descrizione verra salvata nelle note. Se l'AI e disponibile, prova anche a compilare i campi deducibili."}
+            ? t('editor.createReference.sceneNote')
+            : t('editor.createReference.note')}
         </p>
         <div className="row-buttons">
           <button
@@ -83,7 +87,7 @@ export function CreateReferenceModal({
             onClick={onCancel}
             disabled={modal.submitting}
           >
-            Annulla
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -92,10 +96,10 @@ export function CreateReferenceModal({
             className={modal.submitting ? 'ai-working' : undefined}
           >
             {modal.submitting
-              ? 'Creazione...'
+              ? t('editor.createReference.creating')
               : modal.type === 'scene'
-                ? 'Crea e inserisci #'
-                : 'Crea e inserisci @'}
+                ? t('editor.createReference.createHash')
+                : t('editor.createReference.createAt')}
           </button>
         </div>
       </div>

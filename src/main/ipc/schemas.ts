@@ -13,12 +13,15 @@ export const pingResponseSchema = z.object({
 export const appPreferencesResponseSchema = z.object({
   autosaveMode: z.enum(['manual', 'interval', 'auto']),
   autosaveIntervalMinutes: z.number().int().min(1).max(120),
+  languageMode: z.enum(['auto', 'it', 'en']),
+  effectiveLanguage: z.enum(['it', 'en']),
   updatedAt: z.string(),
 });
 
 export const appPreferencesUpdateRequestSchema = z.object({
   autosaveMode: z.enum(['manual', 'interval', 'auto']).optional(),
   autosaveIntervalMinutes: z.number().int().min(1).max(120).optional(),
+  languageMode: z.enum(['auto', 'it', 'en']).optional(),
 });
 
 export const projectCreateRequestSchema = z.object({

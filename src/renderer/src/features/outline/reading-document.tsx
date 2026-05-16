@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import type { Translate } from '../../i18n';
 
 export interface RichTextNodeJson {
   type?: string;
@@ -154,9 +155,9 @@ function renderReadingBlockNode(node: RichTextNodeJson, key: string): ReactNode 
   );
 }
 
-export function renderReadingDocument(document: RichTextDocumentJson): ReactNode {
+export function renderReadingDocument(document: RichTextDocumentJson, t: Translate): ReactNode {
   if (!richTextDocumentHasContent(document)) {
-    return <p className="reader-empty-chapter">Capitolo vuoto.</p>;
+    return <p className="reader-empty-chapter">{t('reading.emptyChapter')}</p>;
   }
 
   return (document.content ?? []).map((node, index) =>

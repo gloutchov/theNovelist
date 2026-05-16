@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import type { Translate } from '../../i18n';
 
 export type EntityImageSize = '1024x1024' | '1536x1024' | '1024x1536';
 
@@ -16,6 +17,7 @@ interface ImageTypeOption {
 interface LinkedChaptersPanelProps<TChapter extends { id: string }> {
   chapters: TChapter[];
   formatChapterLabel: (chapter: TChapter) => string;
+  t: Translate;
 }
 
 interface EntityImageSectionProps<TImage extends EntityImageAsset> {
@@ -43,28 +45,33 @@ interface EntityImageSectionProps<TImage extends EntityImageAsset> {
   onPreviewError: (imageId: string) => void;
   onSelectImagePath: () => void | Promise<void>;
   onViewImage: (image: TImage) => void;
+  t: Translate;
 }
 
 interface ImageViewerModalProps {
   viewerImage: { src: string; label: string } | null;
   onClose: () => void;
+  t: Translate;
 }
 
-const IMAGE_SIZE_OPTIONS: { value: EntityImageSize; label: string }[] = [
-  { value: '1024x1024', label: 'Quadrata (1024x1024)' },
-  { value: '1536x1024', label: 'Orizzontale (1536x1024)' },
-  { value: '1024x1536', label: 'Verticale (1024x1536)' },
+const IMAGE_SIZE_OPTIONS: { value: EntityImageSize; labelKey: string }[] = [
+  { value: '1024x1024', labelKey: 'entity.image.sizeSquare' },
+  { value: '1536x1024', labelKey: 'entity.image.sizeHorizontal' },
+  { value: '1024x1536', labelKey: 'entity.image.sizeVertical' },
 ];
 
 export function LinkedChaptersPanel<TChapter extends { id: string }>({
   chapters,
   formatChapterLabel,
+  t,
 }: LinkedChaptersPanelProps<TChapter>): ReactElement {
   return (
     <div className="panel panel-subsection">
-      <h4>Capitoli Collegati</h4>
+      <h4>{t('entity.common.linkedChapters')}</h4>
       <div className="chapter-links-list">
-        {chapters.length === 0 ? <p className="muted">Nessun capitolo collegato.</p> : null}
+        {chapters.length === 0 ? (
+          <p className="muted">{t('entity.common.noLinkedChapters')}</p>
+        ) : null}
         <div className="chapter-badge-list">
           {chapters.map((chapter) => (
             <span key={chapter.id} className="chapter-link-badge">
@@ -102,13 +109,14 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
   onPreviewError,
   onSelectImagePath,
   onViewImage,
+  t,
 }: EntityImageSectionProps<TImage>): ReactElement {
   return (
     <div className="panel panel-subsection">
-      <h4>Immagini Associate</h4>
+      <h4>{t('entity.image.sectionTitle')}</h4>
       <div className="grid-two">
         <label>
-          Tipo
+          {t('entity.image.type')}
           <select value={imageType} onChange={(event) => onImageTypeChange(event.target.value)}>
             {imageTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -118,7 +126,7 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
           </select>
         </label>
         <label>
-          Path file immagine
+          {t('entity.image.path')}
           <div className="input-with-button">
             <input value={imagePath} onChange={(event) => onImagePathChange(event.target.value)} />
             <button
@@ -126,26 +134,26 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
               className="button-secondary"
               onClick={() => void onSelectImagePath()}
             >
-              Sfoglia...
+              {t('entity.image.browse')}
             </button>
           </div>
         </label>
         <label>
-          Dimensione
+          {t('entity.image.size')}
           <select
             value={imageSize}
             onChange={(event) => onImageSizeChange(event.target.value as EntityImageSize)}
           >
             {IMAGE_SIZE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
         </label>
       </div>
       <label>
-        Prompt
+        {t('entity.image.prompt')}
         <textarea
           rows={3}
           value={imagePrompt}
@@ -159,7 +167,7 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
           className={codexPrompting ? 'ai-working' : undefined}
           disabled={codexPrompting}
         >
-          {`Prompt Da ${aiAssistantLabel}`}
+          {t('entity.image.promptFrom', { assistant: aiAssistantLabel })}
         </button>
         <button
           type="button"
@@ -167,31 +175,35 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
           disabled={imageGenerating || !imagePrompt.trim() || !imageGenerationReady}
           className={imageGenerating ? 'ai-working' : undefined}
         >
-          {imageGenerating ? 'Generazione...' : 'Genera In-App'}
+          {imageGenerating ? t('entity.image.generating') : t('entity.image.generate')}
         </button>
         <button type="button" onClick={() => void onAddImage()}>
-          Associa Immagine
+          {t('entity.image.add')}
         </button>
       </div>
       {!imageGenerationReady ? (
         <p className="muted">
-          Genera In-App non disponibile: manca {missingImageGenerationRequirements.join(', ')}.
+          {t('entity.image.missingRequirements', {
+            requirements: missingImageGenerationRequirements.join(', '),
+          })}
         </p>
       ) : null}
       <div className="asset-list">
-        {images.length === 0 ? <p className="muted">Nessuna immagine associata.</p> : null}
+        {images.length === 0 ? <p className="muted">{t('entity.image.noImages')}</p> : null}
         {images.map((image) => (
           <div key={image.id} className="asset-item">
             <div className="asset-item-main">
               <div className="asset-preview">
                 {previewErrors.includes(image.id) || !image.filePath.trim() ? (
-                  <div className="asset-preview-fallback">Anteprima non disponibile</div>
+                  <div className="asset-preview-fallback">
+                    {t('entity.image.previewUnavailable')}
+                  </div>
                 ) : !imagePreviewSources[image.id] ? (
-                  <div className="asset-preview-fallback">Caricamento anteprima...</div>
+                  <div className="asset-preview-fallback">{t('entity.image.previewLoading')}</div>
                 ) : (
                   <img
                     src={imagePreviewSources[image.id]}
-                    alt={`Anteprima ${image.imageType}`}
+                    alt={t('entity.image.previewAlt', { type: image.imageType })}
                     onError={() => onPreviewError(image.id)}
                   />
                 )}
@@ -210,10 +222,10 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
                 onClick={() => onViewImage(image)}
                 disabled={!imagePreviewSources[image.id]}
               >
-                Vedi
+                {t('entity.image.view')}
               </button>
               <button type="button" onClick={() => void onDeleteImage(image.id)}>
-                Elimina
+                {t('common.delete')}
               </button>
             </div>
           </div>
@@ -226,6 +238,7 @@ export function EntityImageSection<TImage extends EntityImageAsset>({
 export function ImageViewerModal({
   viewerImage,
   onClose,
+  t,
 }: ImageViewerModalProps): ReactElement | null {
   if (!viewerImage) {
     return null;
@@ -238,7 +251,7 @@ export function ImageViewerModal({
         <img src={viewerImage.src} alt={viewerImage.label} className="image-viewer-full" />
         <div className="row-buttons">
           <button type="button" onClick={onClose}>
-            Chiudi
+            {t('common.close')}
           </button>
         </div>
       </div>

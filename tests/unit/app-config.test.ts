@@ -13,6 +13,11 @@ describe('APP_CONFIG', () => {
     expect(APP_CONFIG.ai.defaultOllamaModel).toBe('gemma4:e4b-it-q4_K_M');
   });
 
+  it('centralizes app preference defaults', () => {
+    expect(APP_CONFIG.appPreferences.defaultAutosaveMode).toBe('auto');
+    expect(APP_CONFIG.appPreferences.defaultLanguageMode).toBe('auto');
+  });
+
   it('documents local-only image policy for hardening work', () => {
     expect(APP_CONFIG.images.remoteSources.allowHttp).toBe(false);
     expect(APP_CONFIG.images.remoteSources.allowHttps).toBe(false);

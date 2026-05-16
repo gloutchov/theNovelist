@@ -1,3 +1,5 @@
+import type { Translate } from '../../i18n';
+
 interface SelectionDiffChunks {
   prefix: string;
   removed: string;
@@ -13,6 +15,7 @@ interface SelectionDiffModalProps {
   mode: string;
   onApply: () => void;
   onDiscard: () => void;
+  t: Translate;
 }
 
 export function SelectionDiffModal({
@@ -22,17 +25,19 @@ export function SelectionDiffModal({
   mode,
   onApply,
   onDiscard,
+  t,
 }: SelectionDiffModalProps) {
   return (
     <div className="modal-overlay codex-diff-overlay">
       <div className="modal-card codex-diff-card">
-        <h3>Anteprima modifica AI</h3>
+        <h3>{t('editor.diff.title')}</h3>
         <p className="muted">
-          Azione: <strong>{action}</strong> | Modalita: <strong>{mode}</strong>
+          {t('editor.diff.action')} <strong>{action}</strong> | {t('editor.diff.mode')}{' '}
+          <strong>{mode}</strong>
         </p>
         <div className="codex-diff-grid">
           <div className="codex-diff-column">
-            <h4>Originale</h4>
+            <h4>{t('editor.diff.original')}</h4>
             <pre className="codex-diff-text">
               {chunks.prefix}
               {chunks.removed ? <span className="codex-diff-removed">{chunks.removed}</span> : null}
@@ -40,7 +45,7 @@ export function SelectionDiffModal({
             </pre>
           </div>
           <div className="codex-diff-column">
-            <h4>Proposto</h4>
+            <h4>{t('editor.diff.proposed')}</h4>
             <pre className="codex-diff-text">
               {chunks.prefix}
               {chunks.added ? <span className="codex-diff-added">{chunks.added}</span> : null}
@@ -48,12 +53,10 @@ export function SelectionDiffModal({
             </pre>
           </div>
         </div>
-        {chunks.identical ? (
-          <p className="muted">La proposta coincide con il testo originale.</p>
-        ) : null}
+        {chunks.identical ? <p className="muted">{t('editor.diff.identical')}</p> : null}
         <div className="row-buttons">
           <button type="button" onClick={onApply} disabled={applying}>
-            Applica
+            {t('editor.diff.apply')}
           </button>
           <button
             type="button"
@@ -61,7 +64,7 @@ export function SelectionDiffModal({
             onClick={onDiscard}
             disabled={applying}
           >
-            Scarta
+            {t('editor.diff.discard')}
           </button>
         </div>
       </div>

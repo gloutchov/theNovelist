@@ -1,3 +1,4 @@
+import type { Translate } from '../../i18n';
 import { normalizePlotLabel } from './plot-flow';
 
 interface PlotModalRecord {
@@ -22,6 +23,7 @@ interface CreatePlotModalProps {
   setNewPlotLabel: (value: string) => void;
   setNewPlotNumber: (value: number) => void;
   setNewPlotSummary: (value: string) => void;
+  t: Translate;
 }
 
 interface EditPlotModalProps {
@@ -33,6 +35,7 @@ interface EditPlotModalProps {
   onSavePlotEdit: () => void;
   setEditPlotLabelInput: (value: string) => void;
   setEditPlotSummaryInput: (value: string) => void;
+  t: Translate;
 }
 
 export function CreatePlotModal({
@@ -50,13 +53,14 @@ export function CreatePlotModal({
   setNewPlotLabel,
   setNewPlotNumber,
   setNewPlotSummary,
+  t,
 }: CreatePlotModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Nuova Trama</h3>
+        <h3>{t('plot.modal.title')}</h3>
         <label>
-          Numero trama
+          {t('plot.field.number')}
           <input
             type="number"
             min={1}
@@ -65,37 +69,37 @@ export function CreatePlotModal({
           />
         </label>
         <label>
-          Etichetta trama
+          {t('plot.field.label')}
           <input
             value={existingPlotForNewNumber ? existingPlotForNewNumber.label : newPlotLabel}
             onChange={(event) => setNewPlotLabel(event.target.value)}
-            placeholder="Trama principale"
+            placeholder={t('plot.modal.placeholderLabel')}
             disabled={Boolean(existingPlotForNewNumber)}
           />
         </label>
         <label>
-          Bozza trama / struttura
+          {t('plot.field.summary')}
           <textarea
             rows={7}
             value={existingPlotForNewNumber ? existingPlotForNewNumber.summary : newPlotSummary}
             onChange={(event) => setNewPlotSummary(event.target.value)}
-            placeholder="Riassunto, struttura grezza, scene chiave, conflitti..."
+            placeholder={t('plot.modal.placeholderSummary')}
             disabled={Boolean(existingPlotForNewNumber)}
           />
         </label>
         {existingPlotForNewNumber ? (
           <p className="muted">
-            Trama esistente:{' '}
-            <strong>{existingPlotForNewNumber.label || '(senza etichetta)'}</strong>. Modificala dal
-            tab Trame con doppio click sul blocco.
+            {t('plot.modal.existing')}{' '}
+            <strong>{existingPlotForNewNumber.label || t('plot.modal.noLabel')}</strong>.{' '}
+            {t('plot.modal.existingHelp')}
           </p>
         ) : null}
         <div className="row-buttons modal-actions">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={busy}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button type="button" onClick={onCreatePlot} disabled={!canCreatePlot}>
-            Crea Trama
+            {t('plot.modal.createPlot')}
           </button>
           <button
             type="button"
@@ -103,7 +107,9 @@ export function CreatePlotModal({
             onClick={onCreatePlotStructure}
             disabled={!canCreatePlotStructure}
           >
-            {plotStructureBusy ? 'In Creazione...' : 'Crea Capitoli'}
+            {plotStructureBusy
+              ? t('plot.modal.createChaptersBusy')
+              : t('plot.modal.createChapters')}
           </button>
         </div>
       </div>
@@ -120,25 +126,26 @@ export function EditPlotModal({
   onSavePlotEdit,
   setEditPlotLabelInput,
   setEditPlotSummaryInput,
+  t,
 }: EditPlotModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Modifica Trama</h3>
+        <h3>{t('plot.modal.editTitle')}</h3>
         <label>
-          Numero trama
+          {t('plot.field.number')}
           <input value={String(currentEditPlot.number)} readOnly />
         </label>
         <label>
-          Titolo trama
+          {t('plot.field.title')}
           <input
             value={editPlotLabelInput}
             onChange={(event) => setEditPlotLabelInput(event.target.value)}
-            placeholder={normalizePlotLabel(currentEditPlot.number, '')}
+            placeholder={normalizePlotLabel(currentEditPlot.number, '', t('common.plot'))}
           />
         </label>
         <label>
-          Bozza trama / struttura
+          {t('plot.field.summary')}
           <textarea
             rows={8}
             value={editPlotSummaryInput}
@@ -147,10 +154,10 @@ export function EditPlotModal({
         </label>
         <div className="row-buttons modal-actions">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={busy}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button type="button" onClick={onSavePlotEdit} disabled={busy}>
-            Salva Trama
+            {t('plot.modal.savePlot')}
           </button>
         </div>
       </div>

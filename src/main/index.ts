@@ -1,7 +1,9 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
+import { getAppPreferences } from './app-preferences';
 import { registerIpcHandlers } from './ipc';
+import { getMainLanguage, setMainLanguage, translateMain } from './i18n';
 import { ProjectSessionManager } from './projects/session';
 import { isBlockedProductionShortcut, isDevToolsEnabled } from './security/debug-policy';
 
@@ -41,11 +43,12 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
   }
 
   const logoDataUrl = await resolveAppLogoDataUrl();
+  const aboutTitle = translateMain('about.title');
   const html = `<!doctype html>
-<html lang="it">
+<html lang="${getMainLanguage()}">
   <head>
     <meta charset="utf-8" />
-    <title>Info</title>
+    <title>${escapeHtml(aboutTitle)}</title>
     <style>
       :root {
         color-scheme: light;
@@ -96,7 +99,7 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
     <main class="card">
       <img class="logo" src="${logoDataUrl}" alt="Logo The Novelist" />
       <h1>${escapeHtml(app.getName())}</h1>
-      <p class="meta">Versione ${escapeHtml(app.getVersion())}</p>
+      <p class="meta">${escapeHtml(translateMain('about.version', { version: app.getVersion() }))}</p>
       <p class="meta">${escapeHtml(ABOUT_COPYRIGHT)}</p>
     </main>
   </body>
@@ -111,7 +114,7 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
     fullscreenable: false,
     show: false,
     autoHideMenuBar: true,
-    title: 'Info',
+    title: aboutTitle,
     parent: parentWindow,
     modal: Boolean(parentWindow),
     webPreferences: {
@@ -130,6 +133,23 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
   });
 
   void aboutWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+}
+
+function confirmPendingChanges(mainWindow: BrowserWindow): boolean {
+  const choice = dialog.showMessageBoxSync(mainWindow, {
+    type: 'warning',
+    buttons: [
+      translateMain('dialog.unsaved.buttons.cancel'),
+      translateMain('dialog.unsaved.buttons.exit'),
+    ],
+    defaultId: 0,
+    cancelId: 0,
+    title: translateMain('dialog.unsaved.title'),
+    message: translateMain('dialog.unsaved.message'),
+    detail: translateMain('dialog.unsaved.detail'),
+  });
+
+  return choice === 1;
 }
 
 function showAppInfo(parentWindow?: BrowserWindow): void {
@@ -270,17 +290,7 @@ function createWindow(): void {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
     mainWindow.webContents.on('will-prevent-unload', (event) => {
-      const choice = dialog.showMessageBoxSync(mainWindow, {
-        type: 'warning',
-        buttons: ['Annulla', 'Esci'],
-        defaultId: 0,
-        cancelId: 0,
-        title: 'Modifiche non salvate',
-        message: 'Sono presenti modifiche non ancora persistite.',
-        detail: 'Se chiudi ora, le modifiche locali ancora in bozza andranno perse.',
-      });
-
-      if (choice === 1) {
+      if (confirmPendingChanges(mainWindow)) {
         event.preventDefault();
       }
     });
@@ -292,23 +302,16 @@ function createWindow(): void {
   installWindowSecurityGuards(mainWindow, appEntryUrl);
   void mainWindow.loadFile(appEntryPath);
   mainWindow.webContents.on('will-prevent-unload', (event) => {
-    const choice = dialog.showMessageBoxSync(mainWindow, {
-      type: 'warning',
-      buttons: ['Annulla', 'Esci'],
-      defaultId: 0,
-      cancelId: 0,
-      title: 'Modifiche non salvate',
-      message: 'Sono presenti modifiche non ancora persistite.',
-      detail: 'Se chiudi ora, le modifiche locali ancora in bozza andranno perse.',
-    });
-
-    if (choice === 1) {
+    if (confirmPendingChanges(mainWindow)) {
       event.preventDefault();
     }
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const preferences = await getAppPreferences();
+  setMainLanguage(preferences.effectiveLanguage);
+
   app.setAboutPanelOptions({
     applicationName: app.getName(),
     applicationVersion: app.getVersion(),

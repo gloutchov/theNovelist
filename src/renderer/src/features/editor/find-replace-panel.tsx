@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import type { Translate } from '../../i18n';
 
 type FindReplaceMode = 'find' | 'replace';
 
@@ -16,6 +17,7 @@ interface FindReplacePanelProps {
   onReplaceCurrent: () => void;
   onReplaceQueryChange: (value: string) => void;
   replaceQuery: string;
+  t: Translate;
 }
 
 export function FindReplacePanel({
@@ -32,6 +34,7 @@ export function FindReplacePanel({
   onReplaceCurrent,
   onReplaceQueryChange,
   replaceQuery,
+  t,
 }: FindReplacePanelProps) {
   const matchCounter = findQuery.trim()
     ? `${activeFindIndex >= 0 ? activeFindIndex + 1 : 0}/${findMatchCount}`
@@ -47,7 +50,7 @@ export function FindReplacePanel({
         }}
       >
         <label>
-          Trova
+          {t('editor.toolbar.find')}
           <input
             ref={findInputRef}
             value={findQuery}
@@ -59,12 +62,12 @@ export function FindReplacePanel({
               event.preventDefault();
               onFindSubmit(event.shiftKey ? 'previous' : 'next');
             }}
-            placeholder="Testo da cercare"
+            placeholder={t('editor.toolbar.findPlaceholder')}
           />
         </label>
         {mode === 'replace' ? (
           <label>
-            Sostituisci con
+            {t('editor.toolbar.replaceWith')}
             <input
               value={replaceQuery}
               onChange={(event) => onReplaceQueryChange(event.target.value)}
@@ -74,32 +77,32 @@ export function FindReplacePanel({
                   onReplaceCurrent();
                 }
               }}
-              placeholder="Nuovo testo"
+              placeholder={t('editor.toolbar.replacePlaceholder')}
             />
           </label>
         ) : null}
         <div className="find-replace-actions">
           <span className="find-replace-count">{matchCounter}</span>
           <button type="button" onClick={() => onFindSubmit('previous')}>
-            Precedente
+            {t('common.previous')}
           </button>
-          <button type="submit">Successivo</button>
+          <button type="submit">{t('editor.toolbar.next')}</button>
           {mode === 'replace' ? (
             <>
               <button type="button" onClick={onReplaceCurrent}>
-                Sostituisci
+                {t('editor.toolbar.replace')}
               </button>
               <button type="button" onClick={onReplaceAll}>
-                Sostituisci tutto
+                {t('editor.toolbar.replaceAll')}
               </button>
             </>
           ) : (
             <button type="button" onClick={() => onModeChange('replace')}>
-              Mostra sostituzione
+              {t('editor.toolbar.showReplace')}
             </button>
           )}
           <button type="button" className="button-secondary" onClick={onClose}>
-            Chiudi
+            {t('common.close')}
           </button>
         </div>
       </form>

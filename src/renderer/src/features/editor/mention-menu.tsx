@@ -1,3 +1,5 @@
+import type { Translate } from '../../i18n';
+
 type ReferenceType = 'character' | 'location' | 'scene';
 
 interface MentionMenuItem {
@@ -19,23 +21,25 @@ interface MentionMenuState<TItem extends MentionMenuItem> {
 interface MentionMenuProps<TItem extends MentionMenuItem> {
   menu: MentionMenuState<TItem>;
   onSelect: (item: TItem, range: { from: number; to: number }) => void;
+  t: Translate;
 }
 
-function getMentionTypeLabel(type: ReferenceType): string {
+function getMentionTypeLabel(type: ReferenceType, t: Translate): string {
   if (type === 'character') {
-    return 'Personaggio';
+    return t('editor.mention.typeCharacter');
   }
 
   if (type === 'location') {
-    return 'Location';
+    return t('editor.mention.typeLocation');
   }
 
-  return 'Scena';
+  return t('editor.mention.typeScene');
 }
 
 export function MentionMenu<TItem extends MentionMenuItem>({
   menu,
   onSelect,
+  t,
 }: MentionMenuProps<TItem>) {
   return (
     <div
@@ -45,7 +49,7 @@ export function MentionMenu<TItem extends MentionMenuItem>({
         top: `${menu.top}px`,
       }}
     >
-      {menu.items.length === 0 ? <p className="muted">Nessun riferimento trovato.</p> : null}
+      {menu.items.length === 0 ? <p className="muted">{t('editor.mention.empty')}</p> : null}
       {menu.items.map((item, index) => (
         <button
           key={item.id}
@@ -62,7 +66,7 @@ export function MentionMenu<TItem extends MentionMenuItem>({
           }}
         >
           <span>{`${item.trigger}${item.label}`}</span>
-          <small>{getMentionTypeLabel(item.type)}</small>
+          <small>{getMentionTypeLabel(item.type, t)}</small>
         </button>
       ))}
     </div>

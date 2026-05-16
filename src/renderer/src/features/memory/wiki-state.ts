@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import type { Translate } from '../../i18n';
 
 export type WikiStatus = Awaited<ReturnType<(typeof window.novelistApi)['wikiGetStatus']>>;
 export type WikiSearchResult = Awaited<
@@ -11,6 +12,7 @@ interface WikiStateOptions {
   setError: Dispatch<SetStateAction<string | null>>;
   setStatus: Dispatch<SetStateAction<string>>;
   showWorkspaceNotice: (message: string | null, durationMs?: number) => void;
+  t: Translate;
 }
 
 export function useWikiState({
@@ -18,6 +20,7 @@ export function useWikiState({
   setError,
   setStatus,
   showWorkspaceNotice,
+  t,
 }: WikiStateOptions) {
   const [wikiStatus, setWikiStatus] = useState<WikiStatus | null>(null);
   const [wikiBusy, setWikiBusy] = useState<boolean>(false);
@@ -52,12 +55,12 @@ export function useWikiState({
       const status = await window.novelistApi.wikiGetStatus();
       setWikiStatus(status);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setWikiError(message);
       setError(message);
-      setStatus('Errore lettura stato memoria progetto');
+      setStatus(t('memory.wiki.statusReadError'));
     }
-  }, [currentProject, setError, setStatus]);
+  }, [currentProject, setError, setStatus, t]);
 
   const handleWikiSync = useCallback(async (): Promise<void> => {
     if (!currentProject || wikiBusy) {
@@ -73,18 +76,18 @@ export function useWikiState({
       setWikiStatus(status);
       setStatus(
         result.changed
-          ? `Memoria progetto aggiornata: ${result.changedSources.length} fonti modificate`
-          : 'Memoria progetto gia aggiornata',
+          ? t('memory.wiki.statusSynced', { count: result.changedSources.length })
+          : t('memory.wiki.statusSyncedNoChanges'),
       );
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setWikiError(message);
       setError(message);
-      setStatus('Errore aggiornamento memoria progetto');
+      setStatus(t('memory.wiki.statusSyncError'));
     } finally {
       setWikiBusy(false);
     }
-  }, [currentProject, setError, setStatus, wikiBusy]);
+  }, [currentProject, setError, setStatus, t, wikiBusy]);
 
   const handleWikiSearch = useCallback(async (): Promise<void> => {
     if (!currentProject || wikiBusy) {
@@ -95,7 +98,7 @@ export function useWikiState({
     if (!query) {
       setWikiSearchResults([]);
       setSelectedWikiSearchResult(null);
-      setStatus('Inserisci una ricerca per la memoria progetto');
+      setStatus(t('memory.wiki.statusSearchMissing'));
       return;
     }
 
@@ -108,18 +111,18 @@ export function useWikiState({
       setSelectedWikiSearchResult(null);
       setStatus(
         results.length > 0
-          ? `Memoria progetto: ${results.length} risultati`
-          : 'Memoria progetto: nessun risultato',
+          ? t('memory.wiki.statusSearchResults', { count: results.length })
+          : t('memory.wiki.statusSearchEmpty'),
       );
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setWikiError(message);
       setError(message);
-      setStatus('Errore ricerca memoria progetto');
+      setStatus(t('memory.wiki.statusSearchError'));
     } finally {
       setWikiBusy(false);
     }
-  }, [currentProject, setError, setStatus, wikiBusy, wikiSearchQuery]);
+  }, [currentProject, setError, setStatus, t, wikiBusy, wikiSearchQuery]);
 
   const handleOpenWikiSearchResult = useCallback(
     async (result: WikiSearchResult): Promise<void> => {
@@ -135,15 +138,16 @@ export function useWikiState({
           content: source?.content || result.content || result.snippet,
         });
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setWikiError(message);
         setError(message);
-        setStatus('Errore apertura fonte memoria');
+        setStatus(t('memory.wiki.statusSourceOpenError'));
       } finally {
         setWikiBusy(false);
       }
     },
-    [setError, setStatus],
+    [setError, setStatus, t],
   );
 
   const syncProjectWikiAfterWorkspaceChange = useCallback(async (): Promise<void> => {
@@ -152,25 +156,26 @@ export function useWikiState({
     }
 
     if (wikiAutoSyncInFlightRef.current) {
-      showWorkspaceNotice('aggiornamento memoria in corso...');
+      showWorkspaceNotice(t('memory.wiki.noticeSyncing'));
       await wikiAutoSyncInFlightRef.current;
       return;
     }
 
-    showWorkspaceNotice('aggiornamento memoria in corso...');
+    showWorkspaceNotice(t('memory.wiki.noticeSyncing'));
     const syncPromise = (async () => {
       try {
         await window.novelistApi.wikiSync();
         const status = await window.novelistApi.wikiGetStatus();
         setWikiStatus(status);
         setWikiError(null);
-        showWorkspaceNotice('memoria aggiornata', 1800);
+        showWorkspaceNotice(t('memory.wiki.noticeUpdated'), 1800);
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setWikiError(message);
         setError(message);
-        showWorkspaceNotice('errore aggiornamento memoria', 4500);
-        setStatus('Errore aggiornamento automatico memoria progetto');
+        showWorkspaceNotice(t('memory.wiki.noticeError'), 4500);
+        setStatus(t('memory.wiki.statusAutoSyncError'));
       }
     })();
 
@@ -182,7 +187,7 @@ export function useWikiState({
         wikiAutoSyncInFlightRef.current = null;
       }
     }
-  }, [currentProject, setError, setStatus, showWorkspaceNotice]);
+  }, [currentProject, setError, setStatus, showWorkspaceNotice, t]);
 
   return {
     handleOpenWikiSearchResult,

@@ -21,11 +21,7 @@ async function createProject(page: Page, name: string): Promise<void> {
   await expect(page.getByText(`Progetto creato: ${name}`)).toBeVisible();
 }
 
-async function createChapter(
-  page: Page,
-  title: string,
-  description = '',
-): Promise<void> {
+async function createChapter(page: Page, title: string, description = ''): Promise<void> {
   await page.getByRole('button', { name: 'Capitoli' }).click();
   await page.getByRole('button', { name: 'Nuovo Capitolo' }).click();
 
@@ -106,7 +102,10 @@ test('story workflow with AI preview discard', async ({ page }) => {
   await editorContent.click({ position: { x: 24, y: 18 } });
   await editorContent.press(selectAllShortcut);
   await expect(page.locator('.selection-bubble')).toBeVisible();
-  await page.locator('.selection-bubble').getByRole('button', { name: 'Riscrivi' }).dispatchEvent('click');
+  await page
+    .locator('.selection-bubble')
+    .getByRole('button', { name: 'Riscrivi' })
+    .dispatchEvent('click');
 
   await expect(page.getByRole('heading', { name: 'Anteprima modifica AI' })).toBeVisible();
   await page.getByRole('button', { name: 'Scarta' }).click();
@@ -119,7 +118,10 @@ test('story workflow with AI preview apply', async ({ page }) => {
   await editorContent.click({ position: { x: 24, y: 18 } });
   await editorContent.press(selectAllShortcut);
   await expect(page.locator('.selection-bubble')).toBeVisible();
-  await page.locator('.selection-bubble').getByRole('button', { name: 'Riscrivi' }).dispatchEvent('click');
+  await page
+    .locator('.selection-bubble')
+    .getByRole('button', { name: 'Riscrivi' })
+    .dispatchEvent('click');
   await page.getByRole('button', { name: 'Applica' }).click();
 
   await expect(page.getByRole('heading', { name: 'Anteprima modifica AI' })).toBeHidden();
@@ -292,7 +294,14 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   const settingsModal = page.locator('.settings-modal-card');
   await expect(settingsModal.getByRole('heading', { name: 'Impostazioni' })).toBeVisible();
 
+  const preferencesSection = settingsModal.locator('details.settings-section').nth(0);
+  await expect(preferencesSection.locator('summary')).toHaveText('Preferenze Utente');
+  await expect(preferencesSection.getByLabel('Lingua interfaccia')).toHaveValue('auto');
+  await expect(preferencesSection.getByText('Lingua effettiva: Italiano.')).toBeVisible();
+
   const aiSection = settingsModal.locator('details.settings-section').nth(1);
+  await expect(aiSection.locator('option[value="openai_api"]').first()).toHaveText('OpenAI API');
+  await expect(aiSection.getByText('OpenAI API (opzionale)')).toHaveCount(0);
   await expect(aiSection.getByLabel('Modello API', { exact: true })).toHaveValue('gpt-5-mini');
   await expect(aiSection.getByLabel('Modello API immagini', { exact: true })).toHaveValue(
     'gpt-image-1',
@@ -302,9 +311,9 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   );
   await expect(aiSection.getByLabel('Consenso invio testo a strumenti AI')).toHaveCount(0);
   await expect(aiSection.getByLabel('Abilita chiamate API esterne')).toHaveCount(0);
-  await expect(aiSection.getByLabel('Auto-riassunto descrizione blocco al salvataggio')).toHaveCount(
-    0,
-  );
+  await expect(
+    aiSection.getByLabel('Auto-riassunto descrizione blocco al salvataggio'),
+  ).toHaveCount(0);
 
   const consentSection = settingsModal.locator('details.settings-section').nth(2);
   await expect(consentSection.getByLabel('Abilita chiamate API esterne')).toBeVisible();
@@ -318,6 +327,21 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   await expect(settingsModal.getByText('API Key (opzionale)')).toHaveCount(0);
   await secretsSection.locator('summary').click();
   await expect(secretsSection.getByLabel('API Key', { exact: true })).toBeVisible();
+
+  await preferencesSection.getByLabel('Lingua interfaccia').selectOption('en');
+  await expect(settingsModal.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await expect(preferencesSection.locator('summary')).toHaveText('User Preferences');
+  await expect(aiSection.locator('summary')).toHaveText('AI Settings');
+  await expect(page.getByRole('button', { name: 'Dashboard', exact: true })).toBeVisible();
+  await settingsModal.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Chapters' }).click();
+  await expect(page.getByRole('button', { name: 'New Chapter' })).toBeVisible();
+  await page.getByRole('button', { name: 'Characters' }).click();
+  await expect(page.getByRole('button', { name: 'Create Character' })).toBeVisible();
+  await page.getByRole('button', { name: 'Locations' }).click();
+  await expect(page.getByRole('button', { name: 'Create Location' })).toBeVisible();
+  await page.getByRole('button', { name: 'Memory' }).click();
+  await expect(page.getByText('Project Memory')).toBeVisible();
 });
 
 test('character board create and edit card', async ({ page }) => {
@@ -337,7 +361,10 @@ test('character board create and edit card', async ({ page }) => {
 
   const canvas = page.locator('.canvas-wrap');
   await expect(canvas.getByText('Anna Rossi')).toBeVisible();
-  const characterNode = canvas.locator('.react-flow__node').filter({ hasText: 'Anna Rossi' }).first();
+  const characterNode = canvas
+    .locator('.react-flow__node')
+    .filter({ hasText: 'Anna Rossi' })
+    .first();
   await characterNode.dispatchEvent('dblclick');
 
   const modal = page.locator('.modal-card').filter({
@@ -409,7 +436,9 @@ test('create character card from editor selection', async ({ page }) => {
 
   const selectionContextMenu = page.locator('.selection-context-menu');
   await expect(selectionContextMenu).toBeVisible();
-  await selectionContextMenu.getByRole('button', { name: 'Crea personaggio' }).dispatchEvent('click');
+  await selectionContextMenu
+    .getByRole('button', { name: 'Crea personaggio' })
+    .dispatchEvent('click');
 
   const createModal = page.locator('.modal-card').filter({
     has: page.getByRole('heading', { name: 'Crea Scheda Personaggio' }),
@@ -542,7 +571,9 @@ test('memory tab shows sources from last AI response', async ({ page }) => {
   });
   await expect(lastSourcesPanel.getByText('Capitolo Fonti AI')).toBeVisible();
   await expect(lastSourcesPanel.getByText('sources/chapters/chapter-')).toBeVisible();
-  await expect(lastSourcesPanel.getByText('La scena contiene il patto nel magazzino.')).toBeVisible();
+  await expect(
+    lastSourcesPanel.getByText('La scena contiene il patto nel magazzino.'),
+  ).toBeVisible();
 });
 
 test('closing chapter editor does not wait for automatic memory sync', async ({ page }) => {

@@ -1,6 +1,7 @@
 import type { IpcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { getAppPreferences, updateAppPreferences } from '../../app-preferences';
+import { setMainLanguage } from '../../i18n';
 import {
   appPreferencesResponseSchema,
   appPreferencesUpdateRequestSchema,
@@ -26,12 +27,14 @@ export function registerAppIpcHandlers(ipcMain: IpcMain): void {
 
   ipcMain.handle(IPC_CHANNELS.appGetPreferences, async () => {
     const preferences = await getAppPreferences();
+    setMainLanguage(preferences.effectiveLanguage);
     return appPreferencesResponseSchema.parse(preferences);
   });
 
   ipcMain.handle(IPC_CHANNELS.appUpdatePreferences, async (_event, payload: unknown) => {
     const request = appPreferencesUpdateRequestSchema.parse(payload);
     const preferences = await updateAppPreferences(request);
+    setMainLanguage(preferences.effectiveLanguage);
     return appPreferencesResponseSchema.parse(preferences);
   });
 }

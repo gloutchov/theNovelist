@@ -24,6 +24,7 @@ import {
   getFlowMiniMapNodeStrokeColor,
 } from './flow-minimap';
 import SceneFlowNode, { type SceneFlowNodeData } from './SceneFlowNode';
+import type { Translate } from './i18n';
 import { getStatusTone } from './status-tone';
 
 type SceneCard = Awaited<ReturnType<(typeof window.novelistApi)['listSceneCards']>>[number];
@@ -43,10 +44,15 @@ interface SceneBoardProps {
   onDirtyChange?: (dirty: boolean) => void;
   onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
   onWikiSync?: () => Promise<void>;
+  t: Translate;
 }
 
-function formatPlotLabel(plot: StoryPlot | null | undefined, plotNumber: number): string {
-  return plot?.label?.trim() || `Trama ${plotNumber}`;
+function formatPlotLabel(
+  plot: StoryPlot | null | undefined,
+  plotNumber: number,
+  t: Translate,
+): string {
+  return plot?.label?.trim() || `${t('common.plot')} ${plotNumber}`;
 }
 
 function colorFromPlotNumber(plotNumber: number): string {
@@ -81,6 +87,7 @@ function mapSceneToNode(
   scene: SceneCard,
   chaptersById: Map<string, StoryChapterNode>,
   plotsByNumber: Map<number, StoryPlot>,
+  t: Translate,
   options?: { selected?: boolean },
 ): SceneCanvasNode {
   const chapter = chaptersById.get(scene.chapterNodeId);
@@ -97,8 +104,8 @@ function mapSceneToNode(
     },
     data: {
       label: scene.name,
-      chapterTitle: chapter?.title ?? 'Capitolo non trovato',
-      plotLabel: formatPlotLabel(plot, scene.plotNumber),
+      chapterTitle: chapter?.title ?? t('scene.missingChapter'),
+      plotLabel: formatPlotLabel(plot, scene.plotNumber, t),
       subtitle: scene.text.trim(),
     },
     style: {
@@ -121,6 +128,7 @@ export default function SceneBoard({
   onDirtyChange,
   onRegisterFlush,
   onWikiSync,
+  t,
 }: SceneBoardProps) {
   const [scenes, setScenes] = useState<SceneCard[]>([]);
   const [nodes, setNodes] = useState<SceneCanvasNode[]>([]);
@@ -129,7 +137,7 @@ export default function SceneBoard({
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [editSceneId, setEditSceneId] = useState<string | null>(null);
   const [isCreateSceneModalOpen, setIsCreateSceneModalOpen] = useState<boolean>(false);
-  const [newSceneTitle, setNewSceneTitle] = useState<string>('Nuova scena');
+  const [newSceneTitle, setNewSceneTitle] = useState<string>(t('scene.new'));
   const [newScenePlotNumber, setNewScenePlotNumber] = useState<number>(1);
   const [sceneEditorDirty, setSceneEditorDirty] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
@@ -182,12 +190,12 @@ export default function SceneBoard({
     setNodes((previous) =>
       nextScenes.map((scene) => {
         const previousNode = previous.find((node) => node.id === scene.id);
-        return mapSceneToNode(scene, nextChaptersById, nextPlotsByNumber, {
+        return mapSceneToNode(scene, nextChaptersById, nextPlotsByNumber, t, {
           selected: previousNode?.selected,
         });
       }),
     );
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refreshScenes();
@@ -277,7 +285,7 @@ export default function SceneBoard({
       ]);
       onStatus('Connessione creata');
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     } finally {
       setBusy(false);
@@ -297,13 +305,14 @@ export default function SceneBoard({
         );
         onStatus(`${deletedEdges.length} connessioni eliminate`);
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
       } finally {
         setBusy(false);
       }
     },
-    [onStatus],
+    [onStatus, t],
   );
 
   const onNodeClick: NodeMouseHandler<SceneCanvasNode> = useCallback((_event, node) => {
@@ -334,7 +343,7 @@ export default function SceneBoard({
       });
       await refreshScenes();
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     }
   }
@@ -344,7 +353,7 @@ export default function SceneBoard({
   }
 
   function openCreateSceneModal(): void {
-    setNewSceneTitle('Nuova scena');
+    setNewSceneTitle(t('scene.new'));
     setNewScenePlotNumber(selectedScene?.plotNumber ?? storyState?.plots[0]?.number ?? 1);
     setIsCreateSceneModalOpen(true);
   }
@@ -356,14 +365,14 @@ export default function SceneBoard({
 
     const title = newSceneTitle.trim();
     if (!title) {
-      onStatus('Inserisci il titolo della scena');
+      onStatus(t('scene.requireTitle'));
       return;
     }
 
     const chapter = chaptersForNewScenePlot[0];
     if (!chapter) {
-      onStatus('Crea prima un capitolo nella trama scelta');
-      setError('Per creare una scena serve almeno un capitolo nella trama selezionata.');
+      onStatus(t('scene.missingChapterForCreate'));
+      setError(t('scene.missingChapterForCreateDetail'));
       return;
     }
 
@@ -394,14 +403,14 @@ export default function SceneBoard({
 
       setSelectedSceneId(created.id);
       setIsCreateSceneModalOpen(false);
-      setNewSceneTitle('Nuova scena');
+      setNewSceneTitle(t('scene.new'));
       await refreshScenes();
       await onWikiSync?.();
-      onStatus(`Scena creata: ${created.name}`);
+      onStatus(t('scene.status.created', { name: created.name }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore creazione scena');
+      onStatus(t('scene.status.createError'));
     } finally {
       setBusy(false);
     }
@@ -418,9 +427,9 @@ export default function SceneBoard({
       setSelectedSceneId(null);
       await refreshScenes();
       void onWikiSync?.();
-      onStatus('Scena eliminata');
+      onStatus(t('scene.status.deleted'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     } finally {
       setBusy(false);
@@ -437,22 +446,22 @@ export default function SceneBoard({
             onClick={openCreateSceneModal}
             disabled={!storyState || busy}
           >
-            Crea Scena
+            {t('scene.create')}
           </button>
         </div>
 
         <div className="panel">
-          <h2>Selezione</h2>
+          <h2>{t('story.selection')}</h2>
           <p>
-            Scena: <strong>{selectedScene ? `#${selectedScene.name}` : '-'}</strong>
+            {t('scene.selection')} <strong>{selectedScene ? `#${selectedScene.name}` : '-'}</strong>
           </p>
           <p>
-            Capitolo: <strong>{selectedChapter?.title ?? '-'}</strong>
+            {t('scene.chapter')} <strong>{selectedChapter?.title ?? '-'}</strong>
           </p>
           <p>
-            Trama:{' '}
+            {t('plot.selection')}{' '}
             <strong>
-              {selectedScene ? formatPlotLabel(selectedPlot, selectedScene.plotNumber) : '-'}
+              {selectedScene ? formatPlotLabel(selectedPlot, selectedScene.plotNumber, t) : '-'}
             </strong>
           </p>
           <div className="selection-action-stack">
@@ -462,7 +471,7 @@ export default function SceneBoard({
               onClick={() => void handleDeleteSelectedScene()}
               disabled={!selectedSceneId || busy}
             >
-              Elimina Scena
+              {t('scene.delete')}
             </button>
           </div>
         </div>
@@ -517,17 +526,17 @@ export default function SceneBoard({
       {isCreateSceneModalOpen ? (
         <div className="modal-overlay">
           <div className="modal-card">
-            <h3>Crea Scena</h3>
+            <h3>{t('scene.create')}</h3>
             <label>
-              Titolo
+              {t('story.modal.title')}
               <input
                 value={newSceneTitle}
                 onChange={(event) => setNewSceneTitle(event.target.value)}
-                placeholder="Titolo scena"
+                placeholder={t('scene.field.titlePlaceholder')}
               />
             </label>
             <label>
-              Trama
+              {t('story.modal.plot')}
               <select
                 value={newScenePlotNumber}
                 onChange={(event) =>
@@ -537,16 +546,18 @@ export default function SceneBoard({
                 {(storyState?.plots ?? []).length > 0 ? (
                   (storyState?.plots ?? []).map((plot) => (
                     <option key={plot.id} value={plot.number}>
-                      {formatPlotLabel(plot, plot.number)}
+                      {formatPlotLabel(plot, plot.number, t)}
                     </option>
                   ))
                 ) : (
-                  <option value={newScenePlotNumber}>{`Trama ${newScenePlotNumber}`}</option>
+                  <option
+                    value={newScenePlotNumber}
+                  >{`${t('common.plot')} ${newScenePlotNumber}`}</option>
                 )}
               </select>
             </label>
             {chaptersForNewScenePlot.length === 0 ? (
-              <p className="error">La trama scelta non contiene capitoli.</p>
+              <p className="error">{t('scene.emptyChaptersForPlot')}</p>
             ) : null}
             <div className="row-buttons modal-actions">
               <button
@@ -555,14 +566,14 @@ export default function SceneBoard({
                 onClick={() => setIsCreateSceneModalOpen(false)}
                 disabled={busy}
               >
-                Annulla
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleCreateScene()}
                 disabled={busy || !newSceneTitle.trim() || chaptersForNewScenePlot.length === 0}
               >
-                Crea Scena
+                {t('scene.create')}
               </button>
             </div>
           </div>

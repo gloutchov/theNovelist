@@ -1,5 +1,6 @@
 import { formatWikiCategoryLabel, formatWikiResultTitle } from './wiki-formatters';
 import type { WikiSearchResult, WikiStatus } from './wiki-state';
+import type { Translate } from '../../i18n';
 
 interface MemorySource {
   title: string;
@@ -24,6 +25,7 @@ interface MemoryWorkspaceProps {
   wikiSearchQuery: string;
   wikiSearchResults: WikiSearchResult[];
   wikiStatus: WikiStatus | null;
+  t: Translate;
 }
 
 export function MemoryWorkspace({
@@ -42,11 +44,12 @@ export function MemoryWorkspace({
   wikiSearchQuery,
   wikiSearchResults,
   wikiStatus,
+  t,
 }: MemoryWorkspaceProps) {
   if (!currentProjectOpen) {
     return (
       <section className="panel">
-        <p>Apri o crea un progetto nella scheda "Struttura Storia" per usare la memoria.</p>
+        <p>{t('memory.emptyProject')}</p>
       </section>
     );
   }
@@ -55,11 +58,11 @@ export function MemoryWorkspace({
     <section className="memory-workspace">
       <div className="panel memory-hero">
         <div>
-          <p className="eyebrow">Memoria progetto</p>
-          <h2>Riassunto storia</h2>
+          <p className="eyebrow">{t('memory.title')}</p>
+          <h2>{t('memory.storySummary.title')}</h2>
           <p className="muted memory-story-summary">
             {memoryStorySummaryBusy
-              ? 'Sintesi AI in corso...'
+              ? t('memory.storySummary.busy')
               : memoryStorySummary || memoryStorySummaryFallback}
           </p>
         </div>
@@ -70,20 +73,22 @@ export function MemoryWorkspace({
             }
           />
           <div>
-            <strong>{wikiStatus?.derivedPending ? 'Da aggiornare' : 'Aggiornata'}</strong>
+            <strong>
+              {wikiStatus?.derivedPending ? t('memory.status.pending') : t('memory.status.updated')}
+            </strong>
             <p>
               {wikiStatus
-                ? `${wikiStatus.sourceCount} fonti indicizzate`
-                : 'Stato memoria non disponibile'}
+                ? t('memory.status.indexedSources', { count: wikiStatus.sourceCount })
+                : t('memory.status.notAvailable')}
             </p>
             <small>
               {wikiStatus?.updatedAt
-                ? `Ultimo sync: ${new Date(wikiStatus.updatedAt).toLocaleString()}`
-                : 'Nessun sync registrato'}
+                ? t('memory.lastSync', { date: new Date(wikiStatus.updatedAt).toLocaleString() })
+                : t('memory.noSync')}
             </small>
             <div className="memory-status-actions">
               <button type="button" onClick={onWikiSync} disabled={wikiBusy}>
-                Aggiorna
+                {t('common.refresh')}
               </button>
               <button
                 type="button"
@@ -91,7 +96,7 @@ export function MemoryWorkspace({
                 onClick={onRefreshWikiStatus}
                 disabled={wikiBusy}
               >
-                Rileggi stato
+                {t('memory.status.refresh')}
               </button>
             </div>
           </div>
@@ -100,13 +105,13 @@ export function MemoryWorkspace({
 
       {wikiError ? (
         <section className="panel memory-error-panel">
-          <h2>Errore memoria</h2>
+          <h2>{t('memory.errorTitle')}</h2>
           <p>{wikiError}</p>
         </section>
       ) : null}
 
       <section className="panel memory-search-panel">
-        <h2>Ricerca</h2>
+        <h2>{t('memory.search.title')}</h2>
         <form
           className="memory-search-form"
           onSubmit={(event) => {
@@ -115,23 +120,23 @@ export function MemoryWorkspace({
           }}
         >
           <label>
-            Cerca nella wiki locale
+            {t('memory.search.label')}
             <input
               type="search"
               value={wikiSearchQuery}
               onChange={(event) => setWikiSearchQuery(event.target.value)}
-              placeholder="es. magazzino, patto, Tizio..."
+              placeholder={t('memory.search.placeholder')}
               disabled={wikiBusy}
             />
           </label>
           <button type="submit" disabled={wikiBusy || !wikiSearchQuery.trim()}>
-            Cerca
+            {t('memory.search.button')}
           </button>
         </form>
       </section>
 
       <details className="panel memory-results-panel memory-collapsible-panel" open>
-        <summary>Risultati</summary>
+        <summary>{t('memory.results.title')}</summary>
         {wikiSearchResults.length > 0 ? (
           <div className="memory-results">
             {wikiSearchResults.map((result, index) => (
@@ -141,46 +146,44 @@ export function MemoryWorkspace({
                 key={`${result.path}-${index}`}
                 onClick={() => onOpenWikiSearchResult(result)}
               >
-                <strong>{formatWikiResultTitle(result)}</strong>
+                <strong>{formatWikiResultTitle(result, t)}</strong>
                 <p>{result.snippet}</p>
               </button>
             ))}
           </div>
         ) : (
-          <p className="muted">
-            Nessun risultato da mostrare. Esegui una ricerca per verificare cosa vede la AI.
-          </p>
+          <p className="muted">{t('memory.results.empty')}</p>
         )}
       </details>
 
       <details className="panel memory-results-panel memory-collapsible-panel" open>
-        <summary>Fonti ricerca</summary>
+        <summary>{t('memory.resultSources.title')}</summary>
         {wikiSearchResults.length > 0 ? (
           <div className="memory-results">
             {wikiSearchResults.map((result) => (
               <article className="memory-result-card" key={`search-source-${result.path}`}>
                 <div className="memory-result-header">
-                  <strong>{formatWikiResultTitle(result)}</strong>
-                  <span>{formatWikiCategoryLabel(result.category)}</span>
+                  <strong>{formatWikiResultTitle(result, t)}</strong>
+                  <span>{formatWikiCategoryLabel(result.category, t)}</span>
                 </div>
                 <code>{result.path}</code>
               </article>
             ))}
           </div>
         ) : (
-          <p className="muted">Le fonti della ricerca appariranno dopo una ricerca.</p>
+          <p className="muted">{t('memory.resultSources.empty')}</p>
         )}
       </details>
 
       <details className="panel memory-results-panel memory-collapsible-panel" open>
-        <summary>Fonti ultima risposta AI</summary>
+        <summary>{t('memory.aiSources.title')}</summary>
         {lastAiMemorySources.length > 0 ? (
           <div className="memory-results">
             {lastAiMemorySources.map((source) => (
               <article className="memory-result-card" key={`last-ai-${source.path}`}>
                 <div className="memory-result-header">
                   <strong>{source.title}</strong>
-                  <span>{formatWikiCategoryLabel(source.category)}</span>
+                  <span>{formatWikiCategoryLabel(source.category, t)}</span>
                 </div>
                 <code>{source.path}</code>
                 <p>{source.snippet}</p>
@@ -188,9 +191,7 @@ export function MemoryWorkspace({
             ))}
           </div>
         ) : (
-          <p className="muted">
-            Nessuna fonte registrata per l'ultima risposta AI in questa sessione.
-          </p>
+          <p className="muted">{t('memory.aiSources.empty')}</p>
         )}
       </details>
     </section>

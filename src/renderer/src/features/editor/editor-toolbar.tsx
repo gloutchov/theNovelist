@@ -1,3 +1,5 @@
+import type { Translate } from '../../i18n';
+
 type BlockStyle = 'paragraph' | 'heading' | 'blockquote';
 type TextAlignment = 'left' | 'center' | 'right' | 'justify';
 
@@ -16,6 +18,7 @@ interface EditorToolbarProps {
   onOpenReplace: () => void;
   onStyleChange: (style: BlockStyle) => void;
   onTextAlignChange: (alignment: TextAlignment) => void;
+  t: Translate;
 }
 
 export function EditorToolbar({
@@ -33,6 +36,7 @@ export function EditorToolbar({
   onOpenReplace,
   onStyleChange,
   onTextAlignChange,
+  t,
 }: EditorToolbarProps) {
   return (
     <section className="editor-toolbar">
@@ -41,16 +45,16 @@ export function EditorToolbar({
         value={activeStyle}
         onChange={(event) => onStyleChange(event.target.value as BlockStyle)}
       >
-        <option value="paragraph">Testo normale</option>
-        <option value="heading">Sottotitolo</option>
-        <option value="blockquote">Citazione</option>
+        <option value="paragraph">{t('editor.toolbar.normalText')}</option>
+        <option value="heading">{t('editor.toolbar.heading')}</option>
+        <option value="blockquote">{t('editor.toolbar.blockquote')}</option>
       </select>
 
       <button type="button" onClick={onBoldToggle} className={isBoldActive ? 'is-active' : ''}>
-        Grassetto
+        {t('editor.toolbar.bold')}
       </button>
       <button type="button" onClick={onItalicToggle} className={isItalicActive ? 'is-active' : ''}>
-        Corsivo
+        {t('editor.toolbar.italic')}
       </button>
 
       <select
@@ -58,7 +62,7 @@ export function EditorToolbar({
         value={activeFontFamily ?? ''}
         onChange={(event) => onFontFamilyChange(event.target.value)}
       >
-        <option value="">Font default</option>
+        <option value="">{t('editor.toolbar.defaultFont')}</option>
         <option value="Georgia">Georgia</option>
         <option value="Times New Roman">Times New Roman</option>
         <option value="Arial">Arial</option>
@@ -70,7 +74,7 @@ export function EditorToolbar({
         value={activeFontSize ?? ''}
         onChange={(event) => onFontSizeChange(event.target.value)}
       >
-        <option value="">Dimensione</option>
+        <option value="">{t('editor.toolbar.fontSize')}</option>
         <option value="12">12</option>
         <option value="14">14</option>
         <option value="16">16</option>
@@ -79,22 +83,22 @@ export function EditorToolbar({
       </select>
 
       <button type="button" onClick={() => onTextAlignChange('left')}>
-        Sinistra
+        {t('editor.toolbar.alignLeft')}
       </button>
       <button type="button" onClick={() => onTextAlignChange('center')}>
-        Centro
+        {t('editor.toolbar.alignCenter')}
       </button>
       <button type="button" onClick={() => onTextAlignChange('right')}>
-        Destra
+        {t('editor.toolbar.alignRight')}
       </button>
       <button type="button" onClick={() => onTextAlignChange('justify')}>
-        Giustifica
+        {t('editor.toolbar.alignJustify')}
       </button>
       <button type="button" onClick={onOpenFind} disabled={!canSearch}>
-        Trova
+        {t('editor.toolbar.find')}
       </button>
       <button type="button" onClick={onOpenReplace} disabled={!canSearch}>
-        Sostituisci
+        {t('editor.toolbar.replace')}
       </button>
     </section>
   );

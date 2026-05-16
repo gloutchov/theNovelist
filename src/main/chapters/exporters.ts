@@ -38,6 +38,7 @@ const MANUSCRIPT_TEXT_GRID = {
   linePitch: MANUSCRIPT_LINE_SPACING,
   charSpace: 120,
 };
+type ExportLanguage = 'it' | 'en';
 
 function safeFileName(input: string): string {
   const sanitized = input
@@ -434,11 +435,15 @@ blockquote {
 `;
 }
 
-function buildEpubChapterXhtml(chapter: ChapterExportSection, index: number): string {
+function buildEpubChapterXhtml(
+  chapter: ChapterExportSection,
+  index: number,
+  language: ExportLanguage,
+): string {
   const content = blocksToEpubHtml(extractRichTextBlocks(chapter.document));
   return `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="it" xml:lang="it">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${language}" xml:lang="${language}">
   <head>
     <title>${escapeHtml(chapter.title)}</title>
     <link rel="stylesheet" type="text/css" href="../styles/manuscript.css" />
@@ -458,13 +463,14 @@ function buildEpubChapterXhtml(chapter: ChapterExportSection, index: number): st
 function buildEpubNavXhtml(params: {
   title: string;
   chapters: Array<{ title: string; href: string }>;
+  language: ExportLanguage;
 }): string {
   const items = params.chapters
     .map((chapter) => `<li><a href="${chapter.href}">${escapeHtml(chapter.title)}</a></li>`)
     .join('\n');
   return `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="it" xml:lang="it">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${params.language}" xml:lang="${params.language}">
   <head>
     <title>${escapeHtml(params.title)}</title>
   </head>
@@ -483,6 +489,7 @@ function buildEpubNavXhtml(params: {
 function buildEpubOpf(params: {
   title: string;
   identifier: string;
+  language: ExportLanguage;
   chapters: Array<{ id: string; href: string }>;
 }): string {
   const manifestChapters = params.chapters
@@ -500,7 +507,7 @@ function buildEpubOpf(params: {
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="bookid">urn:uuid:${params.identifier}</dc:identifier>
     <dc:title>${escapeHtml(params.title)}</dc:title>
-    <dc:language>it</dc:language>
+    <dc:language>${params.language}</dc:language>
     <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')}</meta>
   </metadata>
   <manifest>
@@ -529,7 +536,9 @@ export async function exportManuscriptToEpub(params: {
   title: string;
   chapters: ChapterExportSection[];
   outputPath: string;
+  language?: ExportLanguage;
 }): Promise<void> {
+  const language = params.language ?? 'it';
   const zip = new JSZip();
   const chapterFiles = params.chapters.map((chapter, index) => {
     const baseName = slugifyFileName(chapter.title, `chapter-${index + 1}`);
@@ -550,6 +559,7 @@ export async function exportManuscriptToEpub(params: {
     'OEBPS/nav.xhtml',
     buildEpubNavXhtml({
       title: params.title,
+      language,
       chapters: chapterFiles.map((chapter) => ({ title: chapter.title, href: chapter.href })),
     }),
   );
@@ -558,12 +568,16 @@ export async function exportManuscriptToEpub(params: {
     buildEpubOpf({
       title: params.title,
       identifier: randomUUID(),
+      language,
       chapters: chapterFiles.map((chapter) => ({ id: chapter.id, href: chapter.href })),
     }),
   );
 
   chapterFiles.forEach((chapterFile, index) => {
-    zip.file(`OEBPS/${chapterFile.href}`, buildEpubChapterXhtml(chapterFile.chapter, index));
+    zip.file(
+      `OEBPS/${chapterFile.href}`,
+      buildEpubChapterXhtml(chapterFile.chapter, index, language),
+    );
   });
 
   const buffer = await zip.generateAsync({
@@ -643,9 +657,14 @@ function buildPrintStyle(projectTitle: string): string {
   `;
 }
 
-function buildPrintHtml(params: { title: string; projectTitle: string; body: string }): string {
+function buildPrintHtml(params: {
+  title: string;
+  projectTitle: string;
+  body: string;
+  language: ExportLanguage;
+}): string {
   return `
-  <html>
+  <html lang="${params.language}">
     <head>
       <meta charset="utf-8" />
       <meta
@@ -670,11 +689,13 @@ export function buildChapterPrintHtml(params: {
   title: string;
   projectTitle: string;
   document: RichTextDocument;
+  language?: ExportLanguage;
 }): string {
   const content = blocksToHtml(extractRichTextBlocks(params.document));
   return buildPrintHtml({
     title: params.title,
     projectTitle: params.projectTitle,
+    language: params.language ?? 'it',
     body: `
       <section class="chapter">
         <h1>${escapeHtml(params.title)}</h1>
@@ -688,6 +709,7 @@ export function buildManuscriptPrintHtml(params: {
   title: string;
   projectTitle: string;
   chapters: ChapterExportSection[];
+  language?: ExportLanguage;
 }): string {
   const chaptersHtml = params.chapters
     .map((chapter) => {
@@ -704,6 +726,7 @@ export function buildManuscriptPrintHtml(params: {
   return buildPrintHtml({
     title: params.title,
     projectTitle: params.projectTitle,
+    language: params.language ?? 'it',
     body: chaptersHtml,
   });
 }

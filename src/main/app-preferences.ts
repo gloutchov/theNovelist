@@ -6,17 +6,32 @@ import { APP_CONFIG } from './config/app-config';
 export interface AppPreferencesRecord {
   autosaveMode: 'manual' | 'interval' | 'auto';
   autosaveIntervalMinutes: number;
+  languageMode: 'auto' | 'it' | 'en';
+  effectiveLanguage: 'it' | 'en';
   updatedAt: string;
 }
 
 export const DEFAULT_APP_PREFERENCES: AppPreferencesRecord = {
   autosaveMode: APP_CONFIG.appPreferences.defaultAutosaveMode,
   autosaveIntervalMinutes: APP_CONFIG.appPreferences.defaultAutosaveIntervalMinutes,
+  languageMode: APP_CONFIG.appPreferences.defaultLanguageMode,
+  effectiveLanguage: 'en',
   updatedAt: new Date().toISOString(),
 };
 
 function getPreferencesFilePath(): string {
   return path.join(app.getPath('userData'), APP_CONFIG.appPreferences.fileName);
+}
+
+export function resolveEffectiveLanguage(
+  languageMode: AppPreferencesRecord['languageMode'],
+  systemLocale: string,
+): AppPreferencesRecord['effectiveLanguage'] {
+  if (languageMode === 'it' || languageMode === 'en') {
+    return languageMode;
+  }
+
+  return systemLocale.toLowerCase().startsWith('it') ? 'it' : 'en';
 }
 
 function normalizePreferences(
@@ -39,10 +54,17 @@ function normalizePreferences(
         ),
       )
     : DEFAULT_APP_PREFERENCES.autosaveIntervalMinutes;
+  const languageMode =
+    input?.languageMode === 'it' || input?.languageMode === 'en' || input?.languageMode === 'auto'
+      ? input.languageMode
+      : DEFAULT_APP_PREFERENCES.languageMode;
+  const effectiveLanguage = resolveEffectiveLanguage(languageMode, app.getLocale());
 
   return {
     autosaveMode,
     autosaveIntervalMinutes,
+    languageMode,
+    effectiveLanguage,
     updatedAt:
       typeof input?.updatedAt === 'string' && input.updatedAt.trim()
         ? input.updatedAt
@@ -55,15 +77,14 @@ export async function getAppPreferences(): Promise<AppPreferencesRecord> {
     const raw = await readFile(getPreferencesFilePath(), 'utf8');
     return normalizePreferences(JSON.parse(raw) as Partial<AppPreferencesRecord>);
   } catch {
-    return {
-      ...DEFAULT_APP_PREFERENCES,
-      updatedAt: new Date().toISOString(),
-    };
+    return normalizePreferences(null);
   }
 }
 
 export async function updateAppPreferences(
-  input: Partial<Pick<AppPreferencesRecord, 'autosaveMode' | 'autosaveIntervalMinutes'>>,
+  input: Partial<
+    Pick<AppPreferencesRecord, 'autosaveMode' | 'autosaveIntervalMinutes' | 'languageMode'>
+  >,
 ): Promise<AppPreferencesRecord> {
   const current = await getAppPreferences();
   const next = normalizePreferences({

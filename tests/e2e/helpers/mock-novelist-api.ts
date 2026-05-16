@@ -128,6 +128,8 @@ export async function installNovelistApiMock(
       appPreferences: {
         autosaveMode: (inputOptions.autosaveMode ?? 'auto') as 'manual' | 'interval' | 'auto',
         autosaveIntervalMinutes: 5,
+        languageMode: 'auto' as 'auto' | 'it' | 'en',
+        effectiveLanguage: 'it' as 'it' | 'en',
         updatedAt: nowIso(),
       },
       codexMessages: [] as Array<{
@@ -471,10 +473,13 @@ export async function installNovelistApiMock(
       updateAppPreferences: async (payload: {
         autosaveMode?: 'manual' | 'interval' | 'auto';
         autosaveIntervalMinutes?: number;
+        languageMode?: 'auto' | 'it' | 'en';
       }) => {
         state.appPreferences = {
           ...state.appPreferences,
           ...payload,
+          effectiveLanguage:
+            payload.languageMode === 'en' ? 'en' : payload.languageMode === 'it' ? 'it' : 'it',
           updatedAt: nowIso(),
         };
         return clone(state.appPreferences);

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ProjectRecord } from '../project/project-session';
+import type { Translate } from '../../i18n';
 
 const MEMORY_SUMMARY_STORAGE_PREFIX = 'the-novelist.memory-summary.v1';
 
@@ -15,10 +16,11 @@ interface MemorySummaryStateOptions {
   aiEnabled: boolean;
   currentProject: ProjectRecord | null;
   plots: MemorySummaryPlot[];
+  t: Translate;
 }
 
-function normalizePlotLabel(plotNumber: number, label: string): string {
-  return label.trim() || `Trama ${plotNumber}`;
+function normalizePlotLabel(plotNumber: number, label: string, t: Translate): string {
+  return label.trim() || `${t('common.plot')} ${plotNumber}`;
 }
 
 function sortPlots(records: MemorySummaryPlot[]): MemorySummaryPlot[] {
@@ -35,23 +37,23 @@ function truncateSummaryLine(value: string, maxLength = 180): string {
   return `${sliced.slice(0, Math.max(80, lastSpace)).trim()}...`;
 }
 
-function getPlotSummaryLines(plots: MemorySummaryPlot[]): string[] {
+function getPlotSummaryLines(plots: MemorySummaryPlot[], t: Translate): string[] {
   return sortPlots(plots)
     .map((plot) => {
       const summary = plot.summary.trim();
       if (!summary) {
         return null;
       }
-      return `${normalizePlotLabel(plot.number, plot.label)}: ${summary}`;
+      return `${normalizePlotLabel(plot.number, plot.label, t)}: ${summary}`;
     })
     .filter((summary): summary is string => Boolean(summary));
 }
 
-export function buildMemoryStorySummary(plots: MemorySummaryPlot[]): string {
-  const plotSummaries = getPlotSummaryLines(plots);
+export function buildMemoryStorySummary(plots: MemorySummaryPlot[], t: Translate): string {
+  const plotSummaries = getPlotSummaryLines(plots, t);
 
   if (plotSummaries.length === 0) {
-    return 'Riassunto non ancora disponibile.\nAggiungi una sinossi alle trame.\nLa memoria usera questa sintesi quando sara disponibile.';
+    return t('memory.storySummary.empty');
   }
 
   return plotSummaries
@@ -60,9 +62,9 @@ export function buildMemoryStorySummary(plots: MemorySummaryPlot[]): string {
     .join('\n');
 }
 
-function buildMemorySummaryContext(plots: MemorySummaryPlot[]): string {
-  const lines = getPlotSummaryLines(plots);
-  return lines.length > 0 ? lines.join('\n') : 'Nessuna sinossi trama disponibile.';
+function buildMemorySummaryContext(plots: MemorySummaryPlot[], t: Translate): string {
+  const lines = getPlotSummaryLines(plots, t);
+  return lines.length > 0 ? lines.join('\n') : t('memory.storySummary.noPlotSummary');
 }
 
 function buildMemorySummaryKey(project: ProjectRecord | null, plots: MemorySummaryPlot[]): string {
@@ -138,11 +140,12 @@ export function useMemorySummaryState({
   aiEnabled,
   currentProject,
   plots,
+  t,
 }: MemorySummaryStateOptions) {
   const [memoryStorySummary, setMemoryStorySummary] = useState<string>('');
   const [memoryStorySummaryBusy, setMemoryStorySummaryBusy] = useState<boolean>(false);
   const memoryStorySummaryKeyRef = useRef<string>('');
-  const memoryStorySummaryFallback = useMemo(() => buildMemoryStorySummary(plots), [plots]);
+  const memoryStorySummaryFallback = useMemo(() => buildMemoryStorySummary(plots, t), [plots, t]);
   const memoryStorySummaryKey = useMemo(
     () => buildMemorySummaryKey(currentProject, plots),
     [currentProject, plots],
@@ -182,9 +185,8 @@ export function useMemorySummaryState({
       try {
         const response = await window.novelistApi.codexAssist({
           projectName: currentProject.name,
-          message:
-            'Scrivi una sintesi editoriale della storia in italiano. Deve essere composta da 4 o 5 righe brevi, senza elenco puntato, senza titoli e senza spiegare il tuo lavoro. Concentrati su protagonista, conflitto, posta in gioco e trame principali.',
-          context: buildMemorySummaryContext(plots),
+          message: t('memory.storySummary.prompt'),
+          context: buildMemorySummaryContext(plots, t),
         });
         const summary = normalizeMemorySummaryOutput(response.output, fallback);
         setMemoryStorySummary(summary);
@@ -202,6 +204,7 @@ export function useMemorySummaryState({
       memoryStorySummaryFallback,
       memoryStorySummaryKey,
       plots,
+      t,
     ],
   );
 

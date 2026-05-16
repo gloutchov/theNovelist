@@ -34,6 +34,7 @@ import { MentionMenu } from './features/editor/mention-menu';
 import { ReferencePanel } from './features/editor/reference-panel';
 import { SelectionContextMenu } from './features/editor/selection-context-menu';
 import { SelectionDiffModal } from './features/editor/selection-diff-modal';
+import { createTranslator, resolveRendererLanguage } from './i18n';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -1075,6 +1076,8 @@ export default function ChapterEditor({
   onMemorySources,
 }: ChapterEditorProps) {
   const isSceneEditor = Boolean(sceneCard);
+  const language = resolveRendererLanguage(autosaveSettings);
+  const t = useMemo(() => createTranslator(language), [language]);
   const referenceChapterNodeId = sceneCard?.chapterNodeId ?? chapterNodeId;
   const allowSceneReferenceCreation = !isSceneEditor;
   const [loading, setLoading] = useState<boolean>(true);
@@ -1610,7 +1613,8 @@ export default function ChapterEditor({
         setChapterRecord(storyState.nodes.find((node) => node.id === chapterNodeId) ?? null);
       } catch (caughtError) {
         hydratingDocumentRef.current = false;
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         if (isMounted) {
           setError(message);
         }
@@ -2073,7 +2077,7 @@ export default function ChapterEditor({
         onStatus('Nessuna richiesta AI attiva');
       }
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore annullamento richiesta AI');
     }
@@ -2186,7 +2190,8 @@ export default function ChapterEditor({
           }
           return true;
         } catch (caughtError) {
-          const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+          const message =
+            caughtError instanceof Error ? caughtError.message : t('common.unknownError');
           setError(message);
           onStatus(isSceneEditor ? 'Errore salvataggio scena' : 'Errore salvataggio capitolo');
           return false;
@@ -2304,7 +2309,7 @@ export default function ChapterEditor({
         ).toLocaleString()}`,
       );
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus(
         isSceneEditor ? 'Errore creazione versione scena' : 'Errore creazione versione capitolo',
@@ -2343,9 +2348,11 @@ export default function ChapterEditor({
       }
 
       autosaveInFlightRef.current = true;
-      void flushDirtyDocument({ successStatus: 'Capitolo salvato automaticamente' }).finally(() => {
-        autosaveInFlightRef.current = false;
-      });
+      void flushDirtyDocument({ successStatus: t('editor.status.autosavedChapter') }).finally(
+        () => {
+          autosaveInFlightRef.current = false;
+        },
+      );
     }, 1200);
 
     return () => {
@@ -2354,7 +2361,7 @@ export default function ChapterEditor({
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [autosaveSettings?.autosaveMode, flushDirtyDocument, isDirty, loading, saving]);
+  }, [autosaveSettings?.autosaveMode, flushDirtyDocument, isDirty, loading, saving, t]);
 
   useEffect(() => {
     if (autosaveSettings?.autosaveMode !== 'interval' || loading) {
@@ -2367,9 +2374,11 @@ export default function ChapterEditor({
       }
 
       autosaveInFlightRef.current = true;
-      void flushDirtyDocument({ successStatus: 'Capitolo salvato automaticamente' }).finally(() => {
-        autosaveInFlightRef.current = false;
-      });
+      void flushDirtyDocument({ successStatus: t('editor.status.autosavedChapter') }).finally(
+        () => {
+          autosaveInFlightRef.current = false;
+        },
+      );
     }, autosaveSettings.autosaveIntervalMinutes * 60_000);
 
     return () => {
@@ -2382,6 +2391,7 @@ export default function ChapterEditor({
     isDirty,
     loading,
     saving,
+    t,
   ]);
 
   function applyBlockStyle(style: BlockStyle): void {
@@ -2449,7 +2459,7 @@ export default function ChapterEditor({
       });
       onStatus(`Anteprima ${action} pronta (${result.mode}). Scegli Applica o Scarta.`);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore richiesta AI su selezione');
     } finally {
@@ -2491,7 +2501,7 @@ export default function ChapterEditor({
       onStatus(`Azione ${action} applicata (${mode})`);
       await handleSave();
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore applicazione anteprima AI');
     } finally {
@@ -2518,14 +2528,14 @@ export default function ChapterEditor({
       await handleSave();
       const result = await window.novelistApi.printChapter({ chapterNodeId });
       if (result) {
-        onStatus('Stampa capitolo inviata');
+        onStatus(t('editor.status.chapterPrintSent'));
       } else {
-        onStatus('Stampa capitolo annullata');
+        onStatus(t('editor.status.chapterPrintCancelled'));
       }
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore stampa capitolo');
+      onStatus(t('editor.status.chapterPrintError'));
     }
   }
 
@@ -2539,10 +2549,10 @@ export default function ChapterEditor({
       await handleSave();
       const result = await window.novelistApi.exportChapterDocx({ chapterNodeId });
       if (result) {
-        onStatus(`DOCX esportato: ${result.filePath}`);
+        onStatus(t('editor.status.chapterDocxExported', { filePath: result.filePath }));
       }
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     }
   }
@@ -2600,7 +2610,8 @@ export default function ChapterEditor({
       await refreshCodexHistory();
       onStatus(`Risposta AI ricevuta (${result.mode})`);
     } catch (caughtError) {
-      const messageText = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const messageText =
+        caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(messageText);
       onStatus('Errore chat AI');
     } finally {
@@ -3043,7 +3054,7 @@ export default function ChapterEditor({
         onStatus(baseStatus);
       }
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore creazione scheda da selezione');
       setCreateReferenceModal((prev) => (prev ? { ...prev, submitting: false } : prev));
@@ -3051,14 +3062,22 @@ export default function ChapterEditor({
   }
 
   const activeSceneCard = sceneRecord ?? sceneCard ?? null;
-  const editorHeading = isSceneEditor ? 'Editor Scena' : 'Editor Capitolo';
+  const editorHeading = isSceneEditor ? t('editor.heading.scene') : t('editor.heading.chapter');
   const currentDocumentTitle = activeSceneCard?.name ?? chapterTitle;
-  const referencePanelTitle = isSceneEditor ? 'Riferimenti Scena' : 'Riferimenti Capitolo';
+  const referencePanelTitle = isSceneEditor
+    ? t('editor.references.sceneTitle')
+    : t('editor.references.chapterTitle');
   const activeStyle = editor ? styleFromEditor(editor) : 'paragraph';
   const activeFontFamily = editor?.getAttributes('textStyle')['fontFamily'] as string | undefined;
   const activeFontSize = editor?.getAttributes('textStyle')['fontSize'] as string | undefined;
   const codexEnabled = Boolean(codexSettings?.enabled);
   const aiAssistantLabel = getAiAssistantLabel(codexSettings);
+  const selectionActionLabels: Record<CodexTransformAction, string> = {
+    correggi: t('editor.selection.correct'),
+    riscrivi: t('editor.selection.rewrite'),
+    espandi: t('editor.selection.expand'),
+    riduci: t('editor.selection.reduce'),
+  };
   const pendingDiffChunks = pendingSelectionDiff
     ? buildDiffChunks(pendingSelectionDiff.originalText, pendingSelectionDiff.transformedText)
     : null;
@@ -3072,7 +3091,7 @@ export default function ChapterEditor({
             <p>{currentDocumentTitle}</p>
           </div>
           <button type="button" onClick={() => void handleRequestClose()}>
-            Chiudi
+            {t('common.close')}
           </button>
         </header>
 
@@ -3109,6 +3128,7 @@ export default function ChapterEditor({
           }}
           onStyleChange={applyBlockStyle}
           onTextAlignChange={(alignment) => editor?.chain().focus().setTextAlign(alignment).run()}
+          t={t}
         />
 
         {findPanelOpen ? (
@@ -3129,12 +3149,15 @@ export default function ChapterEditor({
             onReplaceCurrent={handleReplaceCurrent}
             onReplaceQueryChange={setReplaceQuery}
             replaceQuery={replaceQuery}
+            t={t}
           />
         ) : null}
 
         <section className="editor-main">
           <div className="editor-body">
-            {loading ? <p>{`Caricamento ${isSceneEditor ? 'scena' : 'capitolo'}...`}</p> : null}
+            {loading ? (
+              <p>{isSceneEditor ? t('editor.loading.scene') : t('editor.loading.chapter')}</p>
+            ) : null}
             <ReferencePanel
               allowSceneReferenceCreation={allowSceneReferenceCreation}
               canInsert={Boolean(editor)}
@@ -3147,12 +3170,15 @@ export default function ChapterEditor({
               onInsertScene={insertSceneReference}
               onRefresh={() => void refreshChapterReferences()}
               scenes={displayedScenes}
+              t={t}
               title={referencePanelTitle}
             />
             <div onContextMenu={handleEditorContextMenu}>
               {editor ? <EditorContent editor={editor} /> : null}
             </div>
-            {mentionMenu ? <MentionMenu menu={mentionMenu} onSelect={insertReference} /> : null}
+            {mentionMenu ? (
+              <MentionMenu menu={mentionMenu} onSelect={insertReference} t={t} />
+            ) : null}
             {selectionContextMenu ? (
               <SelectionContextMenu
                 allowSceneReferenceCreation={allowSceneReferenceCreation}
@@ -3167,6 +3193,7 @@ export default function ChapterEditor({
                     submitting: false,
                   });
                 }}
+                t={t}
               />
             ) : null}
           </div>
@@ -3182,14 +3209,15 @@ export default function ChapterEditor({
             onCancelRequest={() => void handleCancelCodexRequest()}
             onChatInputChange={setChatInput}
             onSendChat={() => void handleSendChat()}
+            t={t}
           />
         </section>
 
         <footer className="editor-footer">
           <p>
-            Parole: <strong>{wordCount}</strong>
+            {t('editor.footer.words')} <strong>{wordCount}</strong>
             {documentRecord || activeSceneCard
-              ? ` | Ultimo salvataggio: ${new Date(
+              ? ` | ${t('editor.footer.lastSaved')} ${new Date(
                   (documentRecord ?? activeSceneCard)?.updatedAt ?? '',
                 ).toLocaleString()}`
               : ''}
@@ -3200,22 +3228,18 @@ export default function ChapterEditor({
               onClick={() => void handleCreateManualVersion()}
               disabled={saving || !editor}
             >
-              Crea Versione
+              {t('editor.footer.createVersion')}
             </button>
             <button type="button" onClick={() => void handleSave()} disabled={saving || !editor}>
-              Salva
+              {t('common.save')}
             </button>
             {!isSceneEditor ? (
               <>
-                <button
-                  type="button"
-                  onClick={() => void handleExportDocx()}
-                  disabled={!editor}
-                >
-                  Esporta DOCX
+                <button type="button" onClick={() => void handleExportDocx()} disabled={!editor}>
+                  {t('editor.footer.exportDocx')}
                 </button>
                 <button type="button" onClick={() => void handlePrint()} disabled={!editor}>
-                  Stampa
+                  {t('editor.footer.print')}
                 </button>
               </>
             ) : null}
@@ -3237,7 +3261,7 @@ export default function ChapterEditor({
               disabled={codexBusy || !codexEnabled}
               className={codexBusy ? 'ai-working' : undefined}
             >
-              Correggi
+              {t('editor.selection.correct')}
             </button>
             <button
               type="button"
@@ -3245,7 +3269,7 @@ export default function ChapterEditor({
               disabled={codexBusy || !codexEnabled}
               className={codexBusy ? 'ai-working' : undefined}
             >
-              Riscrivi
+              {t('editor.selection.rewrite')}
             </button>
             <button
               type="button"
@@ -3253,7 +3277,7 @@ export default function ChapterEditor({
               disabled={codexBusy || !codexEnabled}
               className={codexBusy ? 'ai-working' : undefined}
             >
-              Espandi
+              {t('editor.selection.expand')}
             </button>
             <button
               type="button"
@@ -3261,19 +3285,20 @@ export default function ChapterEditor({
               disabled={codexBusy || !codexEnabled}
               className={codexBusy ? 'ai-working' : undefined}
             >
-              Riduci
+              {t('editor.selection.reduce')}
             </button>
           </div>
         ) : null}
 
         {pendingSelectionDiff && pendingDiffChunks ? (
           <SelectionDiffModal
-            action={pendingSelectionDiff.action}
+            action={selectionActionLabels[pendingSelectionDiff.action]}
             applying={applyingSelectionDiff}
             chunks={pendingDiffChunks}
             mode={pendingSelectionDiff.mode}
             onApply={() => void handleApplySelectionDiff()}
             onDiscard={handleDiscardSelectionDiff}
+            t={t}
           />
         ) : null}
 
@@ -3285,6 +3310,7 @@ export default function ChapterEditor({
               setCreateReferenceModal((prev) => (prev ? { ...prev, name } : prev))
             }
             onSubmit={() => void handleSubmitReferenceCreation()}
+            t={t}
           />
         ) : null}
 
@@ -3294,6 +3320,7 @@ export default function ChapterEditor({
             isSaving={closingAfterSave}
             onCancel={() => setCloseConfirmOpen(false)}
             onSaveAndClose={() => void handleSaveAndClose()}
+            t={t}
           />
         ) : null}
       </div>

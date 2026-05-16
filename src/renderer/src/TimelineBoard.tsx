@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import type { Translate } from './i18n';
 
 type StoryState = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>;
 type StoryChapterNode = StoryState['nodes'][number];
@@ -58,6 +59,7 @@ interface TimelineApi {
 
 interface TimelineBoardProps {
   onStatus: (message: string) => void;
+  t: Translate;
 }
 
 interface TimelineBlock {
@@ -248,8 +250,8 @@ function colorFromPlotNumber(plotNumber: number): string {
   return palette[(plotNumber - 1) % palette.length] ?? '#6b7280';
 }
 
-function normalizePlotLabel(plot: StoryPlot | undefined, plotNumber: number): string {
-  return plot?.label?.trim() || `Trama ${plotNumber}`;
+function normalizePlotLabel(plot: StoryPlot | undefined, plotNumber: number, t: Translate): string {
+  return plot?.label?.trim() || `${t('common.plot')} ${plotNumber}`;
 }
 
 function getPlotColor(plot: StoryPlot | undefined, plotNumber: number): string {
@@ -269,6 +271,7 @@ function buildTimelineBlocks(
   scenes: SceneCard[],
   plots: StoryPlot[],
   savedItems: TimelineItemRecord[],
+  t: Translate,
 ): TimelineBlock[] {
   const plotsByNumber = new Map(plots.map((plot) => [plot.number, plot]));
   const chaptersById = new Map(chapters.map((chapter) => [chapter.id, chapter]));
@@ -290,9 +293,9 @@ function buildTimelineBlocks(
         itemType: 'chapter',
         entityId: chapter.id,
         title: chapter.title,
-        subtitle: chapter.description || `Blocco ${chapter.blockNumber}`,
+        subtitle: chapter.description || `${t('story.modal.blockNumber')} ${chapter.blockNumber}`,
         plotNumber: chapter.plotNumber,
-        plotLabel: normalizePlotLabel(plot, chapter.plotNumber),
+        plotLabel: normalizePlotLabel(plot, chapter.plotNumber, t),
         plotColor: getPlotColor(plot, chapter.plotNumber),
         positionX: saved?.positionX ?? 72 + (index % 4) * 280,
         positionY: saved?.positionY ?? 250 + Math.floor(index / 4) * 128,
@@ -315,9 +318,9 @@ function buildTimelineBlocks(
         itemType: 'scene',
         entityId: scene.id,
         title: scene.name,
-        subtitle: chapter?.title ?? 'Capitolo non trovato',
+        subtitle: chapter?.title ?? t('common.unavailable'),
         plotNumber: scene.plotNumber,
-        plotLabel: normalizePlotLabel(plot, scene.plotNumber),
+        plotLabel: normalizePlotLabel(plot, scene.plotNumber, t),
         plotColor: getPlotColor(plot, scene.plotNumber),
         positionX: saved?.positionX ?? 72 + (defaultIndex % 4) * 280,
         positionY: saved?.positionY ?? 250 + Math.floor(defaultIndex / 4) * 128,
@@ -389,7 +392,7 @@ function snapTimelineItem(item: TimelineBlock, items: TimelineBlock[]): Timeline
   };
 }
 
-export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
+export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
   const [items, setItems] = useState<TimelineBlock[]>([]);
   const [settings, setSettings] = useState<TimelineSettingsRecord | null>(null);
   const [startLabel, setStartLabel] = useState<string>('');
@@ -494,19 +497,19 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
       setEndLabel(timelineState.settings.endLabel);
       setTimelineEndX(timelineState.settings.timelineEndX || TIMELINE_DEFAULT_END_X);
       setItems(
-        buildTimelineBlocks(storyState.nodes, scenes, storyState.plots, timelineState.items),
+        buildTimelineBlocks(storyState.nodes, scenes, storyState.plots, timelineState.items, t),
       );
       if (usingLocalTimeline) {
         onStatus('Timeline caricata con salvataggio locale. Riavvia l’app per usare il database.');
       }
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore aggiornamento timeline');
     } finally {
       setLoading(false);
     }
-  }, [onStatus]);
+  }, [onStatus, t]);
 
   useEffect(() => {
     void refreshTimeline();
@@ -562,7 +565,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
         setSettings(saved);
         onStatus('Timeline aggiornata');
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         const projectId = projectIdRef.current;
         const fallbackSettings = {
           ...(settings ?? createEmptyTimelineState(projectId).settings),
@@ -585,7 +588,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
         setSaving(false);
       }
     },
-    [endLabel, onStatus, settings, startLabel, timelineEndX],
+    [endLabel, onStatus, settings, startLabel, timelineEndX, t],
   );
 
   const persistItem = useCallback(
@@ -645,7 +648,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
         writeLocalTimelineState(projectIdRef.current, localTimelineStateRef.current);
         onStatus('Timeline aggiornata');
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         const projectId = projectIdRef.current;
         const saved = upsertLocalTimelineItem(projectId, item, localTimelineStateRef.current);
         const nextState = {
@@ -666,7 +669,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
         setSaving(false);
       }
     },
-    [onStatus],
+    [onStatus, t],
   );
 
   useEffect(() => {
@@ -1029,38 +1032,42 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
             onClick={() => void refreshTimeline()}
             disabled={loading || saving}
           >
-            Aggiorna Timeline
+            {t('timeline.refresh')}
           </button>
         </div>
 
         <div className="panel">
-          <h2>Timeline</h2>
+          <h2>{t('timeline.title')}</h2>
           <p>
-            Blocchi: <strong>{items.length}</strong>
+            {t('timeline.blocks')} <strong>{items.length}</strong>
           </p>
           <p>
-            Agganciati:{' '}
+            {t('timeline.attached')}{' '}
             <strong>{items.filter((item) => isAttachedToTimeline(item, items)).length}</strong>
           </p>
           <p>
-            Non collocati:{' '}
+            {t('timeline.unplaced')}{' '}
             <strong>{items.filter((item) => !isAttachedToTimeline(item, items)).length}</strong>
           </p>
         </div>
 
         <div className="panel">
-          <h2>Selezione</h2>
+          <h2>{t('timeline.selection')}</h2>
           <p>
-            Tipo:{' '}
+            {t('timeline.type')}{' '}
             <strong>
-              {selectedItem ? (selectedItem.itemType === 'chapter' ? 'Capitolo' : 'Scena') : '-'}
+              {selectedItem
+                ? selectedItem.itemType === 'chapter'
+                  ? t('timeline.itemChapter')
+                  : t('timeline.itemScene')
+                : '-'}
             </strong>
           </p>
           <p>
-            Titolo: <strong>{selectedItem?.title ?? '-'}</strong>
+            {t('timeline.titleField')} <strong>{selectedItem?.title ?? '-'}</strong>
           </p>
           <p>
-            Trama: <strong>{selectedItem?.plotLabel ?? '-'}</strong>
+            {t('plot.selection')} <strong>{selectedItem?.plotLabel ?? '-'}</strong>
           </p>
         </div>
 
@@ -1068,10 +1075,10 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
           <p className="status">
             <span>
               {saving
-                ? 'Salvataggio timeline...'
+                ? t('timeline.saving')
                 : loading
-                  ? 'Aggiornamento timeline...'
-                  : 'Timeline pronta'}
+                  ? t('timeline.statusRefreshing')
+                  : t('timeline.ready')}
             </span>
           </p>
           {error ? <p className="error">{error}</p> : null}
@@ -1113,12 +1120,12 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
               </div>
 
               <label className="timeline-endpoint timeline-start" style={{ top: TIMELINE_Y - 48 }}>
-                <span>Inizio</span>
+                <span>{t('timeline.start')}</span>
                 <input
                   value={startLabel}
                   onChange={(event) => setStartLabel(event.target.value)}
                   onBlur={() => void persistSettings()}
-                  placeholder="Data"
+                  placeholder={t('timeline.date')}
                   disabled={saving}
                 />
               </label>
@@ -1127,7 +1134,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
                 className="timeline-endpoint timeline-end"
                 style={{ top: TIMELINE_Y - 48, left: timelineEndX + 24 }}
               >
-                <span>Fine</span>
+                <span>{t('timeline.end')}</span>
                 <input
                   value={endLabel}
                   onChange={(event) => setEndLabel(event.target.value)}
@@ -1196,7 +1203,9 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
                   >
                     <header className="timeline-block-header">
                       <span className="timeline-block-kind">
-                        {item.itemType === 'chapter' ? 'Capitolo' : 'Scena'}
+                        {item.itemType === 'chapter'
+                          ? t('timeline.itemChapter')
+                          : t('timeline.itemScene')}
                       </span>
                       <span className="timeline-block-plot">{item.plotLabel}</span>
                     </header>
@@ -1204,7 +1213,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
                     <p>{item.subtitle || '-'}</p>
                     {isSelected ? (
                       <label className="timeline-date-field">
-                        <span>Data aggancio</span>
+                        <span>{t('timeline.dateAnchor')}</span>
                         <input
                           value={item.dateLabel}
                           onChange={(event) => handleDateChange(item, event.target.value)}
@@ -1228,7 +1237,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
           </div>
         </section>
 
-        <div className="timeline-canvas-controls" aria-label="Controlli timeline">
+        <div className="timeline-canvas-controls" aria-label={t('timeline.zoomControls')}>
           <button
             type="button"
             onClick={() => zoomTimelineFromCenter(1)}
@@ -1250,8 +1259,8 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
           <button
             type="button"
             onClick={fitTimelineView}
-            title="Adatta vista"
-            aria-label="Adatta vista"
+            title={t('timeline.fitView')}
+            aria-label={t('timeline.fitView')}
           >
             [ ]
           </button>
@@ -1261,7 +1270,7 @@ export default function TimelineBoard({ onStatus }: TimelineBoardProps) {
           className="timeline-minimap"
           style={{ width: minimapWidth, height: minimapHeight }}
           onPointerDown={handleMinimapPointerDown}
-          title="Area di lavoro"
+          title={t('timeline.workspaceArea')}
         >
           <span
             className="timeline-minimap-axis"

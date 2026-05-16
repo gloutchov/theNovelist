@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Translate } from './i18n';
 import { getStatusTone } from './status-tone';
 
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
@@ -22,24 +23,25 @@ interface RevisionBoardProps {
   statusMessage: string;
   workspaceNotice?: string | null;
   onStatus: (message: string) => void;
+  t: Translate;
 }
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-function characterName(card: CharacterCard): string {
-  return `${card.firstName} ${card.lastName}`.trim() || 'Personaggio senza nome';
+function characterName(card: CharacterCard, t: Translate): string {
+  return `${card.firstName} ${card.lastName}`.trim() || t('common.unavailable');
 }
 
-function reasonLabel(reason: RevisionRecord['reason']): string {
+function reasonLabel(reason: RevisionRecord['reason'], t: Translate): string {
   if (reason === 'manual') {
-    return 'Manuale';
+    return t('revision.reasonManual');
   }
   if (reason === 'restore') {
-    return 'Ripristino';
+    return t('revision.reasonRestore');
   }
-  return 'Automatica';
+  return t('revision.reasonAutomatic');
 }
 
 function buildEntityGroups(input: {
@@ -47,44 +49,49 @@ function buildEntityGroups(input: {
   characters: CharacterCard[];
   locations: LocationCard[];
   scenes: SceneCard[];
+  t: Translate;
 }): Array<{ title: string; entities: RevisionEntity[] }> {
   const chaptersById = new Map(input.storyState.nodes.map((chapter) => [chapter.id, chapter]));
 
   return [
     {
-      title: 'Capitoli',
+      title: input.t('shell.tabs.chapters'),
       entities: input.storyState.nodes.map((chapter) => ({
         id: chapter.id,
         type: 'chapter',
         title: chapter.title,
-        subtitle: `Trama ${chapter.plotNumber} · Capitolo ${chapter.blockNumber}`,
+        subtitle: `${input.t('common.plot')} ${chapter.plotNumber} · ${input.t(
+          'timeline.itemChapter',
+        )} ${chapter.blockNumber}`,
       })),
     },
     {
-      title: 'Scene',
+      title: input.t('shell.tabs.scenes'),
       entities: input.scenes.map((scene) => ({
         id: scene.id,
         type: 'scene',
         title: `#${scene.name}`,
-        subtitle: chaptersById.get(scene.chapterNodeId)?.title ?? `Trama ${scene.plotNumber}`,
+        subtitle:
+          chaptersById.get(scene.chapterNodeId)?.title ??
+          `${input.t('common.plot')} ${scene.plotNumber}`,
       })),
     },
     {
-      title: 'Personaggi',
+      title: input.t('shell.tabs.characters'),
       entities: input.characters.map((card) => ({
         id: card.id,
         type: 'character',
-        title: characterName(card),
-        subtitle: card.job || `Trama ${card.plotNumber}`,
+        title: characterName(card, input.t),
+        subtitle: card.job || `${input.t('common.plot')} ${card.plotNumber}`,
       })),
     },
     {
-      title: 'Location',
+      title: input.t('shell.tabs.locations'),
       entities: input.locations.map((card) => ({
         id: card.id,
         type: 'location',
         title: card.name,
-        subtitle: card.locationType || `Trama ${card.plotNumber}`,
+        subtitle: card.locationType || `${input.t('common.plot')} ${card.plotNumber}`,
       })),
     },
   ];
@@ -95,6 +102,7 @@ export default function RevisionBoard({
   statusMessage,
   workspaceNotice,
   onStatus,
+  t,
 }: RevisionBoardProps) {
   const [entityGroups, setEntityGroups] = useState<
     Array<{ title: string; entities: RevisionEntity[] }>
@@ -123,17 +131,17 @@ export default function RevisionBoard({
         window.novelistApi.listLocationCards(),
         window.novelistApi.listSceneCards(),
       ]);
-      const groups = buildEntityGroups({ storyState, characters, locations, scenes });
+      const groups = buildEntityGroups({ storyState, characters, locations, scenes, t });
       setEntityGroups(groups);
       setSelectedEntity(groups.find((group) => group.entities.length > 0)?.entities[0] ?? null);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore caricamento revisioni');
     } finally {
       setLoading(false);
     }
-  }, [onStatus]);
+  }, [onStatus, t]);
 
   const loadSelectedEntity = useCallback(
     async (entity: RevisionEntity | null): Promise<void> => {
@@ -162,14 +170,14 @@ export default function RevisionBoard({
         setSelectedRevisionId(history[0]?.id ?? '');
         onStatus(`Revisioni caricate: ${entity.title}`);
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
         onStatus('Errore caricamento revisioni');
       } finally {
         setLoading(false);
       }
     },
-    [onStatus],
+    [onStatus, t],
   );
 
   async function restoreSelectedRevision(): Promise<void> {
@@ -178,7 +186,7 @@ export default function RevisionBoard({
     }
 
     const confirmed = window.confirm(
-      'Ripristinare questa versione? Lo stato attuale sara salvato come revisione automatica.',
+      t('revision.confirmRestore'),
     );
     if (!confirmed) {
       return;
@@ -200,7 +208,7 @@ export default function RevisionBoard({
       });
       onStatus(`Versione ripristinata: ${restored.title}`);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus('Errore ripristino versione');
     } finally {
@@ -225,12 +233,12 @@ export default function RevisionBoard({
             className="sidebar-action-button"
             onClick={() => void loadEntities()}
           >
-            Aggiorna Revisioni
+            {t('revision.actions.refresh')}
           </button>
         </div>
 
         <div className="panel revision-entity-panel">
-          <h2>Elementi</h2>
+          <h2>{t('revision.entities')}</h2>
           {entityGroups.map((group) => (
             <div className="revision-entity-group" key={group.title}>
               <h3>{group.title}</h3>
@@ -253,7 +261,7 @@ export default function RevisionBoard({
                   ))}
                 </div>
               ) : (
-                <p className="muted">Nessun elemento.</p>
+                <p className="muted">{t('revision.emptyEntity')}</p>
               )}
             </div>
           ))}
@@ -265,8 +273,8 @@ export default function RevisionBoard({
           <article className="panel revision-pane">
             <header>
               <div>
-                <p className="eyebrow">Versione attuale</p>
-                <h2>{currentVersion?.title ?? 'Nessuna selezione'}</h2>
+                <p className="eyebrow">{t('revision.current')}</p>
+                <h2>{currentVersion?.title ?? t('revision.noSelection')}</h2>
                 <p className="muted">
                   {currentVersion
                     ? `${currentVersion.subtitle} · ${formatDateTime(currentVersion.updatedAt)}`
@@ -274,22 +282,24 @@ export default function RevisionBoard({
                 </p>
               </div>
             </header>
-            <pre>{currentVersion?.textContent || "Seleziona un elemento dall'elenco."}</pre>
+            <pre>{currentVersion?.textContent || t('revision.selectEntity')}</pre>
           </article>
 
           <article className="panel revision-pane">
             <header>
               <div>
-                <p className="eyebrow">Vecchie versioni</p>
+                <p className="eyebrow">{t('revision.oldVersions')}</p>
                 <h2>
                   {selectedRevision
-                    ? (selectedRevision.label ?? reasonLabel(selectedRevision.reason))
+                    ? (selectedRevision.label ?? reasonLabel(selectedRevision.reason, t))
                     : '-'}
                 </h2>
                 <p className="muted">
                   {selectedRevision
-                    ? `${reasonLabel(selectedRevision.reason)} · ${formatDateTime(selectedRevision.createdAt)}`
-                    : 'Nessuna revisione disponibile'}
+                    ? `${reasonLabel(selectedRevision.reason, t)} · ${formatDateTime(
+                        selectedRevision.createdAt,
+                      )}`
+                    : t('revision.noRevision')}
                 </p>
               </div>
               <button
@@ -297,7 +307,7 @@ export default function RevisionBoard({
                 onClick={() => void restoreSelectedRevision()}
                 disabled={!selectedRevision || restoring}
               >
-                Ripristina
+                {t('common.restore')}
               </button>
             </header>
 
@@ -309,18 +319,18 @@ export default function RevisionBoard({
                 {revisions.map((revision) => (
                   <option key={revision.id} value={revision.id}>
                     {formatDateTime(revision.createdAt)} ·{' '}
-                    {revision.label ?? reasonLabel(revision.reason)}
+                    {revision.label ?? reasonLabel(revision.reason, t)}
                   </option>
                 ))}
               </select>
             ) : null}
-            <pre>{selectedRevision?.textContent ?? 'Non ci sono ancora versioni precedenti.'}</pre>
+            <pre>{selectedRevision?.textContent ?? t('revision.emptyPrevious')}</pre>
           </article>
         </div>
 
         <section className="panel status-panel">
           <p className={`status status-${statusTone}`}>
-            <span>{loading ? 'Caricamento revisioni...' : statusMessage}</span>
+            <span>{loading ? t('revision.loading') : statusMessage}</span>
             {workspaceNotice ? (
               <span className="status-inline-notice">{workspaceNotice}</span>
             ) : null}

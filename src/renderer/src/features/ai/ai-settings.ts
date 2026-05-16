@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { AppLanguage } from '../../i18n';
 import type { ProjectRecord } from '../project/project-session';
 
 export type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
@@ -7,14 +8,17 @@ export const DEFAULT_API_MODEL = 'gpt-5-mini';
 export const DEFAULT_API_IMAGE_MODEL = 'gpt-image-1';
 export const DEFAULT_OLLAMA_MODEL = 'gemma4:e4b-it-q4_K_M';
 
-export function getApiKeyStorageLabel(storage: CodexSettings['apiKeyStorage']): string {
+export function getApiKeyStorageLabel(
+  storage: CodexSettings['apiKeyStorage'],
+  language: AppLanguage = 'it',
+): string {
   if (storage === 'secure_storage') {
-    return 'archivio sicuro di sistema';
+    return language === 'en' ? 'secure system storage' : 'archivio sicuro di sistema';
   }
   if (storage === 'legacy_db') {
-    return 'archivio legacy (DB)';
+    return language === 'en' ? 'legacy storage (DB)' : 'archivio legacy (DB)';
   }
-  return 'nessuno';
+  return language === 'en' ? 'none' : 'nessuno';
 }
 
 export function getAiProviderLabel(provider: CodexSettings['provider']): string {
@@ -25,9 +29,12 @@ export function getAiProviderLabel(provider: CodexSettings['provider']): string 
   return 'Ollama';
 }
 
-export function getAiFallbackLabel(fallbackProvider: CodexSettings['fallbackProvider']): string {
+export function getAiFallbackLabel(
+  fallbackProvider: CodexSettings['fallbackProvider'],
+  language: AppLanguage = 'it',
+): string {
   if (fallbackProvider === 'none') {
-    return 'Non AI';
+    return language === 'en' ? 'Non-AI' : 'Non AI';
   }
 
   return getAiProviderLabel(fallbackProvider);
@@ -44,26 +51,38 @@ function aiSettingsMaySendPromptExternally(settings: CodexSettings): boolean {
   );
 }
 
-export function getAiMemorySharingLabel(settings: CodexSettings | null): string {
+export function getAiMemorySharingLabel(
+  settings: CodexSettings | null,
+  language: AppLanguage = 'it',
+): string {
   if (!settings) {
-    return 'Memoria progetto: non disponibile.';
+    return language === 'en'
+      ? 'Project memory: unavailable.'
+      : 'Memoria progetto: non disponibile.';
   }
 
   const normalized = normalizeCodexSettings(settings);
   if (!aiSettingsMaySendPromptExternally(normalized)) {
-    return 'Memoria progetto: locale, non inviata a provider esterni.';
+    return language === 'en'
+      ? 'Project memory: local, not sent to external providers.'
+      : 'Memoria progetto: locale, non inviata a provider esterni.';
   }
 
   return normalized.allowExternalMemorySharing
-    ? 'Memoria progetto: invio a provider esterni consentito.'
-    : 'Memoria progetto: non inviata a provider esterni.';
+    ? language === 'en'
+      ? 'Project memory: sending to external providers is allowed.'
+      : 'Memoria progetto: invio a provider esterni consentito.'
+    : language === 'en'
+      ? 'Project memory: not sent to external providers.'
+      : 'Memoria progetto: non inviata a provider esterni.';
 }
 
 export function getAiFallbackOptions(
   provider: CodexSettings['provider'],
+  language: AppLanguage = 'it',
 ): Array<{ value: CodexSettings['fallbackProvider']; label: string }> {
   return [
-    { value: 'none', label: 'Non AI' },
+    { value: 'none', label: getAiFallbackLabel('none', language) },
     ...(['openai_api', 'ollama'] as const)
       .filter((candidate) => candidate !== provider)
       .map((candidate) => ({

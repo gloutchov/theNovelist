@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import type { Translate } from '../../i18n';
 
 interface AiChatMessage {
   id: string;
@@ -22,6 +23,7 @@ interface AiChatSidebarProps {
   onCancelRequest: () => void;
   onChatInputChange: (value: string) => void;
   onSendChat: () => void;
+  t: Translate;
 }
 
 export function AiChatSidebar({
@@ -35,25 +37,26 @@ export function AiChatSidebar({
   onCancelRequest,
   onChatInputChange,
   onSendChat,
+  t,
 }: AiChatSidebarProps) {
   return (
     <aside className="codex-sidebar">
       <div className="codex-status">
-        <h4>{`Assistente AI (${aiAssistantLabel})`}</h4>
+        <h4>{t('editor.ai.assistantTitle', { assistant: aiAssistantLabel })}</h4>
         <p>
-          Stato:{' '}
+          {t('editor.ai.status')}{' '}
           <strong>
-            {codexStatus ? (codexStatus.available ? 'Disponibile' : 'Fallback') : 'Verifica...'}
+            {codexStatus
+              ? codexStatus.available
+                ? t('editor.ai.statusAvailable')
+                : t('editor.ai.statusFallback')
+              : t('editor.ai.statusChecking')}
           </strong>
         </p>
       </div>
 
       <div className="codex-chat" ref={chatScrollRef}>
-        {chatMessages.length === 0 ? (
-          <p className="muted">
-            Chat pronta. Chiedi brainstorming, revisione o ricerche narrative.
-          </p>
-        ) : null}
+        {chatMessages.length === 0 ? <p className="muted">{t('editor.ai.emptyChat')}</p> : null}
         {chatMessages.map((message) => (
           <div key={message.id} className={`chat-msg chat-msg-${message.role}`}>
             <p>{message.content}</p>
@@ -73,7 +76,7 @@ export function AiChatSidebar({
               onSendChat();
             }
           }}
-          placeholder={`Chiedi a ${aiAssistantLabel}: brainstorming, revisioni, idee di trama...`}
+          placeholder={t('editor.ai.placeholder', { assistant: aiAssistantLabel })}
         />
         <div className="codex-chat-actions">
           <button
@@ -82,7 +85,7 @@ export function AiChatSidebar({
             disabled={codexBusy || !chatInput.trim() || !codexEnabled}
             className={codexBusy ? 'ai-working' : undefined}
           >
-            Invia
+            {t('common.send')}
           </button>
           <button
             type="button"
@@ -90,7 +93,7 @@ export function AiChatSidebar({
             onClick={onCancelRequest}
             disabled={!codexBusy}
           >
-            Annulla richiesta
+            {t('editor.ai.cancelRequest')}
           </button>
         </div>
       </div>

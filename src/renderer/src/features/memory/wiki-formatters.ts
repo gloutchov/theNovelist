@@ -1,28 +1,35 @@
 import type { WikiSearchResult } from './wiki-state';
+import type { Translate } from '../../i18n';
 
-export function formatWikiCategoryLabel(category: WikiSearchResult['category']): string {
+export function formatWikiCategoryLabel(
+  category: WikiSearchResult['category'],
+  t: Translate,
+): string {
   if (category === 'source') {
-    return 'fonte';
+    return t('memory.category.source');
   }
 
   if (category === 'index') {
-    return 'indice';
+    return t('memory.category.index');
   }
 
-  return 'wiki';
+  return t('memory.category.wiki');
 }
 
-export function formatWikiResultTitle(result: Pick<WikiSearchResult, 'path' | 'title'>): string {
+export function formatWikiResultTitle(
+  result: Pick<WikiSearchResult, 'path' | 'title'>,
+  t: Translate,
+): string {
   if (result.path === 'sources/cards/plot.md') {
-    return 'Trame';
+    return t('memory.wiki.cardsPlots');
   }
 
   if (result.path === 'sources/cards/characters.md') {
-    return 'Personaggi';
+    return t('memory.wiki.cardsCharacters');
   }
 
   if (result.path === 'sources/cards/locations.md') {
-    return 'Location';
+    return t('memory.wiki.cardsLocations');
   }
 
   return result.title.replace(/\s+Sources$/i, '');

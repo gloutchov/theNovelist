@@ -3,6 +3,7 @@ import type { ProjectRecord } from '../project/project-session';
 import type { OutlineChapter } from './outline-state';
 import { buildOutlineChapterOrder } from './outline-state';
 import { parseReadingDocument, type RichTextDocumentJson } from './reading-document';
+import type { Translate } from '../../i18n';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 
@@ -23,12 +24,14 @@ interface ReadingViewStateOptions {
   currentProject: ProjectRecord | null;
   setError: Dispatch<SetStateAction<string | null>>;
   setStatus: Dispatch<SetStateAction<string>>;
+  t: Translate;
 }
 
 export function useReadingViewState({
   currentProject,
   setError,
   setStatus,
+  t,
 }: ReadingViewStateOptions) {
   const [readingView, setReadingView] = useState<ReadingViewState | null>(null);
   const [readingViewLoading, setReadingViewLoading] = useState<boolean>(false);
@@ -36,7 +39,7 @@ export function useReadingViewState({
   const openChapterReadingView = useCallback(
     async (chapter: OutlineChapter): Promise<void> => {
       if (!currentProject) {
-        setStatus('Apri o crea prima un progetto');
+        setStatus(t('dashboard.project.none'));
         return;
       }
 
@@ -61,19 +64,20 @@ export function useReadingViewState({
         });
         setStatus(`Vista lettura aperta: ${chapter.node.title}`);
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
         setStatus('Errore apertura vista lettura');
       } finally {
         setReadingViewLoading(false);
       }
     },
-    [currentProject, setError, setStatus],
+    [currentProject, setError, setStatus, t],
   );
 
   const openFullDocumentReadingView = useCallback(async (): Promise<void> => {
     if (!currentProject) {
-      setStatus('Apri o crea prima un progetto');
+      setStatus(t('dashboard.project.none'));
       return;
     }
 
@@ -84,7 +88,7 @@ export function useReadingViewState({
       const state = await window.novelistApi.getStoryState();
       const { orderedChapters } = buildOutlineChapterOrder(state.nodes, state.edges);
       if (orderedChapters.length === 0) {
-        setError('Nessun capitolo disponibile per aprire il documento completo.');
+        setError(t('outline.empty'));
         setStatus('Documento completo non disponibile');
         return;
       }
@@ -104,7 +108,7 @@ export function useReadingViewState({
 
       setReadingView({
         title: `${currentProject.name} - Documento completo`,
-        subtitle: `${orderedChapters.length} capitoli`,
+        subtitle: `${orderedChapters.length} ${t('outline.summary.chapters')}`,
         chapters: orderedChapters.map((chapter) => {
           const document = documentsByNodeId.get(chapter.id);
           return {
@@ -117,13 +121,13 @@ export function useReadingViewState({
       });
       setStatus('Vista lettura documento completo aperta');
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       setStatus('Errore apertura documento completo');
     } finally {
       setReadingViewLoading(false);
     }
-  }, [currentProject, setError, setStatus]);
+  }, [currentProject, setError, setStatus, t]);
 
   useEffect(() => {
     if (!readingView) {

@@ -1,3 +1,5 @@
+import type { Translate } from '../../i18n';
+
 type ReferenceType = 'character' | 'location' | 'scene';
 
 interface TextSelectionSnapshot {
@@ -17,12 +19,14 @@ interface SelectionContextMenuProps {
   allowSceneReferenceCreation: boolean;
   menu: SelectionContextMenuState;
   onCreateReference: (type: ReferenceType, selection: TextSelectionSnapshot) => void;
+  t: Translate;
 }
 
 export function SelectionContextMenu({
   allowSceneReferenceCreation,
   menu,
   onCreateReference,
+  t,
 }: SelectionContextMenuProps) {
   return (
     <div
@@ -33,14 +37,14 @@ export function SelectionContextMenu({
       }}
     >
       <button type="button" onClick={() => onCreateReference('character', menu)}>
-        Crea personaggio
+        {t('editor.selection.createCharacter')}
       </button>
       <button type="button" onClick={() => onCreateReference('location', menu)}>
-        Crea location
+        {t('editor.selection.createLocation')}
       </button>
       {allowSceneReferenceCreation ? (
         <button type="button" onClick={() => onCreateReference('scene', menu)}>
-          Crea scena
+          {t('editor.selection.createScene')}
         </button>
       ) : null}
     </div>

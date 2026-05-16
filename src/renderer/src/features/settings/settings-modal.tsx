@@ -11,7 +11,12 @@ import {
   normalizeCodexSettings,
   type CodexSettings,
 } from '../ai/ai-settings';
-import { normalizeIntervalMinutes, type AppPreferences } from './app-preferences';
+import {
+  getLanguageModeLabel,
+  normalizeIntervalMinutes,
+  type AppPreferences,
+} from './app-preferences';
+import { createTranslator, resolveRendererLanguage } from '../../i18n';
 
 interface SettingsModalProps {
   aiApiKeyInput: string;
@@ -46,14 +51,17 @@ export function SettingsModal({
   setAppPreferences,
   setClearStoredApiKey,
 }: SettingsModalProps) {
+  const language = resolveRendererLanguage(appPreferences);
+  const t = createTranslator(language);
+
   return (
     <div className="modal-overlay">
       <div className="modal-card settings-modal-card">
-        <h3>Impostazioni</h3>
+        <h3>{t('settings.title')}</h3>
         <details className="panel panel-subsection settings-section" open>
-          <summary>Salvataggio Automatico</summary>
+          <summary>{t('settings.userPreferences')}</summary>
           <label>
-            Modalità autosave
+            {t('settings.autosave.label')}
             <select
               value={appPreferences?.autosaveMode ?? 'auto'}
               onChange={(event) =>
@@ -68,13 +76,13 @@ export function SettingsModal({
               }
               disabled={!appPreferences}
             >
-              <option value="manual">Manuale</option>
-              <option value="interval">Ogni N minuti</option>
-              <option value="auto">Auto (a ogni modifica)</option>
+              <option value="manual">{t('settings.autosave.manual')}</option>
+              <option value="interval">{t('settings.autosave.interval')}</option>
+              <option value="auto">{t('settings.autosave.auto')}</option>
             </select>
           </label>
           <label>
-            Intervallo minuti
+            {t('settings.autosave.intervalMinutes')}
             <input
               type="number"
               min={1}
@@ -95,9 +103,47 @@ export function SettingsModal({
               disabled={!appPreferences || appPreferences.autosaveMode !== 'interval'}
             />
           </label>
+          <p className="muted">{t('settings.autosave.description')}</p>
+          <label>
+            {t('settings.language.label')}
+            <select
+              value={appPreferences?.languageMode ?? 'auto'}
+              onChange={(event) =>
+                setAppPreferences((prev) =>
+                  prev
+                    ? (() => {
+                        const languageMode = event.target.value as AppPreferences['languageMode'];
+                        return {
+                          ...prev,
+                          languageMode,
+                          effectiveLanguage:
+                            languageMode === 'auto'
+                              ? navigator.language.toLowerCase().startsWith('it')
+                                ? 'it'
+                                : 'en'
+                              : languageMode,
+                        };
+                      })()
+                    : prev,
+                )
+              }
+              disabled={!appPreferences}
+            >
+              <option value="auto">{t('settings.language.auto')}</option>
+              <option value="it">{t('settings.language.italian')}</option>
+              <option value="en">{t('settings.language.english')}</option>
+            </select>
+          </label>
           <p className="muted">
-            In modalità auto le modifiche persistenti vengono salvate con debounce. Le bozze di
-            creazione restano manuali.
+            {t('settings.language.selected', {
+              language: getLanguageModeLabel(appPreferences?.languageMode ?? 'auto', language),
+            })}{' '}
+            {t('settings.language.effective', {
+              language:
+                appPreferences?.effectiveLanguage === 'it'
+                  ? t('settings.language.italian')
+                  : t('settings.language.english'),
+            })}
           </p>
           <div className="row-buttons">
             <button
@@ -105,15 +151,15 @@ export function SettingsModal({
               onClick={onSaveAppPreferences}
               disabled={!appPreferences || appPreferencesBusy}
             >
-              Salva Preferenze Utente
+              {t('settings.saveUserPreferences')}
             </button>
           </div>
         </details>
 
         <details className="panel panel-subsection settings-section" open>
-          <summary>Impostazioni AI</summary>
+          <summary>{t('settings.ai')}</summary>
           <label>
-            Provider
+            {t('settings.ai.provider')}
             <select
               value={aiSettings?.provider ?? 'ollama'}
               onChange={(event) =>
@@ -132,12 +178,12 @@ export function SettingsModal({
               }
               disabled={!aiSettings}
             >
-              <option value="openai_api">OpenAI API (opzionale)</option>
+              <option value="openai_api">OpenAI API</option>
               <option value="ollama">Ollama (locale)</option>
             </select>
           </label>
           <label>
-            Fallback se il provider non risponde
+            {t('settings.ai.fallback')}
             <select
               value={aiSettings?.fallbackProvider ?? 'none'}
               onChange={(event) =>
@@ -152,7 +198,7 @@ export function SettingsModal({
               }
               disabled={!aiSettings}
             >
-              {getAiFallbackOptions(aiSettings?.provider ?? 'ollama').map((option) => (
+              {getAiFallbackOptions(aiSettings?.provider ?? 'ollama', language).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -160,13 +206,23 @@ export function SettingsModal({
             </select>
           </label>
           <p className="muted">
-            Provider primario: {getAiProviderLabel(aiSettings?.provider ?? 'ollama')}. Fallback:{' '}
-            {getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none')}. Chiamate API esterne:{' '}
-            {aiSettings?.allowApiCalls ? 'abilitate' : 'disabilitate'}.
-            {getAiMemorySharingLabel(aiSettings)}
+            {t('settings.ai.primaryProvider', {
+              provider: getAiProviderLabel(aiSettings?.provider ?? 'ollama'),
+              fallback: getAiFallbackLabel(aiSettings?.fallbackProvider ?? 'none', language),
+            })}{' '}
+            {t('settings.ai.externalCalls', {
+              status: aiSettings?.allowApiCalls
+                ? language === 'en'
+                  ? 'enabled'
+                  : 'abilitate'
+                : language === 'en'
+                  ? 'disabled'
+                  : 'disabilitate',
+            })}{' '}
+            {getAiMemorySharingLabel(aiSettings, language)}
           </p>
           <label>
-            Modello API
+            {t('settings.ai.apiModel')}
             <input
               value={aiSettings?.apiModel ?? DEFAULT_API_MODEL}
               onChange={(event) =>
@@ -184,7 +240,7 @@ export function SettingsModal({
             />
           </label>
           <label>
-            Modello API immagini
+            {t('settings.ai.imageModel')}
             <input
               value={
                 aiSettings
@@ -206,7 +262,7 @@ export function SettingsModal({
             />
           </label>
           <label>
-            Modello Ollama
+            {t('settings.ai.ollamaModel')}
             <input
               value={
                 aiSettings ? normalizeCodexSettings(aiSettings).ollamaModel : DEFAULT_OLLAMA_MODEL
@@ -225,25 +281,20 @@ export function SettingsModal({
               disabled={!aiSettings}
             />
           </label>
-          {!currentProjectOpen ? (
-            <p className="muted">
-              Le impostazioni AI restano legate al progetto aperto e sono disabilitate finché non ne
-              apri uno.
-            </p>
-          ) : null}
+          {!currentProjectOpen ? <p className="muted">{t('settings.ai.noProject')}</p> : null}
           <div className="row-buttons">
             <button
               type="button"
               onClick={onSaveAiSettings}
               disabled={!aiSettings || aiSettingsBusy || !currentProjectOpen}
             >
-              Salva Impostazioni AI
+              {t('settings.ai.save')}
             </button>
           </div>
         </details>
 
         <details className="panel panel-subsection settings-section" open>
-          <summary>Consensi</summary>
+          <summary>{t('settings.consents.title')}</summary>
           <label className="checkbox-inline">
             <input
               type="checkbox"
@@ -260,9 +311,9 @@ export function SettingsModal({
                 )
               }
             />
-            <span>Abilita chiamate API esterne</span>
+            <span>{t('settings.consents.allowApiCalls')}</span>
           </label>
-          <p className="muted">Richiesto per OpenAI API e per l'endpoint HTTP locale di Ollama.</p>
+          <p className="muted">{t('settings.consents.allowApiCallsHelp')}</p>
           <label className="checkbox-inline">
             <input
               type="checkbox"
@@ -279,7 +330,7 @@ export function SettingsModal({
                 )
               }
             />
-            <span>Consenso invio testo a strumenti AI</span>
+            <span>{t('settings.consents.aiEnabled')}</span>
           </label>
           <label className="checkbox-inline">
             <input
@@ -297,7 +348,7 @@ export function SettingsModal({
                 )
               }
             />
-            <span>Consenso invio memoria progetto a provider esterni</span>
+            <span>{t('settings.consents.memorySharing')}</span>
           </label>
           <label className="checkbox-inline">
             <input
@@ -315,27 +366,24 @@ export function SettingsModal({
                 )
               }
             />
-            <span>Auto-riassunto descrizione blocco al salvataggio</span>
+            <span>{t('settings.consents.autoSummary')}</span>
           </label>
-          <p className="muted">
-            Se disattivato, la chat AI non allega la wiki del progetto quando il provider o il
-            fallback possono inviare il prompt fuori dal computer.
-          </p>
+          <p className="muted">{t('settings.consents.memoryHelp')}</p>
           <div className="row-buttons">
             <button
               type="button"
               onClick={onSaveAiSettings}
               disabled={!aiSettings || aiSettingsBusy || !currentProjectOpen}
             >
-              Salva Consensi
+              {t('settings.consents.save')}
             </button>
           </div>
         </details>
 
         <details className="panel panel-subsection settings-section">
-          <summary>Segreti</summary>
+          <summary>{t('settings.secrets.title')}</summary>
           <label>
-            API Key
+            {t('settings.secrets.apiKey')}
             <input
               type="password"
               value={aiApiKeyInput}
@@ -351,12 +399,13 @@ export function SettingsModal({
           </label>
           {aiSettings?.hasStoredApiKey && !clearStoredApiKey ? (
             <p className="muted">
-              Chiave API configurata in:{' '}
-              <strong>{getApiKeyStorageLabel(aiSettings.apiKeyStorage)}</strong>.
+              {t('settings.secrets.configured', {
+                storage: getApiKeyStorageLabel(aiSettings.apiKeyStorage, language),
+              })}
             </p>
           ) : null}
           {clearStoredApiKey ? (
-            <p className="muted">La chiave salvata verrà rimossa al prossimo salvataggio.</p>
+            <p className="muted">{t('settings.secrets.removedOnSave')}</p>
           ) : null}
           <div className="row-buttons">
             <button
@@ -368,20 +417,20 @@ export function SettingsModal({
               }}
               disabled={!aiSettings?.hasStoredApiKey || aiSettingsBusy || !currentProjectOpen}
             >
-              Rimuovi API key salvata
+              {t('settings.secrets.remove')}
             </button>
             <button
               type="button"
               onClick={onSaveAiSettings}
               disabled={!aiSettings || aiSettingsBusy || !currentProjectOpen}
             >
-              Salva Segreti
+              {t('settings.secrets.save')}
             </button>
           </div>
         </details>
         <div className="row-buttons">
           <button type="button" onClick={onClose} className="button-secondary">
-            Chiudi
+            {t('common.close')}
           </button>
         </div>
       </div>

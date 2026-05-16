@@ -31,6 +31,7 @@ import {
   LinkedChaptersPanel,
   type EntityImageSize,
 } from './features/entities/entity-panels';
+import type { Translate } from './i18n';
 
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
 type LocationImage = Awaited<ReturnType<(typeof window.novelistApi)['listLocationImages']>>[number];
@@ -68,6 +69,7 @@ interface LocationBoardProps {
   onDirtyChange?: (dirty: boolean) => void;
   onRegisterFlush?: (handler: (() => Promise<boolean>) | null) => void;
   onWikiSync?: () => Promise<void>;
+  t: Translate;
 }
 
 function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
@@ -145,6 +147,7 @@ function areLocationDraftsEqual(left: LocationDraft, right: LocationDraft): bool
 
 function mapCardToNode(
   card: LocationCard,
+  t: Translate,
   imageSrc: string | null = null,
   options?: { selected?: boolean },
 ): LocationCanvasNode {
@@ -159,9 +162,9 @@ function mapCardToNode(
     },
     selected: options?.selected,
     data: {
-      label: card.name || 'Location',
+      label: card.name || t('entity.location.untitled'),
       plotNumber: card.plotNumber,
-      subtitle: card.locationType || 'Scheda location',
+      subtitle: card.locationType || t('entity.location.untitledCard'),
       imageSrc,
       isBoard: true,
     },
@@ -180,8 +183,8 @@ function formatChapterLabel(node: StoryChapterNode): string {
   return `T${node.plotNumber} • B${node.blockNumber} • ${node.title}`;
 }
 
-function formatPlotLabel(plot: StoryPlot): string {
-  return plot.label?.trim() || `Trama ${plot.number}`;
+function formatPlotLabel(plot: StoryPlot, t: Translate): string {
+  return plot.label?.trim() || `${t('common.plot')} ${plot.number}`;
 }
 
 export default function LocationBoard({
@@ -194,6 +197,7 @@ export default function LocationBoard({
   onDirtyChange,
   onRegisterFlush,
   onWikiSync,
+  t,
 }: LocationBoardProps) {
   const [cards, setCards] = useState<LocationCard[]>([]);
   const [nodes, setNodes] = useState<LocationCanvasNode[]>([]);
@@ -256,6 +260,21 @@ export default function LocationBoard({
     () => chapterOptions.filter((chapter) => linkedChapterIds.includes(chapter.id)),
     [chapterOptions, linkedChapterIds],
   );
+  const locationImageTypeOptions = useMemo(
+    () =>
+      LOCATION_IMAGE_TYPE_OPTIONS.map((option) => ({
+        ...option,
+        label:
+          option.value === 'esterno'
+            ? t('entity.image.typeExterior')
+            : option.value === 'interno'
+              ? t('entity.image.typeInterior')
+              : option.value === 'dettaglio'
+                ? t('entity.image.typeDetail')
+                : t('entity.image.typeMap'),
+      })),
+    [t],
+  );
 
   const resolveImageSource = useCallback(async (filePath: string): Promise<string | null> => {
     const trimmedPath = filePath.trim();
@@ -316,12 +335,12 @@ export default function LocationBoard({
     );
     setNodes(
       nextCards.map((card) =>
-        mapCardToNode(card, primaryImageByCardId.get(card.id) ?? null, {
+        mapCardToNode(card, t, primaryImageByCardId.get(card.id) ?? null, {
           selected: card.id === selectedCardId,
         }),
       ),
     );
-  }, [resolveImageSource, selectedCardId]);
+  }, [resolveImageSource, selectedCardId, t]);
 
   const refreshChapterOptions = useCallback(async (): Promise<void> => {
     const state = await window.novelistApi.getStoryState();
@@ -413,15 +432,16 @@ export default function LocationBoard({
       try {
         await refreshCodexSettings();
         await Promise.all([refreshCards(), refreshChapterOptions()]);
-        onStatus('Canvas location caricato');
+        onStatus(t('entity.status.locationCanvasLoaded'));
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
       } finally {
         setBusy(false);
       }
     })();
-  }, [currentProject, onStatus, refreshCards, refreshChapterOptions, refreshCodexSettings]);
+  }, [currentProject, onStatus, refreshCards, refreshChapterOptions, refreshCodexSettings, t]);
 
   const onNodesChange: OnNodesChange<LocationCanvasNode> = useCallback((changes) => {
     setNodes((prev) => applyNodeChanges(changes, prev));
@@ -461,7 +481,7 @@ export default function LocationBoard({
       ]);
       onStatus('Connessione creata');
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     } finally {
       setBusy(false);
@@ -481,7 +501,8 @@ export default function LocationBoard({
         );
         onStatus(`${deletedEdges.length} connessioni eliminate`);
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
       } finally {
         setBusy(false);
@@ -538,21 +559,22 @@ export default function LocationBoard({
         setNodes((prev) =>
           prev.map((item) =>
             item.id === updated.id
-              ? mapCardToNode(updated, item.data.imageSrc ?? null, { selected: item.selected })
+              ? mapCardToNode(updated, t, item.data.imageSrc ?? null, { selected: item.selected })
               : item,
           ),
         );
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
       }
     },
-    [cardsById],
+    [cardsById, t],
   );
 
   async function handleCreateCard(): Promise<void> {
     if (!createDraft.name.trim()) {
-      onStatus('Inserisci almeno il nome della location.');
+      onStatus(t('entity.location.requireName'));
       return;
     }
 
@@ -579,13 +601,13 @@ export default function LocationBoard({
       });
 
       setCards((prev) => [...prev, created]);
-      setNodes((prev) => [...prev, mapCardToNode(created, null)]);
+      setNodes((prev) => [...prev, mapCardToNode(created, t, null)]);
       setCreateDraft(emptyLocationDraft(createDraft.plotNumber));
       setSelectedCardId(created.id);
       setIsCreateCardModalOpen(false);
-      onStatus(`Location creata: ${created.name}`);
+      onStatus(t('entity.status.locationCreated', { name: created.name }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     } finally {
       setBusy(false);
@@ -604,9 +626,9 @@ export default function LocationBoard({
       setCards((prev) => prev.filter((card) => card.id !== selectedCardId));
       setNodes((prev) => prev.filter((node) => node.id !== selectedCardId));
       setSelectedCardId(null);
-      onStatus('Location eliminata');
+      onStatus(t('entity.status.locationDeleted'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     } finally {
       setBusy(false);
@@ -652,26 +674,29 @@ export default function LocationBoard({
         setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
         setNodes((prev) =>
           prev.map((item) =>
-            item.id === updated.id ? mapCardToNode(updated, item.data.imageSrc ?? null) : item,
+            item.id === updated.id ? mapCardToNode(updated, t, item.data.imageSrc ?? null) : item,
           ),
         );
         setEditDraft(locationToDraft(updated));
         if (!options?.silent) {
-          onStatus(options?.successStatus ?? `Location salvata: ${updated.name}`);
+          onStatus(
+            options?.successStatus ?? t('entity.status.locationSaved', { name: updated.name }),
+          );
         }
         if (options?.closeAfterSave) {
           setEditCardId(null);
         }
         return true;
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
         return false;
       } finally {
         setBusy(false);
       }
     },
-    [cards, editCardId, editDirty, editDraft, onStatus],
+    [cards, editCardId, editDirty, editDraft, onStatus, t],
   );
 
   async function handleCloseEdit(): Promise<void> {
@@ -735,7 +760,7 @@ export default function LocationBoard({
       autosaveInFlightRef.current = true;
       void persistEdit({
         closeAfterSave: false,
-        successStatus: 'Location salvata automaticamente',
+        successStatus: t('entity.status.locationAutosaved'),
       }).finally(() => {
         autosaveInFlightRef.current = false;
       });
@@ -747,7 +772,7 @@ export default function LocationBoard({
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [autosaveSettings?.autosaveMode, editCardId, editDirty, persistEdit]);
+  }, [autosaveSettings?.autosaveMode, editCardId, editDirty, persistEdit, t]);
 
   useEffect(() => {
     if (autosaveSettings?.autosaveMode !== 'interval' || !editCardId) {
@@ -762,7 +787,7 @@ export default function LocationBoard({
       autosaveInFlightRef.current = true;
       void persistEdit({
         closeAfterSave: false,
-        successStatus: 'Location salvata automaticamente',
+        successStatus: t('entity.status.locationAutosaved'),
       }).finally(() => {
         autosaveInFlightRef.current = false;
       });
@@ -777,11 +802,12 @@ export default function LocationBoard({
     editCardId,
     editDirty,
     persistEdit,
+    t,
   ]);
 
   async function handleAddImage(): Promise<void> {
     if (!editCardId || !imagePath.trim()) {
-      onStatus('Inserisci un path immagine valido.');
+      onStatus(t('entity.common.validImagePath'));
       return;
     }
 
@@ -794,9 +820,9 @@ export default function LocationBoard({
       });
       await loadImages(editCardId);
       setImagePath('');
-      onStatus('Immagine location associata');
+      onStatus(t('entity.status.locationImageAssociated'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     }
   }
@@ -810,7 +836,7 @@ export default function LocationBoard({
       await window.novelistApi.deleteLocationImage({ id: imageId });
       await loadImages(editCardId);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     }
   }
@@ -833,11 +859,13 @@ export default function LocationBoard({
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
     const missingRequirements = getImageGenerationMissingRequirements(currentSettings);
     if (missingRequirements.length > 0) {
-      onStatus(`Genera In-App non disponibile: manca ${missingRequirements.join(', ')}.`);
+      onStatus(
+        t('entity.image.missingRequirements', { requirements: missingRequirements.join(', ') }),
+      );
       return;
     }
     if (!imagePrompt.trim()) {
-      onStatus('Inserisci un prompt prima di generare l’immagine.');
+      onStatus(t('entity.image.requirePrompt'));
       return;
     }
 
@@ -852,9 +880,9 @@ export default function LocationBoard({
       });
       await loadImages(editCardId);
       setImagePath(created.filePath);
-      onStatus('Immagine generata in-app e associata alla scheda');
+      onStatus(t('entity.status.imageGenerated'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     } finally {
       setImageGenerating(false);
@@ -869,7 +897,7 @@ export default function LocationBoard({
       }
       setImagePath(selected);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
     }
   }
@@ -880,12 +908,12 @@ export default function LocationBoard({
     }
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
     if (!currentSettings?.enabled) {
-      onStatus('Abilita prima il consenso AI nelle Impostazioni AI.');
+      onStatus(t('entity.status.aiConsentRequired'));
       return;
     }
 
     setCodexSuggesting(true);
-    onStatus(`${aiAssistantLabel} sta elaborando suggerimenti location...`);
+    onStatus(t('entity.status.locationSuggestion', { assistant: aiAssistantLabel }));
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
@@ -894,18 +922,18 @@ export default function LocationBoard({
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
-        onStatus('Richiesta AI annullata');
+        onStatus(t('entity.status.aiRequestCancelled'));
         return;
       }
       setEditDraft((prev) => ({
         ...prev,
         notes: prev.notes ? `${prev.notes}\n\n${response.output}` : response.output,
       }));
-      onStatus(`Suggerimento AI ricevuto (${response.mode})`);
+      onStatus(t('entity.status.suggestionReceived', { mode: response.mode }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore richiesta AI');
+      onStatus(t('entity.status.aiRequestError'));
     } finally {
       setCodexSuggesting(false);
     }
@@ -917,12 +945,12 @@ export default function LocationBoard({
     }
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
     if (!currentSettings?.enabled) {
-      onStatus('Abilita prima il consenso AI nelle Impostazioni AI.');
+      onStatus(t('entity.status.aiConsentRequired'));
       return;
     }
 
     setCodexPrompting(true);
-    onStatus(`${aiAssistantLabel} sta creando il prompt immagine...`);
+    onStatus(t('entity.status.characterImagePrompt', { assistant: aiAssistantLabel }));
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
@@ -931,15 +959,15 @@ export default function LocationBoard({
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
-        onStatus('Richiesta AI annullata');
+        onStatus(t('entity.status.aiRequestCancelled'));
         return;
       }
       setImagePrompt(response.output);
-      onStatus(`Prompt immagine generato (${response.mode})`);
+      onStatus(t('entity.status.characterImagePromptCreated', { mode: response.mode }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore richiesta AI');
+      onStatus(t('entity.status.aiRequestError'));
     } finally {
       setCodexPrompting(false);
     }
@@ -959,17 +987,18 @@ export default function LocationBoard({
             onClick={() => setIsCreateCardModalOpen(true)}
             disabled={busy || !currentProject}
           >
-            Crea Location
+            {t('entity.location.create')}
           </button>
         </div>
 
         <div className="panel">
-          <h2>Selezione</h2>
+          <h2>{t('entity.common.selection')}</h2>
           <p>
-            Location: <strong>{selectedCard?.name ?? '-'}</strong>
+            {t('entity.location.selection')} <strong>{selectedCard?.name ?? '-'}</strong>
           </p>
           <p>
-            Trama: <strong>{selectedCardPlot ? formatPlotLabel(selectedCardPlot) : '-'}</strong>
+            {t('plot.selection')}{' '}
+            <strong>{selectedCardPlot ? formatPlotLabel(selectedCardPlot, t) : '-'}</strong>
           </p>
           <div className="selection-action-stack">
             <button
@@ -978,7 +1007,7 @@ export default function LocationBoard({
               onClick={() => void handleDeleteSelectedCard()}
               disabled={!selectedCardId || busy}
             >
-              Elimina
+              {t('entity.location.delete')}
             </button>
           </div>
         </div>
@@ -1027,10 +1056,10 @@ export default function LocationBoard({
       {isCreateCardModalOpen ? (
         <div className="modal-overlay">
           <div className="modal-card large-modal-card">
-            <h3>Crea Location</h3>
+            <h3>{t('entity.location.create')}</h3>
             <div className="grid-two">
               <label>
-                Nome
+                {t('entity.location.name')}
                 <input
                   value={createDraft.name}
                   onChange={(event) =>
@@ -1039,7 +1068,7 @@ export default function LocationBoard({
                 />
               </label>
               <label>
-                Tipologia luogo
+                {t('entity.location.locationType')}
                 <input
                   value={createDraft.locationType}
                   onChange={(event) =>
@@ -1048,7 +1077,7 @@ export default function LocationBoard({
                 />
               </label>
               <label>
-                Trama
+                {t('story.modal.plot')}
                 <select
                   value={createDraft.plotNumber}
                   onChange={(event) =>
@@ -1061,17 +1090,19 @@ export default function LocationBoard({
                   {plotOptions.length > 0 ? (
                     plotOptions.map((plot) => (
                       <option key={plot.number} value={plot.number}>
-                        {formatPlotLabel(plot)}
+                        {formatPlotLabel(plot, t)}
                       </option>
                     ))
                   ) : (
-                    <option value={createDraft.plotNumber}>Trama {createDraft.plotNumber}</option>
+                    <option value={createDraft.plotNumber}>
+                      {t('common.plot')} {createDraft.plotNumber}
+                    </option>
                   )}
                 </select>
               </label>
             </div>
             <label>
-              Descrizione
+              {t('entity.location.description')}
               <textarea
                 rows={6}
                 value={createDraft.description}
@@ -1081,7 +1112,7 @@ export default function LocationBoard({
               />
             </label>
             <label>
-              Note
+              {t('entity.common.notes')}
               <textarea
                 rows={4}
                 value={createDraft.notes}
@@ -1098,14 +1129,14 @@ export default function LocationBoard({
                 onClick={() => setIsCreateCardModalOpen(false)}
                 disabled={busy}
               >
-                Annulla
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleCreateCard()}
                 disabled={busy || !currentProject}
               >
-                Crea Scheda
+                {t('entity.actions.createCard')}
               </button>
             </div>
           </div>
@@ -1115,10 +1146,10 @@ export default function LocationBoard({
       {editCardId ? (
         <div className="modal-overlay">
           <div className="modal-card large-modal-card">
-            <h3>Modifica Location</h3>
+            <h3>{t('entity.location.edit')}</h3>
             <div className="grid-two">
               <label>
-                Nome
+                {t('entity.location.name')}
                 <input
                   value={editDraft.name}
                   onChange={(event) =>
@@ -1127,7 +1158,7 @@ export default function LocationBoard({
                 />
               </label>
               <label>
-                Tipologia luogo
+                {t('entity.location.locationType')}
                 <input
                   value={editDraft.locationType}
                   onChange={(event) =>
@@ -1136,7 +1167,7 @@ export default function LocationBoard({
                 />
               </label>
               <label>
-                Trama
+                {t('story.modal.plot')}
                 <select
                   value={editDraft.plotNumber}
                   onChange={(event) =>
@@ -1149,17 +1180,19 @@ export default function LocationBoard({
                   {plotOptions.length > 0 ? (
                     plotOptions.map((plot) => (
                       <option key={plot.number} value={plot.number}>
-                        {formatPlotLabel(plot)}
+                        {formatPlotLabel(plot, t)}
                       </option>
                     ))
                   ) : (
-                    <option value={editDraft.plotNumber}>Trama {editDraft.plotNumber}</option>
+                    <option value={editDraft.plotNumber}>
+                      {t('common.plot')} {editDraft.plotNumber}
+                    </option>
                   )}
                 </select>
               </label>
             </div>
             <label>
-              Descrizione
+              {t('entity.location.description')}
               <textarea
                 rows={6}
                 value={editDraft.description}
@@ -1169,7 +1202,7 @@ export default function LocationBoard({
               />
             </label>
             <label>
-              Note
+              {t('entity.common.notes')}
               <textarea
                 rows={4}
                 value={editDraft.notes}
@@ -1186,13 +1219,14 @@ export default function LocationBoard({
                 className={codexSuggesting ? 'ai-working' : undefined}
                 disabled={codexSuggesting}
               >
-                {`Suggerisci Con ${aiAssistantLabel}`}
+                {t('entity.ai.suggestWith', { assistant: aiAssistantLabel })}
               </button>
             </div>
 
             <LinkedChaptersPanel
               chapters={linkedChapters}
               formatChapterLabel={formatChapterLabel}
+              t={t}
             />
 
             <EntityImageSection
@@ -1206,7 +1240,7 @@ export default function LocationBoard({
               images={images}
               imageSize={imageSize}
               imageType={imageType}
-              imageTypeOptions={LOCATION_IMAGE_TYPE_OPTIONS}
+              imageTypeOptions={locationImageTypeOptions}
               missingImageGenerationRequirements={missingImageGenerationRequirements}
               previewErrors={previewErrors}
               onAddImage={handleAddImage}
@@ -1222,21 +1256,22 @@ export default function LocationBoard({
               }
               onSelectImagePath={handleSelectImagePath}
               onViewImage={handleViewImage}
+              t={t}
             />
 
             <div className="row-buttons">
               <button type="button" onClick={() => void handleCloseEdit()} disabled={busy}>
-                Chiudi
+                {t('common.close')}
               </button>
               <button type="button" onClick={() => void handleSaveEdit()} disabled={busy}>
-                Salva Scheda
+                {t('entity.actions.saveCard')}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      <ImageViewerModal viewerImage={viewerImage} onClose={() => setViewerImage(null)} />
+      <ImageViewerModal viewerImage={viewerImage} onClose={() => setViewerImage(null)} t={t} />
     </section>
   );
 }

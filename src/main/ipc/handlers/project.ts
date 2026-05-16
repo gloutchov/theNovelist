@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, type IpcMain } from 'electron';
 import { z } from 'zod';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { APP_CONFIG } from '../../config/app-config';
+import { translateMain } from '../../i18n';
 import type { ProjectSessionManager } from '../../projects/session';
 import { ProjectService } from '../../services/project-service';
 import {
@@ -72,9 +73,13 @@ export function registerProjectIpcHandlers(
     const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const openResult = browserWindow
       ? await dialog.showOpenDialog(browserWindow, {
+          title: translateMain('dialog.directory.title'),
+          buttonLabel: translateMain('dialog.directory.button'),
           properties: ['openDirectory', 'createDirectory'],
         })
       : await dialog.showOpenDialog({
+          title: translateMain('dialog.directory.title'),
+          buttonLabel: translateMain('dialog.directory.button'),
           properties: ['openDirectory', 'createDirectory'],
         });
 
@@ -90,12 +95,26 @@ export function registerProjectIpcHandlers(
     const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const openResult = browserWindow
       ? await dialog.showOpenDialog(browserWindow, {
+          title: translateMain('dialog.imageFile.title'),
+          buttonLabel: translateMain('dialog.imageFile.button'),
           properties: ['openFile'],
-          filters: [{ name: 'Images', extensions: [...APP_CONFIG.images.importedExtensions] }],
+          filters: [
+            {
+              name: translateMain('dialog.filter.images'),
+              extensions: [...APP_CONFIG.images.importedExtensions],
+            },
+          ],
         })
       : await dialog.showOpenDialog({
+          title: translateMain('dialog.imageFile.title'),
+          buttonLabel: translateMain('dialog.imageFile.button'),
           properties: ['openFile'],
-          filters: [{ name: 'Images', extensions: [...APP_CONFIG.images.importedExtensions] }],
+          filters: [
+            {
+              name: translateMain('dialog.filter.images'),
+              extensions: [...APP_CONFIG.images.importedExtensions],
+            },
+          ],
         });
 
     if (openResult.canceled) {

@@ -97,6 +97,7 @@ import {
 } from './features/settings/app-preferences';
 import { SettingsModal } from './features/settings/settings-modal';
 import { CreateStoryNodeModal, EditStoryNodeModal } from './features/story/story-node-modals';
+import { createTranslator, resolveRendererLanguage } from './i18n';
 import { parseTime } from './shared/formatters';
 import { getStatusTone } from './status-tone';
 
@@ -153,6 +154,8 @@ export default function App() {
     refreshAppPreferences,
     setAppPreferences,
   } = useAppPreferencesState({ setError, setStatus });
+  const appLanguage = resolveRendererLanguage(appPreferences);
+  const t = useMemo(() => createTranslator(appLanguage), [appLanguage]);
   const [lastAiMemorySources, setLastAiMemorySources] = useState<CodexMemorySource[]>([]);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<DashboardState>(() => createEmptyDashboardState());
@@ -275,6 +278,7 @@ export default function App() {
     aiEnabled: Boolean(aiSettings?.enabled),
     currentProject,
     plots: plots as MemorySummaryPlot[],
+    t,
   });
   const {
     openChapterReadingView,
@@ -282,7 +286,7 @@ export default function App() {
     readingView,
     readingViewLoading,
     setReadingView,
-  } = useReadingViewState({ currentProject, setError, setStatus });
+  } = useReadingViewState({ currentProject, setError, setStatus, t });
 
   const chapterEditorFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const characterBoardFlushRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -395,7 +399,7 @@ export default function App() {
     wikiSearchQuery,
     wikiSearchResults,
     wikiStatus,
-  } = useWikiState({ currentProject, setError, setStatus, showWorkspaceNotice });
+  } = useWikiState({ currentProject, setError, setStatus, showWorkspaceNotice, t });
 
   const handleCloseChapterEditor = useCallback(async () => {
     const wasDirty = chapterEditorDirty;
@@ -641,7 +645,7 @@ export default function App() {
         sceneCount: sceneCards.length,
       });
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setDashboard((previous) => ({
         ...previous,
         loading: false,
@@ -769,7 +773,7 @@ export default function App() {
         ).length,
       });
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setOutline((previous) => ({
         ...previous,
         loading: false,
@@ -936,7 +940,7 @@ export default function App() {
       setStatus('Obiettivi progetto aggiornati');
       void refreshDashboardData();
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       setStatus('Errore aggiornamento obiettivi progetto');
     } finally {
@@ -1192,7 +1196,7 @@ export default function App() {
       });
       await window.novelistApi.updatePlot({
         id: createdPlot.id,
-        label: normalizePlotLabel(createdPlot.number, createdPlot.label),
+        label: normalizePlotLabel(createdPlot.number, createdPlot.label, t('common.plot')),
         summary: newPlotSummary,
         color: createdPlot.color,
         positionX: createdPlot.positionX,
@@ -1200,7 +1204,9 @@ export default function App() {
       });
 
       await refreshStoryState();
-      setStatus(`Trama creata: ${normalizePlotLabel(newPlotNumber, newPlotLabel)}`);
+      setStatus(
+        `Trama creata: ${normalizePlotLabel(newPlotNumber, newPlotLabel, t('common.plot'))}`,
+      );
       setNewNodePlotNumber(newPlotNumber);
       resetPlotDraftAfterCreate(newPlotNumber + 1);
     } catch (caughtError) {
@@ -1239,7 +1245,7 @@ export default function App() {
       });
       const savedPlot = await window.novelistApi.updatePlot({
         id: createdPlot.id,
-        label: normalizePlotLabel(createdPlot.number, createdPlot.label),
+        label: normalizePlotLabel(createdPlot.number, createdPlot.label, t('common.plot')),
         summary: newPlotSummary,
         color: createdPlot.color,
         positionX: createdPlot.positionX,
@@ -1409,7 +1415,7 @@ export default function App() {
     try {
       const saved = await window.novelistApi.updatePlot({
         id: currentEditPlot.id,
-        label: normalizePlotLabel(currentEditPlot.number, editPlotLabelInput),
+        label: normalizePlotLabel(currentEditPlot.number, editPlotLabelInput, t('common.plot')),
         summary: editPlotSummaryInput,
         color: currentEditPlot.color,
         positionX: currentEditPlot.positionX,
@@ -1447,7 +1453,11 @@ export default function App() {
       return;
     }
 
-    const deletedPlotLabel = normalizePlotLabel(selectedPlot.number, selectedPlot.label);
+    const deletedPlotLabel = normalizePlotLabel(
+      selectedPlot.number,
+      selectedPlot.label,
+      t('common.plot'),
+    );
 
     setBusy(true);
     setError(null);
@@ -1724,14 +1734,14 @@ export default function App() {
     try {
       const result = await window.novelistApi.exportManuscriptDocx();
       if (result) {
-        setStatus(`Documento completo DOCX esportato: ${result.filePath}`);
+        setStatus(t('export.status.manuscriptDocxExported', { filePath: result.filePath }));
       } else {
-        setStatus('Esportazione DOCX documento completo annullata');
+        setStatus(t('export.status.manuscriptDocxCancelled'));
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      setStatus('Errore export DOCX documento completo');
+      setStatus(t('export.status.manuscriptDocxError'));
     } finally {
       setBusy(false);
     }
@@ -1743,14 +1753,14 @@ export default function App() {
     try {
       const result = await window.novelistApi.exportManuscriptEpub();
       if (result) {
-        setStatus(`Documento completo ePUB esportato: ${result.filePath}`);
+        setStatus(t('export.status.manuscriptEpubExported', { filePath: result.filePath }));
       } else {
-        setStatus('Esportazione ePUB documento completo annullata');
+        setStatus(t('export.status.manuscriptEpubCancelled'));
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      setStatus('Errore export ePUB documento completo');
+      setStatus(t('export.status.manuscriptEpubError'));
     } finally {
       setBusy(false);
     }
@@ -1762,14 +1772,14 @@ export default function App() {
     try {
       const result = await window.novelistApi.printManuscript();
       if (result) {
-        setStatus('Stampa documento completo inviata');
+        setStatus(t('export.status.manuscriptPrintSent'));
       } else {
-        setStatus('Stampa documento completo annullata');
+        setStatus(t('export.status.manuscriptPrintCancelled'));
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
       setError(message);
-      setStatus('Errore stampa documento completo');
+      setStatus(t('export.status.manuscriptPrintError'));
     } finally {
       setBusy(false);
     }
@@ -1827,7 +1837,7 @@ export default function App() {
 
       openPlotEditor(plot);
     },
-    [plotsById],
+    [plotsById, t],
   );
 
   const onPlotNodesChange: OnNodesChange<PlotCanvasNode> = useCallback((changes) => {
@@ -1844,7 +1854,7 @@ export default function App() {
       try {
         const updated = await window.novelistApi.updatePlot({
           id: plot.id,
-          label: normalizePlotLabel(plot.number, plot.label),
+          label: normalizePlotLabel(plot.number, plot.label, t('common.plot')),
           summary: plot.summary,
           color: plot.color,
           positionX: node.position.x,
@@ -1883,6 +1893,8 @@ export default function App() {
         setAppPreferences({
           autosaveMode: 'auto',
           autosaveIntervalMinutes: 5,
+          languageMode: 'auto',
+          effectiveLanguage: navigator.language.toLowerCase().startsWith('it') ? 'it' : 'en',
           updatedAt: new Date().toISOString(),
         });
       }
@@ -1914,7 +1926,7 @@ export default function App() {
       storyAutosaveInFlightRef.current = true;
       void persistNodeEdit({
         closeAfterSave: false,
-        successStatus: 'Blocco salvato automaticamente',
+        successStatus: t('editor.status.autosavedBlock'),
       }).finally(() => {
         storyAutosaveInFlightRef.current = false;
       });
@@ -1926,7 +1938,7 @@ export default function App() {
         storyAutosaveTimeoutRef.current = null;
       }
     };
-  }, [appPreferences?.autosaveMode, editNodeId, isStoryEditDirty, persistNodeEdit]);
+  }, [appPreferences?.autosaveMode, editNodeId, isStoryEditDirty, persistNodeEdit, t]);
 
   useEffect(() => {
     if (appPreferences?.autosaveMode !== 'interval' || !editNodeId) {
@@ -1942,7 +1954,7 @@ export default function App() {
       storyAutosaveInFlightRef.current = true;
       void persistNodeEdit({
         closeAfterSave: false,
-        successStatus: 'Blocco salvato automaticamente',
+        successStatus: t('editor.status.autosavedBlock'),
       }).finally(() => {
         storyAutosaveInFlightRef.current = false;
       });
@@ -1957,6 +1969,7 @@ export default function App() {
     editNodeId,
     isStoryEditDirty,
     persistNodeEdit,
+    t,
   ]);
 
   useEffect(() => {
@@ -2035,14 +2048,14 @@ export default function App() {
     <main className="layout-root">
       <header className="topbar">
         <h1>The Novelist</h1>
-        <p>Scrivi la tua storia da professionista</p>
+        <p>{t('shell.subtitle')}</p>
         <div className="workspace-tabs">
           <button
             type="button"
             className={activeTab === 'dashboard' ? 'tab-active' : ''}
             onClick={() => setActiveTab('dashboard')}
           >
-            Cruscotto
+            {t('shell.tabs.dashboard')}
           </button>
           <button
             type="button"
@@ -2050,7 +2063,7 @@ export default function App() {
             onClick={() => setActiveTab('outline')}
             disabled={!currentProject}
           >
-            Scaletta
+            {t('shell.tabs.outline')}
           </button>
           <button
             type="button"
@@ -2058,7 +2071,7 @@ export default function App() {
             onClick={() => setActiveTab('timeline')}
             disabled={!currentProject}
           >
-            Timeline
+            {t('shell.tabs.timeline')}
           </button>
           <button
             type="button"
@@ -2066,7 +2079,7 @@ export default function App() {
             onClick={() => setActiveTab('plots')}
             disabled={!currentProject}
           >
-            Trame
+            {t('shell.tabs.plots')}
           </button>
           <button
             type="button"
@@ -2074,7 +2087,7 @@ export default function App() {
             onClick={() => setActiveTab('story')}
             disabled={!currentProject}
           >
-            Capitoli
+            {t('shell.tabs.chapters')}
           </button>
           <button
             type="button"
@@ -2082,7 +2095,7 @@ export default function App() {
             onClick={() => setActiveTab('scenes')}
             disabled={!currentProject}
           >
-            Scene
+            {t('shell.tabs.scenes')}
           </button>
           <button
             type="button"
@@ -2090,7 +2103,7 @@ export default function App() {
             onClick={() => setActiveTab('characters')}
             disabled={!currentProject}
           >
-            Personaggi
+            {t('shell.tabs.characters')}
           </button>
           <button
             type="button"
@@ -2098,7 +2111,7 @@ export default function App() {
             onClick={() => setActiveTab('locations')}
             disabled={!currentProject}
           >
-            Location
+            {t('shell.tabs.locations')}
           </button>
           <button
             type="button"
@@ -2106,7 +2119,7 @@ export default function App() {
             onClick={() => setActiveTab('revisions')}
             disabled={!currentProject}
           >
-            Revisioni
+            {t('shell.tabs.revisions')}
           </button>
           <button
             type="button"
@@ -2114,7 +2127,7 @@ export default function App() {
             onClick={() => setActiveTab('analysis')}
             disabled={!currentProject}
           >
-            Analisi
+            {t('shell.tabs.analysis')}
           </button>
           <button
             type="button"
@@ -2122,14 +2135,14 @@ export default function App() {
             onClick={openMemoryTab}
             disabled={!currentProject}
           >
-            Memoria
+            {t('shell.tabs.memory')}
           </button>
           <button
             type="button"
             className={isAiSettingsModalOpen ? 'tab-active' : ''}
             onClick={() => setIsAiSettingsModalOpen(true)}
           >
-            Impostazioni
+            {t('shell.tabs.settings')}
           </button>
         </div>
       </header>
@@ -2171,25 +2184,25 @@ export default function App() {
           <section className="outline-workspace">
             <section className="panel outline-header-panel">
               <div>
-                <h2>Scaletta</h2>
-                <p className="muted">
-                  Vista editoriale lineare ricostruita dai collegamenti del canvas Capitoli.
-                </p>
+                <h2>{t('outline.title')}</h2>
+                <p className="muted">{t('outline.subtitle')}</p>
               </div>
               <div className="outline-header-actions">
-                <span className="outline-summary-pill">{outline.chapters.length} capitoli</span>
-                <span className="outline-summary-pill warning">
-                  {outline.isolatedCount} isolati
+                <span className="outline-summary-pill">
+                  {outline.chapters.length} {t('outline.summary.chapters')}
                 </span>
                 <span className="outline-summary-pill warning">
-                  {outline.ambiguousCount} ambigui
+                  {outline.isolatedCount} {t('outline.summary.isolated')}
+                </span>
+                <span className="outline-summary-pill warning">
+                  {outline.ambiguousCount} {t('outline.summary.ambiguous')}
                 </span>
                 <button
                   type="button"
                   onClick={() => void refreshOutlineData()}
                   disabled={outline.loading || outline.saving || readingViewLoading || busy}
                 >
-                  {outline.loading ? 'Aggiorno...' : 'Aggiorna Scaletta'}
+                  {outline.loading ? t('outline.actions.refreshing') : t('outline.actions.refresh')}
                 </button>
                 <button
                   type="button"
@@ -2203,7 +2216,9 @@ export default function App() {
                     outline.chapters.length === 0
                   }
                 >
-                  {readingViewLoading ? 'Apro...' : 'Apri Documento completo'}
+                  {readingViewLoading
+                    ? t('outline.actions.opening')
+                    : t('outline.actions.openFullDocument')}
                 </button>
               </div>
             </section>
@@ -2241,8 +2256,12 @@ export default function App() {
                             <div>
                               <p className="outline-plot-label" style={{ color: plotColor }}>
                                 {chapter.plot
-                                  ? normalizePlotLabel(chapter.plot.number, chapter.plot.label)
-                                  : `Trama ${chapter.node.plotNumber}`}
+                                  ? normalizePlotLabel(
+                                      chapter.plot.number,
+                                      chapter.plot.label,
+                                      t('common.plot'),
+                                    )
+                                  : `${t('common.plot')} ${chapter.node.plotNumber}`}
                               </p>
                               <h3>{chapter.node.title}</h3>
                             </div>
@@ -2252,23 +2271,23 @@ export default function App() {
                               onClick={() => void openChapterReadingView(chapter)}
                               disabled={outline.saving || readingViewLoading || busy}
                             >
-                              Apri
+                              {t('common.open')}
                             </button>
                           </header>
 
                           <p className="outline-description">
-                            {chapter.node.description.trim() || 'Nessun riassunto disponibile.'}
+                            {chapter.node.description.trim() || t('outline.emptySummary')}
                           </p>
 
                           <div className="outline-connection-row">
                             <span>
-                              Da:{' '}
+                              {t('outline.from')}{' '}
                               <strong>
                                 {incomingTitles.length > 0 ? incomingTitles.join(', ') : '-'}
                               </strong>
                             </span>
                             <span>
-                              A:{' '}
+                              {t('outline.to')}{' '}
                               <strong>
                                 {outgoingTitles.length > 0 ? outgoingTitles.join(', ') : '-'}
                               </strong>
@@ -2333,13 +2352,13 @@ export default function App() {
                   })
                 ) : (
                   <section className="panel">
-                    <p className="muted">Nessun capitolo presente nella scaletta.</p>
+                    <p className="muted">{t('outline.empty')}</p>
                   </section>
                 )}
               </div>
 
               <aside className="panel outline-side-panel">
-                <h2>Trame</h2>
+                <h2>{t('shell.tabs.plots')}</h2>
                 <div className="outline-plot-list">
                   {plots.map((plot) => (
                     <div key={plot.id}>
@@ -2347,11 +2366,13 @@ export default function App() {
                         className="outline-plot-swatch"
                         style={{ backgroundColor: getPlotColor(plot.number, plots) }}
                       />
-                      <strong>{normalizePlotLabel(plot.number, plot.label)}</strong>
+                      <strong>
+                        {normalizePlotLabel(plot.number, plot.label, t('common.plot'))}
+                      </strong>
                     </div>
                   ))}
                 </div>
-                <h2>Segnalazioni</h2>
+                <h2>{t('outline.issues')}</h2>
                 {outline.chapters.some((chapter) => chapter.issues.length > 0) ? (
                   <ul className="dashboard-check-list">
                     {outline.chapters
@@ -2363,7 +2384,7 @@ export default function App() {
                       ))}
                   </ul>
                 ) : (
-                  <p className="muted">Nessuna criticita strutturale rilevata.</p>
+                  <p className="muted">{t('outline.noIssues')}</p>
                 )}
                 {outline.error ? <p className="error">{outline.error}</p> : null}
               </aside>
@@ -2371,7 +2392,7 @@ export default function App() {
 
             <section className="panel status-panel">
               <p className={`status status-${statusTone}`}>
-                <span>{outline.saving ? 'Sincronizzazione scaletta...' : status}</span>
+                <span>{outline.saving ? t('outline.syncing') : status}</span>
                 {workspaceNotice ? (
                   <span className="status-inline-notice">{workspaceNotice}</span>
                 ) : null}
@@ -2381,17 +2402,17 @@ export default function App() {
           </section>
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto per visualizzare la scaletta.</p>
+            <p>{t('outline.emptyProject')}</p>
           </section>
         )
       ) : null}
 
       {activeTab === 'timeline' ? (
         currentProject ? (
-          <TimelineBoard onStatus={setStatus} />
+          <TimelineBoard onStatus={setStatus} t={t} />
         ) : (
           <section className="workspace empty-workspace">
-            <p>Apri o crea un progetto per usare la timeline.</p>
+            <p>{t('timeline.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2406,17 +2427,17 @@ export default function App() {
                 onClick={() => setIsNewNodeModalOpen(true)}
                 disabled={!canOpenStoryCreationTools}
               >
-                Nuovo Capitolo
+                {t('story.newChapter')}
               </button>
             </div>
 
             <div className="panel">
-              <h2>Selezione</h2>
+              <h2>{t('story.selection')}</h2>
               <p>
-                Nodo: <strong>{selectedNode?.data.title ?? '-'}</strong>
+                {t('story.node')} <strong>{selectedNode?.data.title ?? '-'}</strong>
               </p>
               <p>
-                Edge: <strong>{selectedEdgeId ?? '-'}</strong>
+                {t('story.edge')} <strong>{selectedEdgeId ?? '-'}</strong>
               </p>
               <div className="selection-action-stack">
                 <button
@@ -2425,7 +2446,7 @@ export default function App() {
                   onClick={handleDeleteSelectedNode}
                   disabled={!selectedNodeId || busy}
                 >
-                  Elimina Blocco
+                  {t('story.deleteBlock')}
                 </button>
                 <button
                   type="button"
@@ -2433,7 +2454,7 @@ export default function App() {
                   onClick={handleDeleteSelectedEdge}
                   disabled={!selectedEdgeId || busy}
                 >
-                  Elimina Conn.
+                  {t('story.deleteConnection')}
                 </button>
               </div>
             </div>
@@ -2496,25 +2517,29 @@ export default function App() {
                   onClick={() => setIsPlotModalOpen(true)}
                   disabled={!canOpenStoryCreationTools}
                 >
-                  Nuova Trama
+                  {t('plot.new')}
                 </button>
               </div>
 
               <div className="panel">
-                <h2>Selezione</h2>
+                <h2>{t('story.selection')}</h2>
                 <p>
-                  Trama:{' '}
+                  {t('plot.selection')}{' '}
                   <strong>
                     {selectedPlot
-                      ? normalizePlotLabel(selectedPlot.number, selectedPlot.label)
+                      ? normalizePlotLabel(
+                          selectedPlot.number,
+                          selectedPlot.label,
+                          t('common.plot'),
+                        )
                       : '-'}
                   </strong>
                 </p>
                 <p>
-                  Numero: <strong>{selectedPlot?.number ?? '-'}</strong>
+                  {t('plot.number')} <strong>{selectedPlot?.number ?? '-'}</strong>
                 </p>
                 <p className="selection-summary">
-                  Sinossi: <strong>{selectedPlot?.summary.trim() || '-'}</strong>
+                  {t('plot.summary')} <strong>{selectedPlot?.summary.trim() || '-'}</strong>
                 </p>
                 <div className="selection-action-stack">
                   <button
@@ -2523,7 +2548,7 @@ export default function App() {
                     onClick={() => void handleDeleteSelectedPlot()}
                     disabled={!selectedPlotId || busy}
                   >
-                    Elimina Trama
+                    {t('plot.delete')}
                   </button>
                 </div>
               </div>
@@ -2572,7 +2597,7 @@ export default function App() {
           </section>
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire le trame.</p>
+            <p>{t('plot.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2590,10 +2615,11 @@ export default function App() {
               sceneBoardFlushRef.current = handler;
             }}
             onWikiSync={syncProjectWikiAfterWorkspaceChange}
+            t={t}
           />
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire le scene.</p>
+            <p>{t('scene.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2612,10 +2638,11 @@ export default function App() {
               characterBoardFlushRef.current = handler;
             }}
             onWikiSync={syncProjectWikiAfterWorkspaceChange}
+            t={t}
           />
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire i personaggi.</p>
+            <p>{t('entity.character.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2634,10 +2661,11 @@ export default function App() {
               locationBoardFlushRef.current = handler;
             }}
             onWikiSync={syncProjectWikiAfterWorkspaceChange}
+            t={t}
           />
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto nella scheda "Struttura Storia" per gestire le location.</p>
+            <p>{t('entity.location.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2649,10 +2677,11 @@ export default function App() {
             statusMessage={status}
             workspaceNotice={workspaceNotice}
             onStatus={handleWorkspaceStatus}
+            t={t}
           />
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto per gestire revisioni e versioni.</p>
+            <p>{t('revision.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2684,6 +2713,7 @@ export default function App() {
           wikiSearchQuery={wikiSearchQuery}
           wikiSearchResults={wikiSearchResults}
           wikiStatus={wikiStatus}
+          t={t}
         />
       ) : null}
 
@@ -2691,6 +2721,7 @@ export default function App() {
         <MemoryResultModal
           result={selectedWikiSearchResult}
           onClose={() => setSelectedWikiSearchResult(null)}
+          t={t}
         />
       ) : null}
 
@@ -2784,6 +2815,7 @@ export default function App() {
           setNewPlotLabel={setNewPlotLabel}
           setNewPlotNumber={setNewPlotNumber}
           setNewPlotSummary={setNewPlotSummary}
+          t={t}
         />
       ) : null}
 
@@ -2797,6 +2829,7 @@ export default function App() {
           onSavePlotEdit={() => void handleSavePlotEdit()}
           setEditPlotLabelInput={setEditPlotLabelInput}
           setEditPlotSummaryInput={setEditPlotSummaryInput}
+          t={t}
         />
       ) : null}
 
@@ -2815,6 +2848,7 @@ export default function App() {
           setNewNodeDescription={setNewNodeDescription}
           setNewNodePlotNumber={setNewNodePlotNumber}
           setNewNodeTitle={setNewNodeTitle}
+          t={t}
         />
       ) : null}
 
@@ -2834,6 +2868,7 @@ export default function App() {
           setEditDescription={setEditDescription}
           setEditPlotNumber={setEditPlotNumber}
           setEditTitle={setEditTitle}
+          t={t}
         />
       ) : null}
 
@@ -2855,7 +2890,7 @@ export default function App() {
       ) : null}
 
       {readingView ? (
-        <ReadingViewOverlay readingView={readingView} onClose={() => setReadingView(null)} />
+        <ReadingViewOverlay readingView={readingView} onClose={() => setReadingView(null)} t={t} />
       ) : null}
     </main>
   );
