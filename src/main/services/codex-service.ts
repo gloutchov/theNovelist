@@ -6,6 +6,7 @@ import {
   type AiFallbackProvider,
   type AiProvider,
 } from '../codex/client';
+import { getMainLanguage } from '../i18n';
 import type { CodexChatMessageRecord } from '../persistence/types';
 import type { ProjectSessionManager } from '../projects/session';
 import {
@@ -78,6 +79,7 @@ export class CodexApplicationService {
     const { repository, projectId } = getStoryContext(this.sessionManager);
     const runtime = await resolveCodexRuntime(repository, projectId);
     const settings = runtime.settings;
+    const language = getMainLanguage();
 
     return this.codexService.getStatus({
       provider: settings.provider,
@@ -86,6 +88,7 @@ export class CodexApplicationService {
       apiKey: runtime.runtimeApiKey,
       apiModel: settings.apiModel,
       ollamaModel: settings.ollamaModel,
+      language,
     });
   }
 
@@ -149,6 +152,7 @@ export class CodexApplicationService {
       throw new Error('Consenso AI non abilitato per questo progetto.');
     }
 
+    const language = getMainLanguage();
     const message = input.context
       ? `${input.message}\n\nContesto:\n${input.context}`
       : input.message;
@@ -165,6 +169,7 @@ export class CodexApplicationService {
         apiModel: settings.apiModel,
         ollamaModel: settings.ollamaModel,
         timeoutMs: input.timeoutMs,
+        language,
       },
     );
   }
@@ -177,6 +182,7 @@ export class CodexApplicationService {
       throw new Error('Consenso AI non abilitato per questo progetto.');
     }
 
+    const language = getMainLanguage();
     return this.codexService.transformSelection(
       {
         action: input.action,
@@ -192,6 +198,7 @@ export class CodexApplicationService {
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
         ollamaModel: settings.ollamaModel,
+        language,
       },
     );
   }
@@ -204,6 +211,7 @@ export class CodexApplicationService {
       throw new Error('Consenso AI non abilitato per questo progetto.');
     }
 
+    const language = getMainLanguage();
     const node = repository.getChapterNodeById(input.chapterNodeId);
     if (!node) {
       throw new Error('Chapter node not found');
@@ -240,6 +248,7 @@ export class CodexApplicationService {
         apiKey: runtime.runtimeApiKey,
         apiModel: settings.apiModel,
         ollamaModel: settings.ollamaModel,
+        language,
       },
     );
 

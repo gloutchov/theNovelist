@@ -5,6 +5,9 @@ export interface ChapterFlowNodeData extends Record<string, unknown> {
   description: string;
   plotNumber: number;
   blockNumber: number;
+  blockLabel?: string;
+  noDescriptionLabel?: string;
+  plotLabel?: string;
 }
 
 const handleStyle = {
@@ -17,7 +20,11 @@ const handleStyle = {
 
 export default function ChapterFlowNode({ data }: NodeProps) {
   const typedData = data as ChapterFlowNodeData;
-  const description = typedData.description?.trim() ? typedData.description : 'Nessuna descrizione';
+  const description = typedData.description?.trim()
+    ? typedData.description
+    : (typedData.noDescriptionLabel ?? 'Nessuna descrizione');
+  const plotLabel = typedData.plotLabel ?? 'Trama';
+  const blockLabel = typedData.blockLabel ?? 'Blocco';
 
   return (
     <div className="chapter-flow-node">
@@ -26,7 +33,7 @@ export default function ChapterFlowNode({ data }: NodeProps) {
       <Handle id="handle-top" type="source" position={Position.Top} style={handleStyle} />
       <Handle id="handle-bottom" type="source" position={Position.Bottom} style={handleStyle} />
       <p className="chapter-flow-node-meta">
-        Trama {typedData.plotNumber} • Blocco {typedData.blockNumber}
+        {plotLabel} {typedData.plotNumber} • {blockLabel} {typedData.blockNumber}
       </p>
       <h4 className="chapter-flow-node-title">{typedData.title}</h4>
       <p className="chapter-flow-node-description">{description}</p>

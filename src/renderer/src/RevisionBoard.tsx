@@ -137,7 +137,7 @@ export default function RevisionBoard({
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore caricamento revisioni');
+      onStatus(t('revision.status.loadError'));
     } finally {
       setLoading(false);
     }
@@ -168,11 +168,11 @@ export default function RevisionBoard({
         setCurrentVersion(current);
         setRevisions(history);
         setSelectedRevisionId(history[0]?.id ?? '');
-        onStatus(`Revisioni caricate: ${entity.title}`);
+        onStatus(t('revision.status.loaded', { title: entity.title }));
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
-        onStatus('Errore caricamento revisioni');
+        onStatus(t('revision.status.loadError'));
       } finally {
         setLoading(false);
       }
@@ -206,11 +206,11 @@ export default function RevisionBoard({
         title: restored.title,
         subtitle: restored.subtitle,
       });
-      onStatus(`Versione ripristinata: ${restored.title}`);
+      onStatus(t('revision.status.restored', { title: restored.title }));
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore ripristino versione');
+      onStatus(t('revision.status.restoreError'));
     } finally {
       setRestoring(false);
     }

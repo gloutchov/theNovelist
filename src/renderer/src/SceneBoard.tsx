@@ -283,7 +283,7 @@ export default function SceneBoard({
           style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
         },
       ]);
-      onStatus('Connessione creata');
+      onStatus(t('story.status.connectionCreated'));
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
@@ -303,7 +303,7 @@ export default function SceneBoard({
         await Promise.all(
           deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
         );
-        onStatus(`${deletedEdges.length} connessioni eliminate`);
+        onStatus(t('story.status.connectionsDeleted', { count: deletedEdges.length }));
       } catch (caughtError) {
         const message =
           caughtError instanceof Error ? caughtError.message : t('common.unknownError');

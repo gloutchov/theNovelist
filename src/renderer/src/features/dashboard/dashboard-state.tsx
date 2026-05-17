@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import type { Translate } from '../../i18n';
 import { formatDateTime, formatInteger, formatPercent, parseTime } from '../../shared/formatters';
 
 export type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
@@ -146,6 +147,7 @@ function getEditorialFoldersFromWords(wordCount: number | null | undefined): num
 export function buildDashboardGoalMetrics(
   project: NonNullable<ProjectRecord>,
   dashboard: DashboardState,
+  t: Translate,
 ): DashboardGoalMetrics {
   const targetWordCount = project.targetWordCount ?? null;
   const targetChapterWordCount = project.targetChapterWordCount ?? null;
@@ -199,22 +201,30 @@ export function buildDashboardGoalMetrics(
       ? remainingWords / Math.max(1, plannedDaysRemaining)
       : null;
 
-  let deliveryStatus = 'Imposta un target parole e una data prevista';
+  let deliveryStatus = t('dashboard.deliveryStatus.missingTarget');
   let deliveryTone: DashboardGoalMetrics['deliveryTone'] = 'neutral';
   if (targetWordCount && plannedDate && estimatedCompletionDate) {
     const driftDays = differenceInDays(estimatedCompletionDate, plannedDate);
     if (driftDays <= 0) {
-      deliveryStatus = 'In linea con la data prevista';
+      deliveryStatus = t('dashboard.deliveryStatus.onTrack');
       deliveryTone = 'success';
     } else {
-      deliveryStatus = `Ritardo stimato: ${driftDays} giorni`;
+      deliveryStatus = t('dashboard.deliveryStatus.estimatedDelay', {
+        count: driftDays,
+        unit:
+          driftDays === 1
+            ? t('dashboard.deliveryStatus.day')
+            : t('dashboard.deliveryStatus.days'),
+      });
       deliveryTone = 'warning';
     }
   } else if (targetWordCount && plannedDate) {
     deliveryStatus =
       requiredWordsPerDay !== null
-        ? `${formatInteger(requiredWordsPerDay)} parole/giorno richieste`
-        : 'Servono sessioni salvate per calcolare la proiezione';
+        ? t('dashboard.deliveryStatus.requiredPace', {
+            count: formatInteger(requiredWordsPerDay),
+          })
+        : t('dashboard.deliveryStatus.needsSessions');
   }
 
   return {
@@ -275,19 +285,21 @@ export function SessionBars({ sessions }: { sessions: DashboardWritingSession[] 
   );
 }
 
-export function DeliveryBars({ metrics }: { metrics: DashboardGoalMetrics }) {
+export function DeliveryBars({ metrics, t }: { metrics: DashboardGoalMetrics; t: Translate }) {
   const requiredWordsPerDay = metrics.requiredWordsPerDay ?? 0;
   const averageWordsPerDay = metrics.averageWordsPerDay ?? 0;
   const maxWordsPerDay = Math.max(1, requiredWordsPerDay, averageWordsPerDay);
 
   return (
-    <div className="dashboard-delivery-bars" aria-label="Confronto ritmo di consegna">
+    <div className="dashboard-delivery-bars" aria-label={t('dashboard.deliveryBars.ariaLabel')}>
       <div>
-        <span>Richiesto</span>
+        <span>{t('dashboard.deliveryBars.required')}</span>
         <strong>
           {metrics.requiredWordsPerDay === null
             ? '-'
-            : `${formatInteger(requiredWordsPerDay)} parole/g`}
+            : t('dashboard.deliveryBars.wordsPerDayShort', {
+                count: formatInteger(requiredWordsPerDay),
+              })}
         </strong>
         <div className="dashboard-horizontal-bar-track">
           <span
@@ -299,11 +311,13 @@ export function DeliveryBars({ metrics }: { metrics: DashboardGoalMetrics }) {
         </div>
       </div>
       <div>
-        <span>Attuale</span>
+        <span>{t('dashboard.deliveryBars.current')}</span>
         <strong>
           {metrics.averageWordsPerDay === null
             ? '-'
-            : `${formatInteger(averageWordsPerDay)} parole/g`}
+            : t('dashboard.deliveryBars.wordsPerDayShort', {
+                count: formatInteger(averageWordsPerDay),
+              })}
         </strong>
         <div className="dashboard-horizontal-bar-track">
           <span

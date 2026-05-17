@@ -31,7 +31,7 @@ import {
   LinkedChaptersPanel,
   type EntityImageSize,
 } from './features/entities/entity-panels';
-import type { Translate } from './i18n';
+import { resolveRendererLanguage, type AppLanguage, type Translate } from './i18n';
 
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
 type LocationImage = Awaited<ReturnType<(typeof window.novelistApi)['listLocationImages']>>[number];
@@ -72,21 +72,40 @@ interface LocationBoardProps {
   t: Translate;
 }
 
-function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
+function getImageGenerationMissingRequirements(
+  settings: CodexSettings | null,
+  language: AppLanguage,
+): string[] {
   const missing: string[] = [];
   if (!settings?.enabled) {
-    missing.push('consenso AI');
+    missing.push(language === 'en' ? 'AI consent' : 'consenso AI');
   }
   if (settings?.provider !== 'openai_api') {
     missing.push('provider OpenAI API');
   }
   if (!settings?.allowApiCalls) {
-    missing.push('chiamate API abilitate');
+    missing.push(language === 'en' ? 'enabled API calls' : 'chiamate API abilitate');
   }
   if (!settings?.hasRuntimeApiKey) {
-    missing.push('API key disponibile');
+    missing.push(language === 'en' ? 'available API key' : 'API key disponibile');
   }
   return missing;
+}
+
+function buildLocationSuggestionPrompt(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Suggest sensory details, narrative atmosphere, and possible conflicts connected to this location.';
+  }
+
+  return 'Suggerisci dettagli sensoriali, atmosfera narrativa e possibili conflitti legati a questa location.';
+}
+
+function buildLocationImagePromptInstruction(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Create a detailed image prompt in English for this location (style, light, perspective, environmental detail).';
+  }
+
+  return 'Crea un prompt immagini dettagliato in italiano per rappresentare questa location (stile, luce, prospettiva, dettaglio ambientale).';
 }
 
 function getAiAssistantLabel(settings: CodexSettings | null): string {
@@ -199,6 +218,7 @@ export default function LocationBoard({
   onWikiSync,
   t,
 }: LocationBoardProps) {
+  const language = resolveRendererLanguage(autosaveSettings);
   const [cards, setCards] = useState<LocationCard[]>([]);
   const [nodes, setNodes] = useState<LocationCanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -479,7 +499,7 @@ export default function LocationBoard({
           style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
         },
       ]);
-      onStatus('Connessione creata');
+      onStatus(t('story.status.connectionCreated'));
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
@@ -499,7 +519,7 @@ export default function LocationBoard({
         await Promise.all(
           deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
         );
-        onStatus(`${deletedEdges.length} connessioni eliminate`);
+        onStatus(t('story.status.connectionsDeleted', { count: deletedEdges.length }));
       } catch (caughtError) {
         const message =
           caughtError instanceof Error ? caughtError.message : t('common.unknownError');
@@ -857,7 +877,7 @@ export default function LocationBoard({
       return;
     }
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
-    const missingRequirements = getImageGenerationMissingRequirements(currentSettings);
+    const missingRequirements = getImageGenerationMissingRequirements(currentSettings, language);
     if (missingRequirements.length > 0) {
       onStatus(
         t('entity.image.missingRequirements', { requirements: missingRequirements.join(', ') }),
@@ -917,8 +937,7 @@ export default function LocationBoard({
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
-        message:
-          'Suggerisci dettagli sensoriali, atmosfera narrativa e possibili conflitti legati a questa location.',
+        message: buildLocationSuggestionPrompt(language),
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
@@ -954,8 +973,7 @@ export default function LocationBoard({
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
-        message:
-          'Crea un prompt immagini dettagliato in italiano per rappresentare questa location (stile, luce, prospettiva, dettaglio ambientale).',
+        message: buildLocationImagePromptInstruction(language),
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
@@ -973,8 +991,10 @@ export default function LocationBoard({
     }
   }
 
-  const missingImageGenerationRequirements =
-    getImageGenerationMissingRequirements(effectiveCodexSettings);
+  const missingImageGenerationRequirements = getImageGenerationMissingRequirements(
+    effectiveCodexSettings,
+    language,
+  );
   const imageGenerationReady = missingImageGenerationRequirements.length === 0;
 
   return (

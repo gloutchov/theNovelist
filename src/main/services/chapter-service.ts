@@ -7,6 +7,7 @@ import {
   type RichTextReferenceType,
 } from '../chapters/rich-text';
 import type { CodexCliService } from '../codex/client';
+import { getMainLanguage, type MainLanguage } from '../i18n';
 import type {
   ChapterDocumentRecord,
   CharacterCardRecord,
@@ -88,7 +89,21 @@ function normalizeRichTextDocumentMentions(
   });
 }
 
-function buildSummaryPrompt(chapterTitle: string, chapterText: string): string {
+function buildSummaryPrompt(
+  chapterTitle: string,
+  chapterText: string,
+  language: MainLanguage,
+): string {
+  if (language === 'en') {
+    return [
+      'Summarize the chapter in English.',
+      `Chapter title: ${chapterTitle}`,
+      'Constraints: one sentence only, 220 characters maximum, no quotation marks, no markdown.',
+      'Text to summarize:',
+      chapterText,
+    ].join('\n\n');
+  }
+
   return [
     'Riassumi il capitolo in italiano.',
     `Titolo capitolo: ${chapterTitle}`,
@@ -416,7 +431,8 @@ export class ChapterService {
       return;
     }
 
-    const summaryRequest = buildSummaryPrompt(node.title, plainText);
+    const language = getMainLanguage();
+    const summaryRequest = buildSummaryPrompt(node.title, plainText, language);
     let summaryText = '';
 
     if (codexSettings.enabled) {
@@ -435,6 +451,7 @@ export class ChapterService {
             apiKey: runtime.runtimeApiKey,
             apiModel: codexSettings.apiModel,
             ollamaModel: codexSettings.ollamaModel,
+            language,
           },
         );
         summaryText = normalizeSummaryText(summaryResult.output);

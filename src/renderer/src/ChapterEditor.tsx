@@ -34,7 +34,7 @@ import { MentionMenu } from './features/editor/mention-menu';
 import { ReferencePanel } from './features/editor/reference-panel';
 import { SelectionContextMenu } from './features/editor/selection-context-menu';
 import { SelectionDiffModal } from './features/editor/selection-diff-modal';
-import { createTranslator, resolveRendererLanguage } from './i18n';
+import { createTranslator, resolveRendererLanguage, type AppLanguage } from './i18n';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -345,19 +345,22 @@ function getAiAssistantLabel(settings: CodexSettings | null): string {
   return 'AI';
 }
 
-function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
+function getImageGenerationMissingRequirements(
+  settings: CodexSettings | null,
+  language: AppLanguage,
+): string[] {
   const missing: string[] = [];
   if (!settings?.enabled) {
-    missing.push('consenso AI');
+    missing.push(language === 'en' ? 'AI consent' : 'consenso AI');
   }
   if (settings?.provider !== 'openai_api') {
     missing.push('provider OpenAI API');
   }
   if (!settings?.allowApiCalls) {
-    missing.push('chiamate API abilitate');
+    missing.push(language === 'en' ? 'enabled API calls' : 'chiamate API abilitate');
   }
   if (!settings?.hasRuntimeApiKey) {
-    missing.push('API key disponibile');
+    missing.push(language === 'en' ? 'available API key' : 'API key disponibile');
   }
   return missing;
 }
@@ -374,21 +377,41 @@ function buildCharacterAutoImagePrompt(input: {
   name: string;
   description: string;
   suggestion: ReturnType<typeof parseCharacterCreationSuggestion>;
+  language: AppLanguage;
 }): string {
   const details = [
-    input.suggestion.sex && `sesso: ${input.suggestion.sex}`,
-    input.suggestion.age !== null && `eta: ${input.suggestion.age}`,
-    input.suggestion.species && `specie: ${input.suggestion.species}`,
-    input.suggestion.hairColor && `capelli: ${input.suggestion.hairColor}`,
-    input.suggestion.eyeColor && `occhi: ${input.suggestion.eyeColor}`,
-    input.suggestion.skinColor && `pelle: ${input.suggestion.skinColor}`,
-    input.suggestion.bald ? 'calvo' : '',
-    input.suggestion.beard && `barba: ${input.suggestion.beard}`,
-    input.suggestion.physique && `corporatura: ${input.suggestion.physique}`,
-    input.suggestion.job && `ruolo: ${input.suggestion.job}`,
+    input.suggestion.sex && `${input.language === 'en' ? 'sex' : 'sesso'}: ${input.suggestion.sex}`,
+    input.suggestion.age !== null &&
+      `${input.language === 'en' ? 'age' : 'eta'}: ${input.suggestion.age}`,
+    input.suggestion.species &&
+      `${input.language === 'en' ? 'species' : 'specie'}: ${input.suggestion.species}`,
+    input.suggestion.hairColor &&
+      `${input.language === 'en' ? 'hair' : 'capelli'}: ${input.suggestion.hairColor}`,
+    input.suggestion.eyeColor &&
+      `${input.language === 'en' ? 'eyes' : 'occhi'}: ${input.suggestion.eyeColor}`,
+    input.suggestion.skinColor &&
+      `${input.language === 'en' ? 'skin' : 'pelle'}: ${input.suggestion.skinColor}`,
+    input.suggestion.bald ? (input.language === 'en' ? 'bald' : 'calvo') : '',
+    input.suggestion.beard &&
+      `${input.language === 'en' ? 'beard' : 'barba'}: ${input.suggestion.beard}`,
+    input.suggestion.physique &&
+      `${input.language === 'en' ? 'build' : 'corporatura'}: ${input.suggestion.physique}`,
+    input.suggestion.job &&
+      `${input.language === 'en' ? 'role' : 'ruolo'}: ${input.suggestion.job}`,
   ]
     .filter(Boolean)
     .join(', ');
+
+  if (input.language === 'en') {
+    return [
+      `Realistic narrative portrait of ${input.name}.`,
+      details ? `Character details: ${details}.` : '',
+      `Use this narrative description as the main visual basis: ${normalizePromptText(input.description, 700)}.`,
+      'Half-body framing, cinematic light, expression consistent with the scene, sharp facial detail, discreet background, high quality.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
 
   return [
     `Ritratto narrativo realistico di ${input.name}.`,
@@ -404,7 +427,25 @@ function buildLocationAutoImagePrompt(input: {
   name: string;
   description: string;
   suggestion: ReturnType<typeof parseLocationCreationSuggestion>;
+  language: AppLanguage;
 }): string {
+  if (input.language === 'en') {
+    return [
+      `Realistic narrative illustration of the location ${input.name}.`,
+      input.suggestion.locationType ? `Location type: ${input.suggestion.locationType}.` : '',
+      `Use this selected text as the main environmental reference: ${normalizePromptText(
+        input.description,
+        800,
+      )}.`,
+      input.suggestion.description
+        ? `Environmental summary: ${normalizePromptText(input.suggestion.description, 500)}.`
+        : '',
+      'Exterior view or establishing shot, cinematic light, atmosphere consistent with the scene, rich environmental detail, high quality.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
   return [
     `Illustrazione narrativa realistica della location ${input.name}.`,
     input.suggestion.locationType ? `Tipologia luogo: ${input.suggestion.locationType}.` : '',
@@ -419,6 +460,22 @@ function buildLocationAutoImagePrompt(input: {
   ]
     .filter(Boolean)
     .join(' ');
+}
+
+function buildCharacterCreationPrompt(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Analyze this character description and return only valid JSON with the keys sex, age, sexualOrientation, species, hairColor, eyeColor, skinColor, bald, beard, physique, job. Use concise strings in English, null for age if unknown, and true for bald only if explicit.';
+  }
+
+  return 'Analizza questa descrizione di personaggio e restituisci solo JSON valido con le chiavi sex, age, sexualOrientation, species, hairColor, eyeColor, skinColor, bald, beard, physique, job. Usa stringhe concise in italiano, null per age se ignota e true per bald solo se esplicito.';
+}
+
+function buildLocationCreationPrompt(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Analyze this location description and return only valid JSON with the keys locationType and description. locationType must be brief; description must be a narrative summary of one or two sentences in English.';
+  }
+
+  return 'Analizza questa descrizione di location e restituisci solo JSON valido con le chiavi locationType e description. locationType deve essere breve; description deve essere una sintesi narrativa di una o due frasi in italiano.';
 }
 
 function getWordCountFromText(text: string): number {
@@ -2797,8 +2854,7 @@ export default function ChapterEditor({
     try {
       const response = await window.novelistApi.codexAssist({
         projectName,
-        message:
-          'Analizza questa descrizione di personaggio e restituisci solo JSON valido con le chiavi sex, age, sexualOrientation, species, hairColor, eyeColor, skinColor, bald, beard, physique, job. Usa stringhe concise in italiano, null per age se ignota e true per bald solo se esplicito.',
+        message: buildCharacterCreationPrompt(language),
         context: JSON.stringify({
           chapterTitle: currentDocumentTitle,
           characterName: name,
@@ -2827,8 +2883,7 @@ export default function ChapterEditor({
     try {
       const response = await window.novelistApi.codexAssist({
         projectName,
-        message:
-          'Analizza questa descrizione di location e restituisci solo JSON valido con le chiavi locationType e description. locationType deve essere breve; description deve essere una sintesi narrativa di una o due frasi in italiano.',
+        message: buildLocationCreationPrompt(language),
         context: JSON.stringify({
           chapterTitle: currentDocumentTitle,
           locationName: name,
@@ -2871,8 +2926,10 @@ export default function ChapterEditor({
 
     try {
       const currentCodexSettings = await refreshCodexSettings();
-      const missingImageGenerationRequirements =
-        getImageGenerationMissingRequirements(currentCodexSettings);
+      const missingImageGenerationRequirements = getImageGenerationMissingRequirements(
+        currentCodexSettings,
+        language,
+      );
       const imageGenerationReady = missingImageGenerationRequirements.length === 0;
       let autoImageGenerated = false;
       let autoImageError: string | null = null;
@@ -2926,6 +2983,7 @@ export default function ChapterEditor({
                 name,
                 description: createReferenceModal.text,
                 suggestion,
+                language,
               }),
               size: '1024x1024',
             });
@@ -2977,6 +3035,7 @@ export default function ChapterEditor({
                 name,
                 description: createReferenceModal.text,
                 suggestion,
+                language,
               }),
               size: '1024x1024',
             });

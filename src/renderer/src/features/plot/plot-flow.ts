@@ -61,6 +61,11 @@ export function sortPlots<T extends { number: number }>(records: T[]): T[] {
 export function mapNodeRecordToFlowNode(
   record: ChapterFlowRecord,
   plots: PlotFlowRecord[],
+  labels?: {
+    blockLabel?: string;
+    noDescriptionLabel?: string;
+    plotLabel?: string;
+  },
 ): ChapterCanvasNode {
   const color = getPlotColor(record.plotNumber, plots);
 
@@ -76,6 +81,9 @@ export function mapNodeRecordToFlowNode(
       description: record.description,
       plotNumber: record.plotNumber,
       blockNumber: record.blockNumber,
+      blockLabel: labels?.blockLabel,
+      noDescriptionLabel: labels?.noDescriptionLabel,
+      plotLabel: labels?.plotLabel,
     },
     style: {
       border: `2px solid ${color}`,

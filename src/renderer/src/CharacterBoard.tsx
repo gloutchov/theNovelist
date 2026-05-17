@@ -31,7 +31,7 @@ import {
   LinkedChaptersPanel,
   type EntityImageSize,
 } from './features/entities/entity-panels';
-import type { Translate } from './i18n';
+import { resolveRendererLanguage, type AppLanguage, type Translate } from './i18n';
 
 type CharacterCard = Awaited<ReturnType<(typeof window.novelistApi)['listCharacterCards']>>[number];
 type CharacterImage = Awaited<
@@ -84,21 +84,40 @@ interface CharacterBoardProps {
   t: Translate;
 }
 
-function getImageGenerationMissingRequirements(settings: CodexSettings | null): string[] {
+function getImageGenerationMissingRequirements(
+  settings: CodexSettings | null,
+  language: AppLanguage,
+): string[] {
   const missing: string[] = [];
   if (!settings?.enabled) {
-    missing.push('consenso AI');
+    missing.push(language === 'en' ? 'AI consent' : 'consenso AI');
   }
   if (settings?.provider !== 'openai_api') {
     missing.push('provider OpenAI API');
   }
   if (!settings?.allowApiCalls) {
-    missing.push('chiamate API abilitate');
+    missing.push(language === 'en' ? 'enabled API calls' : 'chiamate API abilitate');
   }
   if (!settings?.hasRuntimeApiKey) {
-    missing.push('API key disponibile');
+    missing.push(language === 'en' ? 'available API key' : 'API key disponibile');
   }
   return missing;
+}
+
+function buildCharacterSuggestionPrompt(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Suggest credible physical traits, behavioral details, and an internal conflict consistent with this character.';
+  }
+
+  return 'Suggerisci una fisionomia credibile, dettagli comportamentali e conflitto interno coerenti con questo personaggio.';
+}
+
+function buildCharacterImagePromptInstruction(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Create a detailed image prompt in English for a character portrait (framing, light, style, physical details).';
+  }
+
+  return 'Crea un prompt immagini dettagliato in italiano per un ritratto personaggio (inquadratura, luce, stile, dettagli fisici).';
 }
 
 function getAiAssistantLabel(settings: CodexSettings | null): string {
@@ -242,6 +261,7 @@ export default function CharacterBoard({
   onWikiSync,
   t,
 }: CharacterBoardProps) {
+  const language = resolveRendererLanguage(autosaveSettings);
   const [cards, setCards] = useState<CharacterCard[]>([]);
   const [nodes, setNodes] = useState<CharacterCanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -524,7 +544,7 @@ export default function CharacterBoard({
           style: { stroke: 'var(--edge-color)', strokeWidth: 2 },
         },
       ]);
-      onStatus('Connessione creata');
+      onStatus(t('story.status.connectionCreated'));
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
@@ -544,7 +564,7 @@ export default function CharacterBoard({
         await Promise.all(
           deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
         );
-        onStatus(`${deletedEdges.length} connessioni eliminate`);
+        onStatus(t('story.status.connectionsDeleted', { count: deletedEdges.length }));
       } catch (caughtError) {
         const message =
           caughtError instanceof Error ? caughtError.message : t('common.unknownError');
@@ -943,7 +963,7 @@ export default function CharacterBoard({
       return;
     }
     const currentSettings = effectiveCodexSettings ?? (await refreshCodexSettings());
-    const missingRequirements = getImageGenerationMissingRequirements(currentSettings);
+    const missingRequirements = getImageGenerationMissingRequirements(currentSettings, language);
     if (missingRequirements.length > 0) {
       onStatus(
         t('entity.image.missingRequirements', { requirements: missingRequirements.join(', ') }),
@@ -1003,8 +1023,7 @@ export default function CharacterBoard({
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
-        message:
-          'Suggerisci una fisionomia credibile, dettagli comportamentali e conflitto interno coerenti con questo personaggio.',
+        message: buildCharacterSuggestionPrompt(language),
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
@@ -1040,8 +1059,7 @@ export default function CharacterBoard({
     try {
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
-        message:
-          'Crea un prompt immagini dettagliato in italiano per un ritratto personaggio (inquadratura, luce, stile, dettagli fisici).',
+        message: buildCharacterImagePromptInstruction(language),
         context: JSON.stringify(editDraft),
       });
       if (response.cancelled || !response.output.trim()) {
@@ -1059,8 +1077,10 @@ export default function CharacterBoard({
     }
   }
 
-  const missingImageGenerationRequirements =
-    getImageGenerationMissingRequirements(effectiveCodexSettings);
+  const missingImageGenerationRequirements = getImageGenerationMissingRequirements(
+    effectiveCodexSettings,
+    language,
+  );
   const imageGenerationReady = missingImageGenerationRequirements.length === 0;
 
   return (

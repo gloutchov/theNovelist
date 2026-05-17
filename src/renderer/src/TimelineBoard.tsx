@@ -500,12 +500,12 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         buildTimelineBlocks(storyState.nodes, scenes, storyState.plots, timelineState.items, t),
       );
       if (usingLocalTimeline) {
-        onStatus('Timeline caricata con salvataggio locale. Riavvia l’app per usare il database.');
+        onStatus(t('timeline.statusLocalLoaded'));
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore aggiornamento timeline');
+      onStatus(t('timeline.statusRefreshError'));
     } finally {
       setLoading(false);
     }
@@ -548,7 +548,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
           localTimelineStateRef.current = nextState;
           writeLocalTimelineState(projectId, nextState);
           setSettings(fallbackSettings);
-          onStatus('Timeline salvata localmente');
+          onStatus(t('timeline.statusLocalSaved'));
           return;
         }
 
@@ -563,7 +563,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         };
         writeLocalTimelineState(projectIdRef.current, localTimelineStateRef.current);
         setSettings(saved);
-        onStatus('Timeline aggiornata');
+        onStatus(t('timeline.statusUpdated'));
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         const projectId = projectIdRef.current;
@@ -582,8 +582,8 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         localTimelineStateRef.current = nextState;
         writeLocalTimelineState(projectId, nextState);
         setSettings(fallbackSettings);
-        setError(`Salvataggio database non disponibile: ${message}`);
-        onStatus('Timeline salvata localmente');
+        setError(t('timeline.statusDatabaseUnavailable', { message }));
+        onStatus(t('timeline.statusLocalSaved'));
       } finally {
         setSaving(false);
       }
@@ -612,7 +612,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
           };
           localTimelineStateRef.current = nextState;
           writeLocalTimelineState(projectId, nextState);
-          onStatus('Timeline salvata localmente');
+          onStatus(t('timeline.statusLocalSaved'));
           return;
         }
 
@@ -646,7 +646,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
           ],
         };
         writeLocalTimelineState(projectIdRef.current, localTimelineStateRef.current);
-        onStatus('Timeline aggiornata');
+        onStatus(t('timeline.statusUpdated'));
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         const projectId = projectIdRef.current;
@@ -663,8 +663,8 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         };
         localTimelineStateRef.current = nextState;
         writeLocalTimelineState(projectId, nextState);
-        setError(`Salvataggio database non disponibile: ${message}`);
-        onStatus('Timeline salvata localmente');
+        setError(t('timeline.statusDatabaseUnavailable', { message }));
+        onStatus(t('timeline.statusLocalSaved'));
       } finally {
         setSaving(false);
       }

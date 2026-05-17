@@ -1,8 +1,11 @@
+import type { Translate } from '../../i18n';
+
 interface CloseProjectConfirmModalProps {
   busy: boolean;
   onCancel: () => void;
   onCloseWithoutSaving: () => void;
   onSaveAndClose: () => void;
+  t: Translate;
 }
 
 interface CreateProjectModalProps {
@@ -20,6 +23,7 @@ interface CreateProjectModalProps {
   setCreateProjectName: (value: string) => void;
   setCreateProjectTargetChapterWords: (value: string) => void;
   setCreateProjectTargetWords: (value: string) => void;
+  t: Translate;
 }
 
 interface ProjectTargetsModalProps {
@@ -33,6 +37,7 @@ interface ProjectTargetsModalProps {
   setEditProjectCompletionDate: (value: string) => void;
   setEditProjectTargetChapterWords: (value: string) => void;
   setEditProjectTargetWords: (value: string) => void;
+  t: Translate;
 }
 
 export function CloseProjectConfirmModal({
@@ -40,18 +45,16 @@ export function CloseProjectConfirmModal({
   onCancel,
   onCloseWithoutSaving,
   onSaveAndClose,
+  t,
 }: CloseProjectConfirmModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Chiudere il progetto?</h3>
-        <p className="muted">
-          Sono presenti modifiche non ancora persistite. Puoi salvarle prima di chiudere oppure
-          uscire senza salvare.
-        </p>
+        <h3>{t('project.closeConfirm.title')}</h3>
+        <p className="muted">{t('project.closeConfirm.body')}</p>
         <div className="row-buttons modal-actions">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={busy}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -59,10 +62,10 @@ export function CloseProjectConfirmModal({
             onClick={onCloseWithoutSaving}
             disabled={busy}
           >
-            Chiudi senza salvare
+            {t('project.closeConfirm.closeWithoutSaving')}
           </button>
           <button type="button" onClick={onSaveAndClose} disabled={busy}>
-            Salva e chiudi
+            {t('project.closeConfirm.saveAndClose')}
           </button>
         </div>
       </div>
@@ -85,17 +88,18 @@ export function CreateProjectModal({
   setCreateProjectName,
   setCreateProjectTargetChapterWords,
   setCreateProjectTargetWords,
+  t,
 }: CreateProjectModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Crea Progetto</h3>
+        <h3>{t('project.create.title')}</h3>
         <label>
-          Cartella di lavoro
+          {t('project.create.workDirectory')}
           <div className="input-with-button">
             <input
               value={createProjectRoot}
-              placeholder="Seleziona la cartella che conterra il progetto"
+              placeholder={t('project.create.workDirectoryPlaceholder')}
               readOnly
             />
             <button
@@ -104,58 +108,55 @@ export function CreateProjectModal({
               onClick={onSelectDirectory}
               disabled={busy}
             >
-              Sfoglia...
+              {t('project.create.browse')}
             </button>
           </div>
         </label>
         <label>
-          Nome progetto
+          {t('project.create.name')}
           <input
             value={createProjectName}
             onChange={(event) => setCreateProjectName(event.target.value)}
-            placeholder="Titolo progetto"
+            placeholder={t('project.create.namePlaceholder')}
           />
         </label>
         <div className="grid-two">
           <label>
-            Target parole progetto
+            {t('project.targets.projectWords')}
             <input
               type="number"
               min={1}
               value={createProjectTargetWords}
               onChange={(event) => setCreateProjectTargetWords(event.target.value)}
-              placeholder="Es. 80000"
+              placeholder={t('project.targets.projectWordsPlaceholder')}
             />
           </label>
           <label>
-            Target parole capitolo
+            {t('project.targets.chapterWords')}
             <input
               type="number"
               min={1}
               value={createProjectTargetChapterWords}
               onChange={(event) => setCreateProjectTargetChapterWords(event.target.value)}
-              placeholder="Es. 3000"
+              placeholder={t('project.targets.chapterWordsPlaceholder')}
             />
           </label>
         </div>
         <label>
-          Data prevista di completamento
+          {t('project.targets.completionDate')}
           <input
             type="date"
             value={createProjectCompletionDate}
             onChange={(event) => setCreateProjectCompletionDate(event.target.value)}
           />
         </label>
-        <p className="muted">
-          The Novelist creera una sottocartella con il nome del progetto e salvera li database,
-          asset, snapshot e memoria.
-        </p>
+        <p className="muted">{t('project.create.storageNote')}</p>
         <div className="row-buttons modal-actions">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={busy}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button type="button" onClick={onCreateProject} disabled={!canCreateProject}>
-            Crea e Apri
+            {t('project.create.createAndOpen')}
           </button>
         </div>
       </div>
@@ -174,50 +175,49 @@ export function ProjectTargetsModal({
   setEditProjectCompletionDate,
   setEditProjectTargetChapterWords,
   setEditProjectTargetWords,
+  t,
 }: ProjectTargetsModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-card">
-        <h3>Obiettivi progetto</h3>
+        <h3>{t('project.targets.title')}</h3>
         <div className="grid-two">
           <label>
-            Target parole progetto
+            {t('project.targets.projectWords')}
             <input
               type="number"
               min={1}
               value={editProjectTargetWords}
               onChange={(event) => setEditProjectTargetWords(event.target.value)}
-              placeholder="Es. 80000"
+              placeholder={t('project.targets.projectWordsPlaceholder')}
             />
           </label>
           <label>
-            Target parole capitolo
+            {t('project.targets.chapterWords')}
             <input
               type="number"
               min={1}
               value={editProjectTargetChapterWords}
               onChange={(event) => setEditProjectTargetChapterWords(event.target.value)}
-              placeholder="Es. 3000"
+              placeholder={t('project.targets.chapterWordsPlaceholder')}
             />
           </label>
         </div>
         <label>
-          Data prevista di completamento
+          {t('project.targets.completionDate')}
           <input
             type="date"
             value={editProjectCompletionDate}
             onChange={(event) => setEditProjectCompletionDate(event.target.value)}
           />
         </label>
-        <p className="muted">
-          Lascia un campo vuoto per rimuovere il relativo obiettivo dal cruscotto.
-        </p>
+        <p className="muted">{t('project.targets.emptyHelp')}</p>
         <div className="row-buttons modal-actions">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={busy}>
-            Annulla
+            {t('common.cancel')}
           </button>
           <button type="button" onClick={onSaveProjectTargets} disabled={!canSaveProjectTargets}>
-            Salva obiettivi
+            {t('project.targets.save')}
           </button>
         </div>
       </div>

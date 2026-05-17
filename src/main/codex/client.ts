@@ -1,4 +1,5 @@
 import { APP_CONFIG } from '../config/app-config';
+import type { MainLanguage } from '../i18n';
 import { appFetch, toExternalRequestError } from '../network/http';
 
 export type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -13,6 +14,7 @@ export interface CodexRuntimeSettings {
   apiModel: string;
   ollamaModel: string;
   timeoutMs: number;
+  language: MainLanguage;
 }
 
 export interface CodexStatus {
@@ -71,7 +73,99 @@ const DEFAULT_AI_SETTINGS: CodexRuntimeSettings = {
   apiModel: APP_CONFIG.ai.defaultApiModel,
   ollamaModel: APP_CONFIG.ai.defaultOllamaModel,
   timeoutMs: APP_CONFIG.ai.defaultTimeoutMs,
+  language: 'it',
 };
+
+const CODEX_TEXT = {
+  it: {
+    additionalDetail:
+      'Dettaglio aggiuntivo: approfondisci emozioni, contesto e implicazioni della scena per aumentare impatto narrativo.',
+    apiCallsDisabled: 'Chiamate API esterne disabilitate nelle Impostazioni AI.',
+    apiKeyMissing: 'API key mancante: configura OPENAI_API_KEY o la chiave in Impostazioni AI.',
+    cancelled: 'Richiesta annullata',
+    chatAssistant: 'Sei un assistente editoriale per romanzi e racconti.',
+    chatChapter: 'Capitolo corrente',
+    chatExcerpt: 'Estratto capitolo',
+    chatMemory: 'Memoria progetto',
+    chatMemoryRules: [
+      'Quando rispondi usando la memoria progetto:',
+      '- cita i riferimenti disponibili, per esempio [1] o il percorso del file;',
+      '- distingui fatti scritti, schede autore, sintesi wiki e inferenze;',
+      '- se non trovi evidenza sufficiente, scrivi esplicitamente che non hai trovato conferma.',
+    ].join('\n'),
+    chatProject: 'Progetto',
+    chatReplyInstruction: 'Rispondi in italiano in modo operativo e conciso.',
+    chatUserRequest: 'Richiesta utente',
+    fallbackUnavailable: 'Modalita fallback locale attiva: AI non raggiungibile.',
+    fallbackReceived: 'Richiesta ricevuta',
+    fallbackTechnicalDetail: 'Dettaglio tecnico',
+    fallbackSuggestion: 'Suggerimento: verifica impostazioni provider (OpenAI API o Ollama).',
+    noAvailableText: 'risposta senza testo',
+    ollamaDisabled: 'Abilita "chiamate API esterne" nelle Impostazioni AI per usare Ollama.',
+    ollamaMissingModel: 'Modello Ollama non installato',
+    ollamaNoModels: 'nessuno',
+    ollamaTimeout: 'Timeout connessione Ollama',
+    openAiDisabled: 'Abilita "chiamate API esterne" nelle Impostazioni AI per usare OpenAI API.',
+    primaryUnavailable: 'Provider primario non disponibile',
+    project: 'Progetto',
+    providerUnsupported: 'Provider AI non supportato.',
+    requestAction: 'Azione richiesta',
+    selectedText: 'Testo selezionato da modificare',
+    transformChapter: 'Capitolo',
+    transformContext: 'Contesto capitolo',
+    transformEditor: 'Sei un editor narrativo professionale.',
+    transformInstruction: 'Restituisci solo il testo finale, senza commenti, senza markdown.',
+    rewrittenVersion: 'Versione riscritta',
+    unknownError: 'errore sconosciuto',
+  },
+  en: {
+    additionalDetail:
+      'Additional detail: deepen emotion, context, and scene implications to increase narrative impact.',
+    apiCallsDisabled: 'External API calls are disabled in AI Settings.',
+    apiKeyMissing: 'Missing API key: configure OPENAI_API_KEY or the key in AI Settings.',
+    cancelled: 'Request cancelled',
+    chatAssistant: 'You are an editorial assistant for novels and short stories.',
+    chatChapter: 'Current chapter',
+    chatExcerpt: 'Chapter excerpt',
+    chatMemory: 'Project memory',
+    chatMemoryRules: [
+      'When you answer using project memory:',
+      '- cite available references, for example [1] or the file path;',
+      '- distinguish written facts, author cards, wiki summaries, and inferences;',
+      '- if you do not find enough evidence, explicitly say that you found no confirmation.',
+    ].join('\n'),
+    chatProject: 'Project',
+    chatReplyInstruction: 'Reply in English in a practical and concise way.',
+    chatUserRequest: 'User request',
+    fallbackUnavailable: 'Local fallback mode active: AI is unreachable.',
+    fallbackReceived: 'Request received',
+    fallbackTechnicalDetail: 'Technical detail',
+    fallbackSuggestion: 'Suggestion: check provider settings (OpenAI API or Ollama).',
+    noAvailableText: 'response without text',
+    ollamaDisabled: 'Enable "external API calls" in AI Settings to use Ollama.',
+    ollamaMissingModel: 'Ollama model is not installed',
+    ollamaNoModels: 'none',
+    ollamaTimeout: 'Ollama connection timeout',
+    openAiDisabled: 'Enable "external API calls" in AI Settings to use OpenAI API.',
+    primaryUnavailable: 'Primary provider unavailable',
+    project: 'Project',
+    providerUnsupported: 'Unsupported AI provider.',
+    requestAction: 'Requested action',
+    selectedText: 'Selected text to modify',
+    transformChapter: 'Chapter',
+    transformContext: 'Chapter context',
+    transformEditor: 'You are a professional narrative editor.',
+    transformInstruction: 'Return only the final text, with no comments and no markdown.',
+    rewrittenVersion: 'Rewritten version',
+    unknownError: 'unknown error',
+  },
+} as const;
+
+type CodexText = (typeof CODEX_TEXT)[MainLanguage];
+
+function getCodexText(language: MainLanguage = DEFAULT_AI_SETTINGS.language): CodexText {
+  return CODEX_TEXT[language];
+}
 function normalizeRequestTimeoutMs(value: unknown, fallback: number): number {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue) || numericValue < APP_CONFIG.ai.minTimeoutMs) {
@@ -100,6 +194,10 @@ function normalizeSettings(
     apiModel: settings?.apiModel?.trim() || DEFAULT_AI_SETTINGS.apiModel,
     ollamaModel: settings?.ollamaModel?.trim() || DEFAULT_AI_SETTINGS.ollamaModel,
     timeoutMs: normalizeRequestTimeoutMs(settings?.timeoutMs, defaultTimeoutMs),
+    language:
+      settings?.language === 'it' || settings?.language === 'en'
+        ? settings.language
+        : DEFAULT_AI_SETTINGS.language,
   };
 }
 
@@ -134,8 +232,13 @@ function compactWhitespace(text: string): string {
     .trim();
 }
 
-function fallbackTransform(action: CodexTransformAction, sourceText: string): string {
+function fallbackTransform(
+  action: CodexTransformAction,
+  sourceText: string,
+  language: MainLanguage,
+): string {
   const normalized = compactWhitespace(sourceText);
+  const text = getCodexText(language);
   if (!normalized) {
     return sourceText;
   }
@@ -146,66 +249,72 @@ function fallbackTransform(action: CodexTransformAction, sourceText: string): st
   }
 
   if (action === 'riscrivi') {
-    return `Versione riscritta:\n${normalized}`;
+    return `${text.rewrittenVersion}:\n${normalized}`;
   }
 
   if (action === 'espandi') {
-    return `${normalized}\n\nDettaglio aggiuntivo: approfondisci emozioni, contesto e implicazioni della scena per aumentare impatto narrativo.`;
+    return `${normalized}\n\n${text.additionalDetail}`;
   }
 
   return normalized.length > 160 ? `${normalized.slice(0, 157).trim()}...` : normalized;
 }
 
-function fallbackChatResponse(message: string, error?: string): string {
+function fallbackChatResponse(
+  message: string,
+  error: string | undefined,
+  language: MainLanguage,
+): string {
   const clean = compactWhitespace(message);
+  const text = getCodexText(language);
 
   return [
-    'Modalita fallback locale attiva: AI non raggiungibile.',
-    `Richiesta ricevuta: "${clean}".`,
-    error ? `Dettaglio tecnico: ${error}` : null,
-    'Suggerimento: verifica impostazioni provider (OpenAI API o Ollama).',
+    text.fallbackUnavailable,
+    `${text.fallbackReceived}: "${clean}".`,
+    error ? `${text.fallbackTechnicalDetail}: ${error}` : null,
+    text.fallbackSuggestion,
   ]
     .filter(Boolean)
     .join('\n');
 }
 
-function buildTransformPrompt(request: CodexTransformRequest): string {
+function buildTransformPrompt(
+  request: CodexTransformRequest,
+  language: MainLanguage = DEFAULT_AI_SETTINGS.language,
+): string {
   const fullContext = (request.chapterText ?? '').trim();
+  const text = getCodexText(language);
 
   return [
-    'Sei un editor narrativo professionale.',
-    `Azione richiesta: ${request.action}.`,
-    request.projectName ? `Progetto: ${request.projectName}` : null,
-    request.chapterTitle ? `Capitolo: ${request.chapterTitle}` : null,
-    fullContext ? `Contesto capitolo:\n${fullContext.slice(0, 8000)}` : null,
-    'Testo selezionato da modificare:',
+    text.transformEditor,
+    `${text.requestAction}: ${request.action}.`,
+    request.projectName ? `${text.project}: ${request.projectName}` : null,
+    request.chapterTitle ? `${text.transformChapter}: ${request.chapterTitle}` : null,
+    fullContext ? `${text.transformContext}:\n${fullContext.slice(0, 8000)}` : null,
+    `${text.selectedText}:`,
     request.selectedText,
-    'Restituisci solo il testo finale, senza commenti, senza markdown.',
+    text.transformInstruction,
   ]
     .filter(Boolean)
     .join('\n\n');
 }
 
-function buildChatPrompt(request: CodexChatRequest): string {
+function buildChatPrompt(
+  request: CodexChatRequest,
+  language: MainLanguage = DEFAULT_AI_SETTINGS.language,
+): string {
   const chapterContext = (request.chapterText ?? '').trim();
   const projectMemoryContext = (request.projectMemoryContext ?? '').trim();
+  const text = getCodexText(language);
 
   return [
-    'Sei un assistente editoriale per romanzi e racconti.',
-    request.projectName ? `Progetto: ${request.projectName}` : null,
-    request.chapterTitle ? `Capitolo corrente: ${request.chapterTitle}` : null,
-    chapterContext ? `Estratto capitolo:\n${chapterContext.slice(0, 8000)}` : null,
-    projectMemoryContext ? `Memoria progetto:\n${projectMemoryContext}` : null,
-    projectMemoryContext
-      ? [
-          'Quando rispondi usando la memoria progetto:',
-          '- cita i riferimenti disponibili, per esempio [1] o il percorso del file;',
-          '- distingui fatti scritti, schede autore, sintesi wiki e inferenze;',
-          '- se non trovi evidenza sufficiente, scrivi esplicitamente che non hai trovato conferma.',
-        ].join('\n')
-      : null,
-    `Richiesta utente:\n${request.message}`,
-    'Rispondi in italiano in modo operativo e conciso.',
+    text.chatAssistant,
+    request.projectName ? `${text.chatProject}: ${request.projectName}` : null,
+    request.chapterTitle ? `${text.chatChapter}: ${request.chapterTitle}` : null,
+    chapterContext ? `${text.chatExcerpt}:\n${chapterContext.slice(0, 8000)}` : null,
+    projectMemoryContext ? `${text.chatMemory}:\n${projectMemoryContext}` : null,
+    projectMemoryContext ? text.chatMemoryRules : null,
+    `${text.chatUserRequest}:\n${request.message}`,
+    text.chatReplyInstruction,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -255,13 +364,15 @@ async function runOpenAiApi(
   model: string,
   prompt: string,
   timeoutMs: number,
+  language: MainLanguage,
   signal?: AbortSignal,
 ): Promise<CodexResult> {
+  const labels = getCodexText(language);
   if (signal?.aborted) {
     return {
       output: '',
       mode: 'fallback',
-      error: 'Richiesta annullata',
+      error: labels.cancelled,
       cancelled: true,
     };
   }
@@ -304,7 +415,7 @@ async function runOpenAiApi(
       return {
         output: '',
         mode: 'fallback',
-        error: 'OpenAI API risposta senza testo',
+        error: `OpenAI API ${labels.noAvailableText}`,
       };
     }
 
@@ -326,7 +437,7 @@ async function runOpenAiApi(
       return {
         output: '',
         mode: 'fallback',
-        error: 'Richiesta annullata',
+        error: labels.cancelled,
         cancelled: true,
       };
     }
@@ -353,13 +464,15 @@ async function runOllamaApi(
   model: string,
   prompt: string,
   timeoutMs: number,
+  language: MainLanguage,
   signal?: AbortSignal,
 ): Promise<CodexResult> {
+  const labels = getCodexText(language);
   if (signal?.aborted) {
     return {
       output: '',
       mode: 'fallback',
-      error: 'Richiesta annullata',
+      error: labels.cancelled,
       cancelled: true,
     };
   }
@@ -417,7 +530,7 @@ async function runOllamaApi(
       return {
         output: '',
         mode: 'fallback',
-        error: 'Ollama risposta senza testo',
+        error: `Ollama ${labels.noAvailableText}`,
       };
     }
 
@@ -439,7 +552,7 @@ async function runOllamaApi(
       return {
         output: '',
         mode: 'fallback',
-        error: 'Richiesta annullata',
+        error: labels.cancelled,
         cancelled: true,
       };
     }
@@ -461,11 +574,13 @@ interface OllamaTagsResponse {
 
 async function probeOllama(
   timeoutMs: number,
+  language: MainLanguage,
   model?: string,
 ): Promise<{ available: boolean; reason?: string }> {
   const baseUrl = resolveOllamaHost();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const labels = getCodexText(language);
 
   try {
     const response = await appFetch(`${baseUrl}/api/tags`, {
@@ -489,16 +604,16 @@ async function probeOllama(
       if (!modelNames.has(model.trim())) {
         return {
           available: false,
-          reason: `Modello Ollama non installato: ${model.trim()}. Modelli disponibili: ${
-            [...modelNames].join(', ') || 'nessuno'
-          }.`,
+          reason: `${labels.ollamaMissingModel}: ${model.trim()}. ${
+            language === 'en' ? 'Available models' : 'Modelli disponibili'
+          }: ${[...modelNames].join(', ') || labels.ollamaNoModels}.`,
         };
       }
     }
     return { available: true };
   } catch (error) {
     if (controller.signal.aborted) {
-      return { available: false, reason: 'Timeout connessione Ollama' };
+      return { available: false, reason: labels.ollamaTimeout };
     }
     return {
       available: false,
@@ -511,6 +626,7 @@ async function probeOllama(
 
 export const __testing = {
   buildChatPrompt,
+  buildTransformPrompt,
 };
 
 export class CodexCliService {
@@ -534,10 +650,11 @@ export class CodexCliService {
 
     const fallbackProbe = await this.probeProvider(fallbackProvider, runtime);
     if (fallbackProbe.available) {
+      const labels = getCodexText(runtime.language);
       return this.toStatus(
         {
           ...fallbackProbe,
-          reason: `Provider primario non disponibile: ${primaryProbe.reason ?? 'errore sconosciuto'}.`,
+          reason: `${labels.primaryUnavailable}: ${primaryProbe.reason ?? labels.unknownError}.`,
         },
         runtime,
       );
@@ -570,13 +687,14 @@ export class CodexCliService {
     provider: AiProvider,
     runtime: CodexRuntimeSettings,
   ): Promise<ProviderProbe> {
+    const labels = getCodexText(runtime.language);
     if (provider === 'openai_api') {
       if (!runtime.allowApiCalls) {
         return {
           available: false,
           command: 'OpenAI API',
           mode: 'fallback',
-          reason: 'Abilita "chiamate API esterne" nelle Impostazioni AI per usare OpenAI API.',
+          reason: labels.openAiDisabled,
         };
       }
 
@@ -586,7 +704,7 @@ export class CodexCliService {
           available: false,
           command: 'OpenAI API',
           mode: 'fallback',
-          reason: 'API key mancante: configura OPENAI_API_KEY o la chiave in Impostazioni AI.',
+          reason: labels.apiKeyMissing,
         };
       }
 
@@ -603,16 +721,23 @@ export class CodexCliService {
           available: false,
           command: 'ollama',
           mode: 'fallback',
-          reason: 'Abilita "chiamate API esterne" nelle Impostazioni AI per usare Ollama.',
+          reason: labels.ollamaDisabled,
         };
       }
 
-      const probe = await probeOllama(Math.min(this.timeoutMs, 10_000), runtime.ollamaModel);
+      const probe = await probeOllama(
+        Math.min(this.timeoutMs, 10_000),
+        runtime.language,
+        runtime.ollamaModel,
+      );
       return {
         available: probe.available,
         command: `ollama@${resolveOllamaHost()} ${runtime.ollamaModel}`,
         mode: probe.available ? 'api' : 'fallback',
-        reason: probe.available ? undefined : (probe.reason ?? 'Ollama non raggiungibile'),
+        reason: probe.available
+          ? undefined
+          : (probe.reason ??
+            (runtime.language === 'en' ? 'Ollama unreachable' : 'Ollama non raggiungibile')),
       };
     }
 
@@ -620,7 +745,7 @@ export class CodexCliService {
       available: false,
       command: String(provider),
       mode: 'fallback',
-      reason: 'Provider AI non supportato.',
+      reason: labels.providerUnsupported,
     };
   }
 
@@ -637,9 +762,10 @@ export class CodexCliService {
     request: CodexTransformRequest,
     settings?: Partial<CodexRuntimeSettings>,
   ): Promise<CodexResult> {
-    const prompt = buildTransformPrompt(request);
-    return this.enqueuePrompt(prompt, settings, (error) => ({
-      output: fallbackTransform(request.action, request.selectedText),
+    const runtime = normalizeSettings(settings);
+    const prompt = buildTransformPrompt(request, runtime.language);
+    return this.enqueuePrompt(prompt, runtime, (error) => ({
+      output: fallbackTransform(request.action, request.selectedText, runtime.language),
       mode: 'fallback',
       usedCommand: 'fallback',
       error,
@@ -650,9 +776,10 @@ export class CodexCliService {
     request: CodexChatRequest,
     settings?: Partial<CodexRuntimeSettings>,
   ): Promise<CodexResult> {
-    const prompt = buildChatPrompt(request);
-    return this.enqueuePrompt(prompt, settings, (error) => ({
-      output: fallbackChatResponse(request.message, error),
+    const runtime = normalizeSettings(settings);
+    const prompt = buildChatPrompt(request, runtime.language);
+    return this.enqueuePrompt(prompt, runtime, (error) => ({
+      output: fallbackChatResponse(request.message, error, runtime.language),
       mode: 'fallback',
       usedCommand: 'fallback',
       error,
@@ -661,10 +788,9 @@ export class CodexCliService {
 
   private enqueuePrompt(
     prompt: string,
-    settings: Partial<CodexRuntimeSettings> | undefined,
+    runtime: CodexRuntimeSettings,
     fallbackBuilder: (error?: string) => CodexResult,
   ): Promise<CodexResult> {
-    const runtime = normalizeSettings(settings);
     this.queuedRequests += 1;
 
     const execute = async (): Promise<CodexResult> => {
@@ -728,13 +854,14 @@ export class CodexCliService {
     prompt: string,
     signal: AbortSignal,
   ): Promise<CodexResult> {
+    const labels = getCodexText(runtime.language);
     if (provider === 'openai_api') {
       if (!runtime.allowApiCalls) {
         return {
           output: '',
           mode: 'fallback',
           usedCommand: 'openai_api',
-          error: 'Chiamate API esterne disabilitate nelle Impostazioni AI.',
+          error: labels.apiCallsDisabled,
         };
       }
 
@@ -744,11 +871,18 @@ export class CodexCliService {
           output: '',
           mode: 'fallback',
           usedCommand: 'openai_api',
-          error: 'API key mancante: configura OPENAI_API_KEY o la chiave in Impostazioni AI.',
+          error: labels.apiKeyMissing,
         };
       }
 
-      return runOpenAiApi(apiKey, runtime.apiModel, prompt, runtime.timeoutMs, signal);
+      return runOpenAiApi(
+        apiKey,
+        runtime.apiModel,
+        prompt,
+        runtime.timeoutMs,
+        runtime.language,
+        signal,
+      );
     }
 
     if (provider === 'ollama') {
@@ -757,18 +891,18 @@ export class CodexCliService {
           output: '',
           mode: 'fallback',
           usedCommand: 'ollama',
-          error: 'Chiamate API esterne disabilitate nelle Impostazioni AI.',
+          error: labels.apiCallsDisabled,
         };
       }
 
-      return runOllamaApi(runtime.ollamaModel, prompt, runtime.timeoutMs, signal);
+      return runOllamaApi(runtime.ollamaModel, prompt, runtime.timeoutMs, runtime.language, signal);
     }
 
     return {
       output: '',
       mode: 'fallback',
       usedCommand: String(provider),
-      error: 'Provider AI non supportato.',
+      error: labels.providerUnsupported,
     };
   }
 }

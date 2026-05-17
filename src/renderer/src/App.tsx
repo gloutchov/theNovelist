@@ -97,7 +97,12 @@ import {
 } from './features/settings/app-preferences';
 import { SettingsModal } from './features/settings/settings-modal';
 import { CreateStoryNodeModal, EditStoryNodeModal } from './features/story/story-node-modals';
-import { createTranslator, resolveRendererLanguage } from './i18n';
+import {
+  createTranslator,
+  resolveRendererLanguage,
+  type AppLanguage,
+  type TranslationKey,
+} from './i18n';
 import { parseTime } from './shared/formatters';
 import { getStatusTone } from './status-tone';
 
@@ -141,6 +146,76 @@ function mapEdgeRecordToFlowEdge(
   };
 }
 
+function buildPlotStructurePrompt(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Analyze this plot and return only valid JSON in the format {"blocks":[{"title":"...","description":"..."}]}. Generate 4 to 12 narrative blocks, in chronological order, with short titles and concise descriptions in English.';
+  }
+
+  return 'Analizza questa trama e restituisci solo JSON valido nel formato {"blocks":[{"title":"...","description":"..."}]}. Genera da 4 a 12 blocchi narrativi, in ordine cronologico, con titoli brevi e descrizioni concise in italiano.';
+}
+
+function buildPlotStructureRepairPrompt(language: AppLanguage): string {
+  if (language === 'en') {
+    return 'Fix the following output and return only valid JSON in the format {"blocks":[{"title":"...","description":"..."}]}. There must be 4 to 12 chronologically ordered narrative blocks, each with a title and description. Do not add text outside the JSON.';
+  }
+
+  return 'Correggi il seguente output e restituisci solo JSON valido nel formato {"blocks":[{"title":"...","description":"..."}]}. Devono esserci da 4 a 12 blocchi narrativi ordinati cronologicamente, con titolo e descrizione per ogni blocco. Non aggiungere testo fuori dal JSON.';
+}
+
+function getWorkspaceStatusKey(tab: WorkspaceTab, hasProject: boolean): TranslationKey {
+  if (!hasProject) {
+    switch (tab) {
+      case 'dashboard':
+        return 'dashboard.project.none';
+      case 'outline':
+        return 'outline.emptyProject';
+      case 'timeline':
+        return 'timeline.emptyProject';
+      case 'plots':
+        return 'plot.emptyProject';
+      case 'story':
+        return 'story.emptyProject';
+      case 'scenes':
+        return 'scene.emptyProject';
+      case 'characters':
+        return 'entity.character.emptyProject';
+      case 'locations':
+        return 'entity.location.emptyProject';
+      case 'revisions':
+        return 'revision.emptyProject';
+      case 'analysis':
+        return 'analysis.emptyProject';
+      case 'memory':
+        return 'memory.emptyProject';
+    }
+  }
+
+  switch (tab) {
+    case 'dashboard':
+      return 'dashboard.status.ready';
+    case 'outline':
+      return 'outline.status.ready';
+    case 'timeline':
+      return 'timeline.ready';
+    case 'plots':
+      return 'plot.status.ready';
+    case 'story':
+      return 'story.status.ready';
+    case 'scenes':
+      return 'scene.status.ready';
+    case 'characters':
+      return 'entity.status.characterCanvasLoaded';
+    case 'locations':
+      return 'entity.status.locationCanvasLoaded';
+    case 'revisions':
+      return 'revision.status.ready';
+    case 'analysis':
+      return 'analysis.status.ready';
+    case 'memory':
+      return 'memory.status.ready';
+  }
+}
+
 export default function App() {
   const [status, setStatus] = useState<string>('Nessun progetto aperto');
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +231,14 @@ export default function App() {
   } = useAppPreferencesState({ setError, setStatus });
   const appLanguage = resolveRendererLanguage(appPreferences);
   const t = useMemo(() => createTranslator(appLanguage), [appLanguage]);
+  const chapterFlowLabels = useMemo(
+    () => ({
+      blockLabel: t('story.flow.block'),
+      noDescriptionLabel: t('story.flow.noDescription'),
+      plotLabel: t('common.plot'),
+    }),
+    [t],
+  );
   const [lastAiMemorySources, setLastAiMemorySources] = useState<CodexMemorySource[]>([]);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<DashboardState>(() => createEmptyDashboardState());
@@ -300,6 +383,11 @@ export default function App() {
   const previousStoryProjectRootRef = useRef<string | null>(null);
   const previousPlotTabRef = useRef<WorkspaceTab>('dashboard');
   const previousPlotCountRef = useRef<number>(0);
+  const previousStatusContextRef = useRef<{
+    tab: WorkspaceTab | null;
+    language: AppLanguage | null;
+    hasProject: boolean | null;
+  }>({ tab: null, language: null, hasProject: null });
   const storyAutosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storyAutosaveInFlightRef = useRef<boolean>(false);
 
@@ -309,8 +397,8 @@ export default function App() {
     [nodesById, selectedNodeId],
   );
   const dashboardGoalMetrics = useMemo(
-    () => (currentProject ? buildDashboardGoalMetrics(currentProject, dashboard) : null),
-    [currentProject, dashboard],
+    () => (currentProject ? buildDashboardGoalMetrics(currentProject, dashboard, t) : null),
+    [currentProject, dashboard, t],
   );
   const editPlotLabel = useMemo(
     () => plots.find((plot) => plot.number === editPlotNumber)?.label?.trim() ?? '',
@@ -463,7 +551,9 @@ export default function App() {
 
     const state = await window.novelistApi.getStoryState();
     setPlots(state.plots);
-    setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
+    setNodes(
+      state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots, chapterFlowLabels)),
+    );
     setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
   }
 
@@ -597,7 +687,9 @@ export default function App() {
         )[0] ?? null;
 
       setPlots(state.plots);
-      setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
+      setNodes(
+        state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots, chapterFlowLabels)),
+      );
       setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
       setDashboard({
         loading: false,
@@ -652,7 +744,7 @@ export default function App() {
         error: message,
       }));
       setError(message);
-      setStatus('Errore aggiornamento cruscotto');
+      setStatus(t('dashboard.status.refreshError'));
     }
   }, []);
 
@@ -759,7 +851,9 @@ export default function App() {
       });
 
       setPlots(state.plots);
-      setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
+      setNodes(
+        state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots, chapterFlowLabels)),
+      );
       setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
       setOutline({
         loading: false,
@@ -781,9 +875,9 @@ export default function App() {
         error: message,
       }));
       setError(message);
-      setStatus('Errore aggiornamento scaletta');
+      setStatus(t('outline.status.refreshError'));
     }
-  }, [currentProject]);
+  }, [chapterFlowLabels, currentProject, t]);
 
   const syncOutlineOrder = useCallback(
     async (nextChapters: OutlineChapter[]): Promise<void> => {
@@ -819,21 +913,22 @@ export default function App() {
 
         await refreshOutlineData();
         await syncProjectWikiAfterWorkspaceChange();
-        setStatus('Scaletta sincronizzata con il canvas Capitoli');
+        setStatus(t('outline.status.synced'));
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setOutline((previous) => ({
           ...previous,
           saving: false,
           error: message,
         }));
         setError(message);
-        setStatus('Errore sincronizzazione scaletta');
+        setStatus(t('outline.status.syncError'));
       } finally {
         setBusy(false);
       }
     },
-    [currentProject, refreshOutlineData, syncProjectWikiAfterWorkspaceChange],
+    [currentProject, refreshOutlineData, syncProjectWikiAfterWorkspaceChange, t],
   );
 
   function handleOutlineDrop(targetChapterId: string): void {
@@ -886,6 +981,22 @@ export default function App() {
     void refreshMemoryStorySummary();
   }, [activeTab, refreshMemoryStorySummary]);
 
+  useEffect(() => {
+    const hasProject = Boolean(currentProject);
+    const previousContext = previousStatusContextRef.current;
+    previousStatusContextRef.current = { tab: activeTab, language: appLanguage, hasProject };
+
+    const enteringDifferentTab = previousContext.tab !== activeTab;
+    const languageChanged = previousContext.language !== appLanguage;
+    const projectClosed = previousContext.hasProject === true && !hasProject;
+    const initialStatus = previousContext.tab === null;
+    if (!enteringDifferentTab && !languageChanged && !projectClosed && !initialStatus) {
+      return;
+    }
+
+    setStatus(t(getWorkspaceStatusKey(activeTab, hasProject)));
+  }, [activeTab, appLanguage, currentProject, t]);
+
   function openMemoryTab(): void {
     resetWikiSearch();
     setActiveTab('memory');
@@ -912,10 +1023,9 @@ export default function App() {
     ).updateProjectPlanning;
 
     if (typeof updateProjectPlanning !== 'function') {
-      const message =
-        "La sessione dell'app non ha ancora caricato il salvataggio obiettivi. Riavvia The Novelist e riprova.";
+      const message = t('project.status.goalsUnavailable');
       setError(message);
-      setStatus('Riavvia l’app per salvare gli obiettivi progetto');
+      setStatus(t('project.status.goalsUnsaved'));
       return;
     }
 
@@ -929,20 +1039,19 @@ export default function App() {
       };
       const project = await updateProjectPlanning(planningInput);
       if (!projectPlanningMatches(project, planningInput)) {
-        const message =
-          'Gli obiettivi non sono stati confermati dal processo principale. Riavvia The Novelist e riprova.';
+        const message = t('project.status.goalsUnavailable');
         setError(message);
-        setStatus('Obiettivi progetto non salvati');
+        setStatus(t('project.status.goalsUnsaved'));
         return;
       }
       setCurrentProject(project);
       setIsProjectTargetsModalOpen(false);
-      setStatus('Obiettivi progetto aggiornati');
+      setStatus(t('project.status.goalsSaved'));
       void refreshDashboardData();
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore aggiornamento obiettivi progetto');
+      setStatus(t('project.status.goalsSaveError'));
     } finally {
       setBusy(false);
     }
@@ -957,7 +1066,9 @@ export default function App() {
       resetStoryWorkspace();
       setCurrentProject(project);
       setPlots(state.plots);
-      setNodes(state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots)));
+      setNodes(
+        state.nodes.map((node) => mapNodeRecordToFlowNode(node, state.plots, chapterFlowLabels)),
+      );
       setEdges(state.edges.map((edge) => mapEdgeRecordToFlowEdge(edge)));
       setActiveTab('dashboard');
       loadAiSettings(settings);
@@ -968,7 +1079,13 @@ export default function App() {
       setStatus(statusMessage);
       void refreshDashboardData();
     },
-    [loadAiSettings, refreshDashboardData, resetStoryWorkspace, resetWikiSearch],
+    [
+      chapterFlowLabels,
+      loadAiSettings,
+      refreshDashboardData,
+      resetStoryWorkspace,
+      resetWikiSearch,
+    ],
   );
 
   async function handleCreateProject(): Promise<void> {
@@ -978,7 +1095,7 @@ export default function App() {
     const targetChapterWordCount = toOptionalPositiveInteger(createProjectTargetChapterWords);
     const plannedCompletionDate = createProjectCompletionDate.trim() || null;
     if (!rootPath || !name) {
-      setStatus('Seleziona una cartella e inserisci un nome progetto.');
+      setStatus(t('project.status.requireDirectoryAndName'));
       return;
     }
 
@@ -1002,21 +1119,19 @@ export default function App() {
         plannedCompletionDate !== null;
       const planningPersisted = projectPlanningMatches(project, planningInput);
       if (shouldPersistPlanning && !planningPersisted) {
-        setError(
-          'Il progetto e stato creato, ma gli obiettivi non sono stati confermati dal processo principale. Riavvia The Novelist e reinseriscili dal cruscotto.',
-        );
+        setError(t('project.status.goalsUnavailable'));
       }
       resetCreateProjectFormAfterCreate(project);
       await syncOpenedProject(
         project,
         shouldPersistPlanning && !planningPersisted
-          ? 'Progetto creato senza obiettivi salvati'
-          : `Progetto creato: ${project.name}`,
+          ? t('project.status.createdWithoutGoals')
+          : t('project.status.created', { name: project.name }),
       );
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in creazione progetto');
+      setStatus(t('project.status.createError'));
     } finally {
       setBusy(false);
     }
@@ -1035,11 +1150,11 @@ export default function App() {
       const project = await window.novelistApi.openProject({
         rootPath: selectedPath,
       });
-      await syncOpenedProject(project, `Progetto aperto: ${project.name}`);
+      await syncOpenedProject(project, t('project.status.opened', { name: project.name }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in apertura progetto');
+      setStatus(t('project.status.openError'));
     } finally {
       setBusy(false);
     }
@@ -1047,7 +1162,7 @@ export default function App() {
 
   async function handleSaveProject(): Promise<void> {
     if (!currentProject) {
-      setStatus('Apri o crea prima un progetto');
+      setStatus(t('project.status.requireOpenProject'));
       return;
     }
 
@@ -1055,12 +1170,12 @@ export default function App() {
     setError(null);
     try {
       const snapshot = await window.novelistApi.saveSnapshot({ reason: 'manual' });
-      setStatus(`Progetto salvato: ${snapshot.fileName}`);
+      setStatus(t('project.status.saved', { name: snapshot.fileName }));
       void refreshDashboardData();
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore salvataggio progetto');
+      setStatus(t('project.status.saveError'));
     } finally {
       setBusy(false);
     }
@@ -1082,11 +1197,11 @@ export default function App() {
       setActiveTab('dashboard');
       setDashboard(createEmptyDashboardState());
       resetStoryWorkspace();
-      setStatus('Progetto chiuso');
+      setStatus(t('project.status.closed'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore chiusura progetto');
+      setStatus(t('project.status.closeError'));
     } finally {
       setBusy(false);
     }
@@ -1132,9 +1247,10 @@ export default function App() {
       try {
         await window.novelistApi.saveSnapshot({ reason: 'manual' });
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
-        setStatus('Errore salvataggio progetto prima della chiusura');
+        setStatus(t('project.status.saveBeforeCloseError'));
         return false;
       } finally {
         setBusy(false);
@@ -1166,11 +1282,11 @@ export default function App() {
       }
 
       setCreateProjectRoot(selectedPath);
-      setStatus(`Cartella di lavoro selezionata: ${selectedPath}`);
+      setStatus(t('project.status.directorySelected', { path: selectedPath }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore selezione cartella progetto');
+      setStatus(t('project.status.directorySelectError'));
     }
   }
 
@@ -1179,7 +1295,7 @@ export default function App() {
       return;
     }
     if (plots.some((plot) => plot.number === newPlotNumber)) {
-      setStatus(`La trama ${newPlotNumber} esiste gia.`);
+      setStatus(t('plot.status.alreadyExists', { number: newPlotNumber }));
       return;
     }
 
@@ -1205,14 +1321,16 @@ export default function App() {
 
       await refreshStoryState();
       setStatus(
-        `Trama creata: ${normalizePlotLabel(newPlotNumber, newPlotLabel, t('common.plot'))}`,
+        t('plot.status.created', {
+          name: normalizePlotLabel(newPlotNumber, newPlotLabel, t('common.plot')),
+        }),
       );
       setNewNodePlotNumber(newPlotNumber);
       resetPlotDraftAfterCreate(newPlotNumber + 1);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in creazione trama');
+      setStatus(t('plot.status.createError'));
     } finally {
       setBusy(false);
     }
@@ -1223,11 +1341,11 @@ export default function App() {
       return;
     }
     if (!newPlotSummary.trim()) {
-      setStatus('Inserisci prima una bozza trama per creare la struttura.');
+      setStatus(t('plot.status.requireSummaryForStructure'));
       return;
     }
     if (plots.some((plot) => plot.number === newPlotNumber)) {
-      setStatus(`La trama ${newPlotNumber} esiste gia.`);
+      setStatus(t('plot.status.alreadyExists', { number: newPlotNumber }));
       return;
     }
 
@@ -1281,9 +1399,7 @@ export default function App() {
       loadAiSettings(runtimeAiSettings);
       if (!runtimeAiSettings.enabled) {
         await refreshStoryState();
-        setStatus(
-          'Trama salvata. Abilita prima il consenso AI nelle Impostazioni AI per creare la struttura.',
-        );
+        setStatus(t('plot.status.savedAiConsentRequired'));
         setNewNodePlotNumber(createdPlot.number);
         resetPlotDraftAfterCreate(createdPlot.number + 1);
         return;
@@ -1294,16 +1410,18 @@ export default function App() {
         await refreshStoryState();
         setStatus(
           runtimeAiStatus.reason?.trim()
-            ? `Struttura trama non disponibile: ${runtimeAiStatus.reason}`
-            : 'Struttura trama non disponibile: provider AI non raggiungibile.',
+            ? t('plot.status.structureUnavailableWithReason', { reason: runtimeAiStatus.reason })
+            : t('plot.status.structureProviderUnavailable'),
         );
         return;
       }
 
-      setStatus('AI sta creando la struttura della trama...');
-      const structureRequestMessage =
-        'Analizza questa trama e restituisci solo JSON valido nel formato {"blocks":[{"title":"...","description":"..."}]}. Genera da 4 a 12 blocchi narrativi, in ordine cronologico, con titoli brevi e descrizioni concise in italiano.';
-      const structureRequestContext = `Numero trama: ${savedPlot.number}\nTitolo trama: ${savedPlot.label}\nBozza trama:\n${savedPlot.summary}`;
+      setStatus(t('plot.status.structureCreating'));
+      const structureRequestMessage = buildPlotStructurePrompt(appLanguage);
+      const structureRequestContext =
+        appLanguage === 'en'
+          ? `Plot number: ${savedPlot.number}\nPlot title: ${savedPlot.label}\nPlot draft:\n${savedPlot.summary}`
+          : `Numero trama: ${savedPlot.number}\nTitolo trama: ${savedPlot.label}\nBozza trama:\n${savedPlot.summary}`;
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject.name,
         message: structureRequestMessage,
@@ -1312,7 +1430,7 @@ export default function App() {
 
       if (response.cancelled || !response.output.trim()) {
         await refreshStoryState();
-        setStatus('Richiesta AI annullata');
+        setStatus(t('entity.status.aiRequestCancelled'));
         return;
       }
 
@@ -1320,25 +1438,24 @@ export default function App() {
         await refreshStoryState();
         setStatus(
           response.error?.trim()
-            ? `Struttura trama non disponibile: ${response.error}`
-            : 'Struttura trama non disponibile: il provider AI e andato in fallback.',
+            ? t('plot.status.structureUnavailableWithReason', { reason: response.error })
+            : t('plot.status.structureFallback'),
         );
         return;
       }
 
       let blocks = tryParsePlotStructureBlocks(response.output);
       if (blocks.length < 4) {
-        setStatus('AI sta raffinando la struttura della trama...');
+        setStatus(t('plot.status.structureRefining'));
         const repairResponse = await window.novelistApi.codexAssist({
           projectName: currentProject.name,
-          message:
-            'Correggi il seguente output e restituisci solo JSON valido nel formato {"blocks":[{"title":"...","description":"..."}]}. Devono esserci da 4 a 12 blocchi narrativi ordinati cronologicamente, con titolo e descrizione per ogni blocco. Non aggiungere testo fuori dal JSON.',
-          context: `${structureRequestContext}\n\nOutput precedente da correggere:\n${response.output}`,
+          message: buildPlotStructureRepairPrompt(appLanguage),
+          context: `${structureRequestContext}\n\n${t('plot.status.structureRepairContextLabel')}:\n${response.output}`,
         });
 
         if (repairResponse.cancelled || !repairResponse.output.trim()) {
           await refreshStoryState();
-          setStatus('Richiesta AI annullata');
+          setStatus(t('entity.status.aiRequestCancelled'));
           return;
         }
 
@@ -1346,8 +1463,8 @@ export default function App() {
           await refreshStoryState();
           setStatus(
             repairResponse.error?.trim()
-              ? `Struttura trama non disponibile: ${repairResponse.error}`
-              : 'Struttura trama non disponibile: il provider AI e andato in fallback.',
+              ? t('plot.status.structureUnavailableWithReason', { reason: repairResponse.error })
+              : t('plot.status.structureFallback'),
           );
           return;
         }
@@ -1357,7 +1474,7 @@ export default function App() {
 
       if (blocks.length < 4) {
         await refreshStoryState();
-        setStatus('La AI non ha restituito una struttura trama sufficientemente articolata.');
+        setStatus(t('plot.status.structureTooShort'));
         return;
       }
 
@@ -1392,13 +1509,13 @@ export default function App() {
 
       await refreshStoryState();
       setActiveTab('story');
-      setStatus(`Struttura trama creata: ${createdNodes.length} blocchi`);
+      setStatus(t('plot.status.structureCreated', { count: createdNodes.length }));
       setNewNodePlotNumber(savedPlot.number);
       resetPlotDraftAfterCreate(savedPlot.number + 1);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore creazione struttura trama');
+      setStatus(t('plot.status.structureCreateError'));
     } finally {
       setPlotStructureBusy(false);
       setBusy(false);
@@ -1423,12 +1540,12 @@ export default function App() {
       });
       setPlots((prev) => sortPlots(prev.map((plot) => (plot.id === saved.id ? saved : plot))));
       resetPlotEditor();
-      setStatus(`Trama salvata: ${saved.label}`);
+      setStatus(t('plot.status.saved', { name: saved.label }));
       void syncProjectWikiAfterWorkspaceChange();
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore salvataggio trama');
+      setStatus(t('plot.status.saveError'));
     } finally {
       setBusy(false);
     }
@@ -1446,10 +1563,8 @@ export default function App() {
     ).deletePlot;
 
     if (typeof deletePlot !== 'function') {
-      setError(
-        "Questa sessione dell'app non ha ancora caricato la nuova API di eliminazione trama. Riavvia l'app e riprova.",
-      );
-      setStatus('Riavvia l’app per completare l’aggiornamento della funzione Elimina Trama');
+      setError(t('plot.status.deleteApiUnavailableDetail'));
+      setStatus(t('plot.status.deleteApiUnavailable'));
       return;
     }
 
@@ -1469,11 +1584,11 @@ export default function App() {
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
       resetPlotEditor();
-      setStatus(`Trama eliminata: ${deletedPlotLabel}`);
+      setStatus(t('plot.status.deleted', { name: deletedPlotLabel }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in eliminazione trama');
+      setStatus(t('plot.status.deleteError'));
     } finally {
       setBusy(false);
     }
@@ -1505,17 +1620,17 @@ export default function App() {
         positionY: nextPosition.y,
       });
 
-      setNodes((prev) => [...prev, mapNodeRecordToFlowNode(created, plots)]);
-      setStatus(`Blocco creato: ${created.title}`);
+      setNodes((prev) => [...prev, mapNodeRecordToFlowNode(created, plots, chapterFlowLabels)]);
+      setStatus(t('story.status.blockCreated', { title: created.title }));
       setSelectedNodeId(created.id);
-      setNewNodeTitle('Nuovo capitolo');
+      setNewNodeTitle(t('story.modal.titlePlaceholder'));
       setNewNodeDescription('');
       setNewNodeBlockNumber('');
       setIsNewNodeModalOpen(false);
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in creazione blocco');
+      setStatus(t('story.status.blockCreateError'));
     } finally {
       setBusy(false);
     }
@@ -1544,11 +1659,11 @@ export default function App() {
           targetHandle: connection.targetHandle,
         }),
       ]);
-      setStatus('Connessione creata');
+      setStatus(t('story.status.connectionCreated'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in creazione connessione');
+      setStatus(t('story.status.connectionCreateError'));
     } finally {
       setBusy(false);
     }
@@ -1574,18 +1689,18 @@ export default function App() {
           prev.map((item) =>
             item.id === node.id
               ? {
-                  ...mapNodeRecordToFlowNode(updated, plots),
+                  ...mapNodeRecordToFlowNode(updated, plots, chapterFlowLabels),
                   selected: item.selected,
                 }
               : item,
           ),
         );
-        setStatus(`Posizione blocco salvata: ${updated.title}`);
+        setStatus(t('story.status.blockPositionSaved', { title: updated.title }));
       }
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore nel salvataggio posizione blocco');
+      setStatus(t('story.status.blockPositionSaveError'));
     }
   };
 
@@ -1642,7 +1757,9 @@ export default function App() {
 
         setNodes((prev) =>
           prev.map((item) =>
-            item.id === editNodeId ? mapNodeRecordToFlowNode(updated, plots) : item,
+            item.id === editNodeId
+              ? mapNodeRecordToFlowNode(updated, plots, chapterFlowLabels)
+              : item,
           ),
         );
         setEditTitle(updated.title);
@@ -1650,16 +1767,17 @@ export default function App() {
         setEditPlotNumber(updated.plotNumber);
         setEditBlockNumber(updated.blockNumber);
         if (!options?.silent) {
-          setStatus(options?.successStatus ?? `Blocco salvato: ${updated.title}`);
+          setStatus(options?.successStatus ?? t('story.status.blockSaved', { title: updated.title }));
         }
         if (options?.closeAfterSave) {
           setEditNodeId(null);
         }
         return true;
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
-        setStatus('Errore nel salvataggio blocco');
+        setStatus(t('story.status.blockSaveError'));
         return false;
       } finally {
         setBusy(false);
@@ -1674,6 +1792,8 @@ export default function App() {
       isStoryEditDirty,
       nodes,
       plots,
+      chapterFlowLabels,
+      t,
     ],
   );
 
@@ -1696,11 +1816,11 @@ export default function App() {
         prev.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId),
       );
       setSelectedNodeId(null);
-      setStatus('Blocco eliminato');
+      setStatus(t('story.status.blockDeleted'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in eliminazione blocco');
+      setStatus(t('story.status.blockDeleteError'));
     } finally {
       setBusy(false);
     }
@@ -1718,11 +1838,11 @@ export default function App() {
       await window.novelistApi.deleteStoryEdge({ id: selectedEdgeId });
       setEdges((prev) => prev.filter((edge) => edge.id !== selectedEdgeId));
       setSelectedEdgeId(null);
-      setStatus('Connessione eliminata');
+      setStatus(t('story.status.connectionDeleted'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore in eliminazione connessione');
+      setStatus(t('story.status.connectionDeleteError'));
     } finally {
       setBusy(false);
     }
@@ -1785,27 +1905,33 @@ export default function App() {
     }
   }
 
-  const onEdgesDelete: OnEdgesDelete = useCallback(async (deletedEdges) => {
-    if (deletedEdges.length === 0) {
-      return;
-    }
+  const onEdgesDelete: OnEdgesDelete = useCallback(
+    async (deletedEdges) => {
+      if (deletedEdges.length === 0) {
+        return;
+      }
 
-    await Promise.all(
-      deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
-    );
-    setStatus(`${deletedEdges.length} connessioni eliminate`);
-  }, []);
+      await Promise.all(
+        deletedEdges.map((edge) => window.novelistApi.deleteStoryEdge({ id: edge.id })),
+      );
+      setStatus(t('story.status.connectionsDeleted', { count: deletedEdges.length }));
+    },
+    [t],
+  );
 
-  const onNodesDelete: OnNodesDelete<ChapterCanvasNode> = useCallback(async (deletedNodes) => {
-    if (deletedNodes.length === 0) {
-      return;
-    }
+  const onNodesDelete: OnNodesDelete<ChapterCanvasNode> = useCallback(
+    async (deletedNodes) => {
+      if (deletedNodes.length === 0) {
+        return;
+      }
 
-    await Promise.all(
-      deletedNodes.map((node) => window.novelistApi.deleteStoryNode({ id: node.id })),
-    );
-    setStatus(`${deletedNodes.length} blocchi eliminati`);
-  }, []);
+      await Promise.all(
+        deletedNodes.map((node) => window.novelistApi.deleteStoryNode({ id: node.id })),
+      );
+      setStatus(t('story.status.blocksDeleted', { count: deletedNodes.length }));
+    },
+    [t],
+  );
 
   const onSelectionChange = useCallback(
     (selection: OnSelectionChangeParams<ChapterCanvasNode, Edge>) => {
@@ -1904,9 +2030,12 @@ export default function App() {
         return;
       }
 
-      await syncOpenedProject(existingProject, `Sessione ripristinata: ${existingProject.name}`);
+      await syncOpenedProject(
+        existingProject,
+        t('project.status.restored', { name: existingProject.name }),
+      );
     })();
-  }, [refreshAppPreferences, setAppPreferences, syncOpenedProject]);
+  }, [refreshAppPreferences, setAppPreferences]);
 
   useEffect(() => {
     if (storyAutosaveTimeoutRef.current) {
@@ -2296,7 +2425,7 @@ export default function App() {
 
                           <div className="outline-reference-grid">
                             <div>
-                              <span>Scene</span>
+                              <span>{t('shell.tabs.scenes')}</span>
                               <div className="outline-chip-list">
                                 {chapter.scenes.length > 0 ? (
                                   chapter.scenes.map((scene) => (
@@ -2310,7 +2439,7 @@ export default function App() {
                               </div>
                             </div>
                             <div>
-                              <span>Personaggi</span>
+                              <span>{t('shell.tabs.characters')}</span>
                               <div className="outline-chip-list">
                                 {chapter.characters.length > 0 ? (
                                   chapter.characters.map((character) => (
@@ -2324,7 +2453,7 @@ export default function App() {
                               </div>
                             </div>
                             <div>
-                              <span>Location</span>
+                              <span>{t('shell.tabs.locations')}</span>
                               <div className="outline-chip-list">
                                 {chapter.locations.length > 0 ? (
                                   chapter.locations.map((location) => (
@@ -2688,10 +2817,15 @@ export default function App() {
 
       {activeTab === 'analysis' ? (
         currentProject ? (
-          <AnalysisBoard currentProject={currentProject} onStatus={handleWorkspaceStatus} />
+          <AnalysisBoard
+            currentProject={currentProject}
+            language={appLanguage}
+            onStatus={handleWorkspaceStatus}
+            t={t}
+          />
         ) : (
           <section className="panel">
-            <p>Apri o crea un progetto per usare gli strumenti di analisi.</p>
+            <p>{t('analysis.emptyProject')}</p>
           </section>
         )
       ) : null}
@@ -2762,6 +2896,7 @@ export default function App() {
               await performCloseProject();
             })();
           }}
+          t={t}
         />
       ) : null}
 
@@ -2781,6 +2916,7 @@ export default function App() {
           setCreateProjectName={setCreateProjectName}
           setCreateProjectTargetChapterWords={setCreateProjectTargetChapterWords}
           setCreateProjectTargetWords={setCreateProjectTargetWords}
+          t={t}
         />
       ) : null}
 
@@ -2796,6 +2932,7 @@ export default function App() {
           setEditProjectCompletionDate={setEditProjectCompletionDate}
           setEditProjectTargetChapterWords={setEditProjectTargetChapterWords}
           setEditProjectTargetWords={setEditProjectTargetWords}
+          t={t}
         />
       ) : null}
 

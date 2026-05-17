@@ -49,4 +49,40 @@ describe('CodexCliService', () => {
     expect(prompt).toContain('cita i riferimenti disponibili');
     expect(prompt).toContain('non hai trovato conferma');
   });
+
+  it('builds English chat prompts without translating project content', () => {
+    const prompt = __testing.buildChatPrompt(
+      {
+        message: 'Come miglioro il ritmo?',
+        projectName: 'Romanzo Italiano',
+        chapterTitle: 'Capitolo 1',
+        chapterText: 'Tizio firma il patto nel magazzino.',
+        projectMemoryContext: '[1] Magazzino (sources/chapters/chapter-1.md)',
+      },
+      'en',
+    );
+
+    expect(prompt).toContain('You are an editorial assistant');
+    expect(prompt).toContain('Reply in English');
+    expect(prompt).toContain('Current chapter: Capitolo 1');
+    expect(prompt).toContain('Tizio firma il patto nel magazzino.');
+    expect(prompt).toContain('[1] Magazzino');
+    expect(prompt).not.toContain('Rispondi in italiano');
+  });
+
+  it('builds English transform prompts while preserving selected text', () => {
+    const prompt = __testing.buildTransformPrompt(
+      {
+        action: 'riscrivi',
+        selectedText: 'La porta si apre lentamente.',
+        chapterTitle: 'Capitolo 2',
+      },
+      'en',
+    );
+
+    expect(prompt).toContain('You are a professional narrative editor.');
+    expect(prompt).toContain('Requested action: riscrivi.');
+    expect(prompt).toContain('Return only the final text');
+    expect(prompt).toContain('La porta si apre lentamente.');
+  });
 });

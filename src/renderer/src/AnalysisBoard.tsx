@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { AppLanguage, Translate } from './i18n';
 
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
 type StoryState = Awaited<ReturnType<(typeof window.novelistApi)['getStoryState']>>;
@@ -9,7 +10,9 @@ type AnalysisKind = 'coherence' | 'open-events' | 'style' | 'rhythm' | 'names';
 
 interface AnalysisBoardProps {
   currentProject: ProjectRecord;
+  language: AppLanguage;
   onStatus: (message: string) => void;
+  t: Translate;
 }
 
 interface AnalysisResult {
@@ -30,46 +33,129 @@ const ANALYSIS_TIMEOUT_MS = 120_000;
 
 const ANALYSIS_TESTS: Array<{
   kind: AnalysisKind;
-  title: string;
-  description: string;
-  prompt: string;
+  titleKey: string;
+  descriptionKey: string;
+  promptKey: string;
 }> = [
   {
     kind: 'coherence',
-    title: 'Coerenza narrativa',
-    description: 'Tempi, personaggi e location descritti in modo contraddittorio.',
-    prompt:
-      'Verifica la coerenza narrativa del romanzo: riferimenti temporali errati, descrizioni incoerenti dei personaggi, descrizioni incoerenti delle location fra capitoli e scene.',
+    titleKey: 'analysis.test.coherence.title',
+    descriptionKey: 'analysis.test.coherence.description',
+    promptKey: 'analysis.test.coherence.prompt',
   },
   {
     kind: 'open-events',
-    title: 'Eventi non risolti',
-    description: 'Vicende, promesse narrative e trame lasciate aperte.',
-    prompt:
-      'Controlla eventi non risolti rispetto a trame, capitoli e scene: promesse narrative, conflitti, indizi, obiettivi o vicende aperte che non hanno una chiusura riconoscibile.',
+    titleKey: 'analysis.test.openEvents.title',
+    descriptionKey: 'analysis.test.openEvents.description',
+    promptKey: 'analysis.test.openEvents.prompt',
   },
   {
     kind: 'style',
-    title: 'Stile',
-    description: 'Tono, punteggiatura, ricorrenze, ripetizioni e leggibilità.',
-    prompt:
-      'Verifica lo stile: tono narrativo incoerente tra capitoli e scene, regole di punteggiatura instabili, parole o formule ricorrenti, concetti ripetuti, leggibilità incostante o pesantezza, capitoli troppo lunghi o troppo corti.',
+    titleKey: 'analysis.test.style.title',
+    descriptionKey: 'analysis.test.style.description',
+    promptKey: 'analysis.test.style.prompt',
   },
   {
     kind: 'rhythm',
-    title: 'Ritmo narrativo',
-    description: 'Capitoli deboli, scene ridondanti, personaggi superficiali o assenti.',
-    prompt:
-      'Verifica il ritmo narrativo: capitoli deboli, scene ridondanti o poco efficaci, personaggi poco definiti o superficiali, personaggi che spariscono o non vengono citati per troppo tempo, conflitti e vicende rimaste aperte.',
+    titleKey: 'analysis.test.rhythm.title',
+    descriptionKey: 'analysis.test.rhythm.description',
+    promptKey: 'analysis.test.rhythm.prompt',
   },
   {
     kind: 'names',
-    title: 'Nomi e convenzioni',
-    description: 'Nomi propri, terminologia, convenzioni e coerenza interna.',
-    prompt:
-      'Verifica nomi propri, convenzioni, terminologia e coerenza interna: varianti di nomi, grafie diverse, maiuscole/minuscole incoerenti, titoli, luoghi, oggetti, ruoli e formule ricorrenti usate in modo instabile.',
+    titleKey: 'analysis.test.names.title',
+    descriptionKey: 'analysis.test.names.description',
+    promptKey: 'analysis.test.names.prompt',
   },
 ];
+
+type AnalysisTest = {
+  kind: AnalysisKind;
+  title: string;
+  description: string;
+  prompt: string;
+};
+
+function getAnalysisTests(t: Translate): AnalysisTest[] {
+  return ANALYSIS_TESTS.map((test) => ({
+    kind: test.kind,
+    title: t(test.titleKey),
+    description: t(test.descriptionKey),
+    prompt: t(test.promptKey),
+  }));
+}
+
+function getAnalysisContextText(language: AppLanguage) {
+  if (language === 'en') {
+    return {
+      chapter: 'chapter',
+      chapters: 'Chapters',
+      contextTitle: '# Novel Analysis Context',
+      date: 'date',
+      description: 'description',
+      end: 'end',
+      locationDescription: 'description',
+      locations: 'Locations',
+      notes: 'notes',
+      noDescription: 'No description',
+      noNote: 'No note',
+      noSnippet: 'No snippet available',
+      noSynopsis: 'No synopsis',
+      noText: 'No text',
+      none: 'n/a',
+      number: 'number',
+      plot: 'plot',
+      plots: 'Plots',
+      relevantWikiSources: '## Most Relevant Wiki Sources',
+      role: 'job',
+      scenes: 'Scenes',
+      sex: 'sex',
+      appearance: 'appearance',
+      species: 'species',
+      start: 'start',
+      text: 'text',
+      timeline: 'Timeline',
+      type: 'type',
+      unknown: 'unknown',
+      wikiPriority:
+        'Always use titles and ids when reporting an issue. Wiki sources have priority when present.',
+    };
+  }
+
+  return {
+    chapter: 'capitolo',
+    chapters: 'Capitoli',
+    contextTitle: '# Contesto analisi romanzo',
+    date: 'data',
+    description: 'descrizione',
+    end: 'fine',
+    locationDescription: 'descrizione',
+    locations: 'Location',
+    notes: 'note',
+    noDescription: 'Nessuna descrizione',
+    noNote: 'Nessuna nota',
+    noSnippet: 'Nessuno snippet disponibile',
+    noSynopsis: 'Nessuna sinossi',
+    noText: 'Nessun testo',
+    none: 'n/d',
+    number: 'numero',
+    plot: 'trama',
+    plots: 'Trame',
+    relevantWikiSources: '## Fonti Wiki piu rilevanti',
+    role: 'lavoro',
+    scenes: 'Scene',
+    sex: 'sesso',
+    appearance: 'aspetto',
+    species: 'specie',
+    start: 'inizio',
+    text: 'testo',
+    timeline: 'Timeline',
+    type: 'tipo',
+    unknown: 'sconosciuto',
+    wikiPriority:
+      'Usa sempre titoli e id quando segnali un problema. Le fonti Wiki sono prioritarie se presenti.',
+  };
+}
 
 function richTextNodeToText(node: RichTextNodeJson | undefined): string {
   if (!node || node.type === 'referenceMention') {
@@ -114,8 +200,8 @@ function characterName(card: CharacterCard): string {
   return `${card.firstName} ${card.lastName}`.trim() || card.id;
 }
 
-function plotLabel(plot: PlotRecord | undefined, plotNumber: number): string {
-  return plot?.label?.trim() || `Trama ${plotNumber}`;
+function plotLabel(plot: PlotRecord | undefined, plotNumber: number, t: Translate): string {
+  return plot?.label?.trim() || `${t('common.plot')} ${plotNumber}`;
 }
 
 function pushWithinLimit(parts: string[], next: string, limit = ANALYSIS_CONTEXT_LIMIT): boolean {
@@ -127,19 +213,20 @@ function pushWithinLimit(parts: string[], next: string, limit = ANALYSIS_CONTEXT
   return true;
 }
 
-async function buildWikiAnalysisContext(query: string): Promise<string> {
+async function buildWikiAnalysisContext(query: string, language: AppLanguage): Promise<string> {
   try {
     const results = await window.novelistApi.wikiSearch({ query, limit: 6 });
     if (results.length === 0) {
       return '';
     }
+    const labels = getAnalysisContextText(language);
 
     return [
-      '## Fonti Wiki piu rilevanti',
+      labels.relevantWikiSources,
       ...results.map((result, index) =>
         [
           `[${index + 1}] ${result.title} (${result.path})`,
-          truncateText(result.snippet || 'Nessuno snippet disponibile', 360),
+          truncateText(result.snippet || labels.noSnippet, 360),
         ].join('\n'),
       ),
     ].join('\n\n');
@@ -148,7 +235,11 @@ async function buildWikiAnalysisContext(query: string): Promise<string> {
   }
 }
 
-async function buildAnalysisContext(test: (typeof ANALYSIS_TESTS)[number]): Promise<string> {
+async function buildAnalysisContext(
+  test: AnalysisTest,
+  language: AppLanguage,
+  t: Translate,
+): Promise<string> {
   const [storyState, scenes, characters, locations, timelineState] = await Promise.all([
     window.novelistApi.getStoryState(),
     window.novelistApi.listSceneCards(),
@@ -169,28 +260,25 @@ async function buildAnalysisContext(test: (typeof ANALYSIS_TESTS)[number]): Prom
     }),
   );
   const chapterTextById = new Map(chapterDocuments);
-  const wikiContext = await buildWikiAnalysisContext(`${test.title}. ${test.prompt}`);
+  const wikiContext = await buildWikiAnalysisContext(`${test.title}. ${test.prompt}`, language);
+  const labels = getAnalysisContextText(language);
 
-  const parts: string[] = [
-    '# Contesto analisi romanzo',
-    'Usa sempre titoli e id quando segnali un problema. Le fonti Wiki sono prioritarie se presenti.',
-    '',
-  ];
+  const parts: string[] = [labels.contextTitle, labels.wikiPriority, ''];
 
   if (wikiContext) {
     pushWithinLimit(parts, wikiContext);
   }
 
-  pushWithinLimit(parts, '\n## Trame');
+  pushWithinLimit(parts, `\n## ${labels.plots}`);
 
   for (const plot of storyState.plots) {
     pushWithinLimit(
       parts,
-      `- ${plotLabel(plot, plot.number)} (${plot.id}, numero ${plot.number}): ${truncateText(plot.summary || 'Nessuna sinossi', 280)}`,
+      `- ${plotLabel(plot, plot.number, t)} (${plot.id}, ${labels.number} ${plot.number}): ${truncateText(plot.summary || labels.noSynopsis, 280)}`,
     );
   }
 
-  pushWithinLimit(parts, '\n## Capitoli');
+  pushWithinLimit(parts, `\n## ${labels.chapters}`);
   for (const chapter of [...storyState.nodes].sort((left, right) => {
     if (left.plotNumber !== right.plotNumber) return left.plotNumber - right.plotNumber;
     return left.blockNumber - right.blockNumber;
@@ -199,51 +287,51 @@ async function buildAnalysisContext(test: (typeof ANALYSIS_TESTS)[number]): Prom
     pushWithinLimit(
       parts,
       [
-        `### Capitolo: ${chapter.title} (${chapter.id})`,
-        `- trama: ${plotLabel(plotsByNumber.get(chapter.plotNumber), chapter.plotNumber)}`,
-        `- blocco: ${chapter.blockNumber}`,
-        `- descrizione: ${truncateText(chapter.description || 'Nessuna descrizione', 180)}`,
-        `- testo: ${truncateText(text || 'Nessun testo', 320)}`,
+        `### ${t('common.chapter')}: ${chapter.title} (${chapter.id})`,
+        `- ${labels.plot}: ${plotLabel(plotsByNumber.get(chapter.plotNumber), chapter.plotNumber, t)}`,
+        `- ${t('common.block')}: ${chapter.blockNumber}`,
+        `- ${labels.description}: ${truncateText(chapter.description || labels.noDescription, 180)}`,
+        `- ${labels.text}: ${truncateText(text || labels.noText, 320)}`,
       ].join('\n'),
     );
   }
 
-  pushWithinLimit(parts, '\n## Scene');
+  pushWithinLimit(parts, `\n## ${labels.scenes}`);
   for (const scene of scenes) {
     const chapter = chaptersById.get(scene.chapterNodeId);
     pushWithinLimit(
       parts,
       [
-        `### Scena: ${scene.name} (${scene.id})`,
-        `- capitolo: ${chapter?.title ?? 'sconosciuto'} (${scene.chapterNodeId})`,
-        `- trama: ${plotLabel(plotsByNumber.get(scene.plotNumber), scene.plotNumber)}`,
-        `- testo: ${truncateText(scene.text || 'Nessun testo', 220)}`,
-        `- note: ${truncateText(scene.notes || 'Nessuna nota', 100)}`,
+        `### ${t('common.scene')}: ${scene.name} (${scene.id})`,
+        `- ${labels.chapter}: ${chapter?.title ?? labels.unknown} (${scene.chapterNodeId})`,
+        `- ${labels.plot}: ${plotLabel(plotsByNumber.get(scene.plotNumber), scene.plotNumber, t)}`,
+        `- ${labels.text}: ${truncateText(scene.text || labels.noText, 220)}`,
+        `- ${labels.notes}: ${truncateText(scene.notes || labels.noNote, 100)}`,
       ].join('\n'),
     );
   }
 
-  pushWithinLimit(parts, '\n## Personaggi');
+  pushWithinLimit(parts, `\n## ${t('common.characters')}`);
   for (const character of characters) {
     pushWithinLimit(
       parts,
-      `- ${characterName(character)} (${character.id}) trama ${character.plotNumber}: sesso=${character.sex || 'n/d'}, eta=${character.age ?? 'n/d'}, specie=${character.species || 'n/d'}, aspetto=${truncateText([character.hairColor, character.eyeColor, character.skinColor, character.physique].filter(Boolean).join(', ') || 'n/d', 100)}, lavoro=${character.job || 'n/d'}, note=${truncateText(character.notes || 'n/d', 120)}`,
+      `- ${characterName(character)} (${character.id}) ${labels.plot} ${character.plotNumber}: ${labels.sex}=${character.sex || labels.none}, ${t('common.age')}=${character.age ?? labels.none}, ${labels.species}=${character.species || labels.none}, ${labels.appearance}=${truncateText([character.hairColor, character.eyeColor, character.skinColor, character.physique].filter(Boolean).join(', ') || labels.none, 100)}, ${labels.role}=${character.job || labels.none}, ${labels.notes}=${truncateText(character.notes || labels.none, 120)}`,
     );
   }
 
-  pushWithinLimit(parts, '\n## Location');
+  pushWithinLimit(parts, `\n## ${labels.locations}`);
   for (const location of locations) {
     pushWithinLimit(
       parts,
-      `- ${location.name} (${location.id}) trama ${location.plotNumber}: tipo=${location.locationType || 'n/d'}, descrizione=${truncateText(location.description || 'n/d', 140)}, note=${truncateText(location.notes || 'n/d', 100)}`,
+      `- ${location.name} (${location.id}) ${labels.plot} ${location.plotNumber}: ${labels.type}=${location.locationType || labels.none}, ${labels.locationDescription}=${truncateText(location.description || labels.none, 140)}, ${labels.notes}=${truncateText(location.notes || labels.none, 100)}`,
     );
   }
 
   if (timelineState) {
-    pushWithinLimit(parts, '\n## Timeline');
+    pushWithinLimit(parts, `\n## ${labels.timeline}`);
     pushWithinLimit(
       parts,
-      `- inizio: ${timelineState.settings.startLabel || 'n/d'}; fine: ${timelineState.settings.endLabel || 'n/d'}`,
+      `- ${labels.start}: ${timelineState.settings.startLabel || labels.none}; ${labels.end}: ${timelineState.settings.endLabel || labels.none}`,
     );
     for (const item of timelineState.items.slice(0, 80)) {
       const origin =
@@ -252,7 +340,7 @@ async function buildAnalysisContext(test: (typeof ANALYSIS_TESTS)[number]): Prom
           : scenes.find((scene) => scene.id === item.entityId)?.name;
       pushWithinLimit(
         parts,
-        `- ${item.itemType} ${origin ?? item.entityId} (${item.entityId}); data=${item.dateLabel || 'n/d'}; x=${item.positionX}; y=${item.positionY}`,
+        `- ${item.itemType} ${origin ?? item.entityId} (${item.entityId}); ${labels.date}=${item.dateLabel || labels.none}; x=${item.positionX}; y=${item.positionY}`,
       );
     }
   }
@@ -260,7 +348,20 @@ async function buildAnalysisContext(test: (typeof ANALYSIS_TESTS)[number]): Prom
   return parts.join('\n');
 }
 
-function buildAnalysisPrompt(testTitle: string, testPrompt: string): string {
+function buildAnalysisPrompt(testTitle: string, testPrompt: string, language: AppLanguage): string {
+  if (language === 'en') {
+    return [
+      `${testPrompt}`,
+      '',
+      'Reply in English with a practical report.',
+      'For each issue always indicate Origin with the chapter, scene, character, location, or plot involved. Include ids in parentheses when possible.',
+      'Distinguish between Issues, Evidence, Narrative risk, and Suggested intervention.',
+      'Limit the report to the 8 most important issues and stay under 700 words. Avoid preambles and method explanations.',
+      'If you find no relevant issues, say so explicitly and note any limits of the analyzed context.',
+      `Check title: ${testTitle}.`,
+    ].join('\n');
+  }
+
   return [
     `${testPrompt}`,
     '',
@@ -273,16 +374,46 @@ function buildAnalysisPrompt(testTitle: string, testPrompt: string): string {
   ].join('\n');
 }
 
-function localFallbackReport(testTitle: string, reason?: string): string {
-  const detail = reason?.trim() || 'il provider AI non ha restituito un risultato utilizzabile.';
+function localFallbackReport(
+  testTitle: string,
+  reason: string | undefined,
+  language: AppLanguage,
+): string {
+  const detail =
+    reason?.trim() ||
+    (language === 'en'
+      ? 'the AI provider did not return a usable result.'
+      : 'il provider AI non ha restituito un risultato utilizzabile.');
   const normalizedDetail = detail.toLowerCase();
-  const suggestedAction = normalizedDetail.includes('timeout')
-    ? 'riduci il contesto del progetto oppure aumenta il timeout AI, poi rilancia il controllo.'
-    : normalizedDetail.includes('consenso')
-      ? 'abilita il consenso AI nelle Impostazioni, poi rilancia il controllo.'
-      : normalizedDetail.includes('annullat') || normalizedDetail.includes('gia in corso')
-        ? 'attendi la fine delle altre richieste AI, evita di annullarle da altri editor e poi rilancia il controllo.'
-        : 'verifica provider e impostazioni AI, poi rilancia il controllo.';
+  const suggestedAction =
+    language === 'en'
+      ? normalizedDetail.includes('timeout')
+        ? 'reduce the project context or increase the AI timeout, then run the check again.'
+        : normalizedDetail.includes('consent')
+          ? 'enable AI consent in Settings, then run the check again.'
+          : normalizedDetail.includes('cancel') || normalizedDetail.includes('in progress')
+            ? 'wait for other AI requests to finish, avoid cancelling them from other editors, then run the check again.'
+            : 'check the provider and AI settings, then run the check again.'
+      : normalizedDetail.includes('timeout')
+        ? 'riduci il contesto del progetto oppure aumenta il timeout AI, poi rilancia il controllo.'
+        : normalizedDetail.includes('consenso')
+          ? 'abilita il consenso AI nelle Impostazioni, poi rilancia il controllo.'
+          : normalizedDetail.includes('annullat') || normalizedDetail.includes('gia in corso')
+            ? 'attendi la fine delle altre richieste AI, evita di annullarle da altri editor e poi rilancia il controllo.'
+            : 'verifica provider e impostazioni AI, poi rilancia il controllo.';
+
+  if (language === 'en') {
+    return [
+      `# ${testTitle}`,
+      '',
+      'AI analysis unavailable.',
+      '',
+      'Origin: current project.',
+      `Evidence: ${detail}`,
+      `Suggested intervention: ${suggestedAction}`,
+    ].join('\n');
+  }
+
   return [
     `# ${testTitle}`,
     '',
@@ -296,36 +427,50 @@ function localFallbackReport(testTitle: string, reason?: string): string {
 
 function getCodexResultIssue(
   response: Awaited<ReturnType<(typeof window.novelistApi)['codexAssist']>>,
+  language: AppLanguage,
 ): string {
   if (response.cancelled) {
-    return response.error?.trim() || 'richiesta AI annullata.';
+    return (
+      response.error?.trim() ||
+      (language === 'en' ? 'AI request cancelled.' : 'richiesta AI annullata.')
+    );
   }
   if (response.mode === 'fallback') {
     return (
       response.error?.trim() ||
-      'il provider AI e andato in fallback e non ha eseguito una vera analisi.'
+      (language === 'en'
+        ? 'the AI provider switched to fallback and did not run a real analysis.'
+        : 'il provider AI e andato in fallback e non ha eseguito una vera analisi.')
     );
   }
   if (!response.output.trim()) {
-    return 'il provider AI ha restituito una risposta vuota.';
+    return language === 'en'
+      ? 'the AI provider returned an empty response.'
+      : 'il provider AI ha restituito una risposta vuota.';
   }
   return '';
 }
 
-export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoardProps) {
+export default function AnalysisBoard({
+  currentProject,
+  language,
+  onStatus,
+  t,
+}: AnalysisBoardProps) {
   const [activeKind, setActiveKind] = useState<AnalysisKind | null>(null);
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const analysisTests = useMemo(() => getAnalysisTests(t), [t]);
 
   const completedKinds = useMemo(() => new Set(results.map((result) => result.kind)), [results]);
   const activeTest = useMemo(
-    () => ANALYSIS_TESTS.find((test) => test.kind === activeKind) ?? null,
-    [activeKind],
+    () => analysisTests.find((test) => test.kind === activeKind) ?? null,
+    [activeKind, analysisTests],
   );
 
   function printResult(result: AnalysisResult): void {
     const frame = document.createElement('iframe');
-    frame.title = `Stampa analisi ${result.title}`;
+    frame.title = t('analysis.print.frameTitle', { title: result.title });
     frame.style.position = 'fixed';
     frame.style.right = '0';
     frame.style.bottom = '0';
@@ -337,8 +482,9 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
     const frameDocument = frame.contentDocument;
     if (!frameDocument) {
       document.body.removeChild(frame);
-      setError('Impossibile preparare la stampa del report.');
-      onStatus('Errore stampa report analisi');
+      const message = t('analysis.print.prepareError');
+      setError(message);
+      onStatus(t('analysis.status.printError'));
       return;
     }
 
@@ -384,14 +530,14 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
   }
 
   async function runAnalysis(kind: AnalysisKind): Promise<void> {
-    const test = ANALYSIS_TESTS.find((candidate) => candidate.kind === kind);
+    const test = analysisTests.find((candidate) => candidate.kind === kind);
     if (!test || activeKind) {
       return;
     }
 
     setActiveKind(kind);
     setError(null);
-    onStatus(`Analisi in corso: ${test.title}`);
+    onStatus(t('analysis.status.running', { title: test.title }));
     try {
       const [settings, status] = await Promise.all([
         window.novelistApi.codexGetSettings(),
@@ -399,61 +545,61 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
       ]);
 
       if (!settings.enabled) {
-        const reason = 'Consenso AI non abilitato nelle Impostazioni.';
+        const reason = t('analysis.reason.aiConsentDisabled');
         setError(reason);
         setResults((previous) => [
           {
             kind,
             title: test.title,
             generatedAt: new Date().toISOString(),
-            output: localFallbackReport(test.title, reason),
+            output: localFallbackReport(test.title, reason, language),
           },
           ...previous.filter((result) => result.kind !== kind),
         ]);
-        onStatus(`Analisi non avviata: ${test.title}`);
+        onStatus(t('analysis.status.notStarted', { title: test.title }));
         return;
       }
 
       if (!status.available) {
-        const reason = status.reason?.trim() || 'provider AI non raggiungibile.';
+        const reason = status.reason?.trim() || t('analysis.reason.providerUnavailable');
         setError(reason);
         setResults((previous) => [
           {
             kind,
             title: test.title,
             generatedAt: new Date().toISOString(),
-            output: localFallbackReport(test.title, reason),
+            output: localFallbackReport(test.title, reason, language),
           },
           ...previous.filter((result) => result.kind !== kind),
         ]);
-        onStatus(`Analisi non disponibile: ${test.title}`);
+        onStatus(t('analysis.status.unavailable', { title: test.title }));
         return;
       }
 
       if (status.activeRequest || status.queuedRequests > 0) {
-        const reason = `Una richiesta AI e gia in corso (${status.queuedRequests} in coda).`;
+        const reason = t('analysis.reason.requestInProgress', { count: status.queuedRequests });
         setError(reason);
         setResults((previous) => [
           {
             kind,
             title: test.title,
             generatedAt: new Date().toISOString(),
-            output: localFallbackReport(test.title, reason),
+            output: localFallbackReport(test.title, reason, language),
           },
           ...previous.filter((result) => result.kind !== kind),
         ]);
-        onStatus(`Analisi in attesa: ${test.title}`);
+        onStatus(t('analysis.status.waiting', { title: test.title }));
         return;
       }
 
-      const context = await buildAnalysisContext(test);
+      const context = await buildAnalysisContext(test, language, t);
       const response = await window.novelistApi.codexAssist({
         projectName: currentProject?.name,
-        message: buildAnalysisPrompt(test.title, test.prompt),
+        message: buildAnalysisPrompt(test.title, test.prompt, language),
         context,
         timeoutMs: ANALYSIS_TIMEOUT_MS,
       });
-      const responseIssue = getCodexResultIssue(response);
+      const responseIssue = getCodexResultIssue(response, language);
       if (responseIssue) {
         setError(responseIssue);
         setResults((previous) => [
@@ -461,11 +607,11 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
             kind,
             title: test.title,
             generatedAt: new Date().toISOString(),
-            output: localFallbackReport(test.title, responseIssue),
+            output: localFallbackReport(test.title, responseIssue, language),
           },
           ...previous.filter((result) => result.kind !== kind),
         ]);
-        onStatus(`Analisi non completata: ${test.title}`);
+        onStatus(t('analysis.status.notCompleted', { title: test.title }));
         return;
       }
 
@@ -479,20 +625,20 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
         },
         ...previous.filter((result) => result.kind !== kind),
       ]);
-      onStatus(`Analisi completata: ${test.title}`);
+      onStatus(t('analysis.status.completed', { title: test.title }));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       setResults((previous) => [
         {
           kind,
           title: test.title,
           generatedAt: new Date().toISOString(),
-          output: localFallbackReport(test.title, message),
+          output: localFallbackReport(test.title, message, language),
         },
         ...previous.filter((result) => result.kind !== kind),
       ]);
-      onStatus(`Analisi non completata: ${test.title}`);
+      onStatus(t('analysis.status.notCompleted', { title: test.title }));
     } finally {
       setActiveKind(null);
     }
@@ -502,27 +648,31 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
     <section className="analysis-workspace">
       <section className="panel analysis-header-panel">
         <div>
-          <p className="eyebrow">Analisi</p>
-          <h2>Controlli editoriali del progetto</h2>
-          <p className="muted">
-            Ogni controllo prepara un contesto compatto del romanzo e usa l’AI per segnalare
-            problemi con origine e intervento suggerito.
-          </p>
+          <p className="eyebrow">{t('analysis.eyebrow')}</p>
+          <h2>{t('analysis.title')}</h2>
+          <p className="muted">{t('analysis.subtitle')}</p>
         </div>
         <div className="analysis-status">
-          <strong>{activeTest ? activeTest.title : 'Pronto'}</strong>
-          <span>{activeTest ? 'Analisi in corso...' : `${results.length} report generati`}</span>
+          <strong>{activeTest ? activeTest.title : t('analysis.status.ready')}</strong>
+          <span>
+            {activeTest
+              ? t('analysis.status.runningShort')
+              : t('analysis.status.generatedReports', { count: results.length })}
+          </span>
         </div>
       </section>
 
       <section className="analysis-test-grid">
-        {ANALYSIS_TESTS.map((test) => (
+        {analysisTests.map((test) => (
           <article className="panel analysis-test-card" key={test.kind}>
             <div>
               <h3>
                 {test.title}
                 {completedKinds.has(test.kind) ? (
-                  <span className="analysis-test-complete-flag" aria-label="Test completato">
+                  <span
+                    className="analysis-test-complete-flag"
+                    aria-label={t('analysis.test.completed')}
+                  >
                     ✓
                   </span>
                 ) : null}
@@ -535,7 +685,7 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
               onClick={() => void runAnalysis(test.kind)}
               disabled={Boolean(activeKind)}
             >
-              {activeKind === test.kind ? 'Analizzo...' : 'Avvia test'}
+              {activeKind === test.kind ? t('analysis.actions.running') : t('analysis.actions.run')}
             </button>
           </article>
         ))}
@@ -543,7 +693,7 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
 
       {error ? (
         <section className="panel analysis-error-panel">
-          <h2>Errore analisi</h2>
+          <h2>{t('analysis.error.title')}</h2>
           <p>{error}</p>
         </section>
       ) : null}
@@ -554,7 +704,7 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
             <article className="panel analysis-result-card" key={result.kind}>
               <header>
                 <div>
-                  <p className="eyebrow">Report</p>
+                  <p className="eyebrow">{t('analysis.report.eyebrow')}</p>
                   <h2>{result.title}</h2>
                 </div>
                 <div className="analysis-result-actions">
@@ -564,7 +714,7 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
                     className="button-secondary"
                     onClick={() => printResult(result)}
                   >
-                    Stampa
+                    {t('analysis.actions.print')}
                   </button>
                 </div>
               </header>
@@ -573,8 +723,8 @@ export default function AnalysisBoard({ currentProject, onStatus }: AnalysisBoar
           ))
         ) : (
           <section className="panel analysis-empty-panel">
-            <h2>Nessun report</h2>
-            <p className="muted">Avvia uno dei cinque test per generare la prima analisi.</p>
+            <h2>{t('analysis.empty.title')}</h2>
+            <p className="muted">{t('analysis.empty.body')}</p>
           </section>
         )}
       </section>

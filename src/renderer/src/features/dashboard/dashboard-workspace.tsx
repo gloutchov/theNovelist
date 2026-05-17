@@ -288,7 +288,7 @@ export function DashboardWorkspace({
                 </article>
                 <article className="dashboard-chart-card">
                   <h3>{t('dashboard.goals.delivery')}</h3>
-                  <DeliveryBars metrics={dashboardGoalMetrics} />
+                  <DeliveryBars metrics={dashboardGoalMetrics} t={t} />
                   <p className="muted">
                     {t('dashboard.goals.estimated', {
                       date: dashboardGoalMetrics.estimatedCompletionDate

@@ -49,6 +49,12 @@ Rimane comunque, e sempre, una app realizzata in vibe-coding.
 The Novelist è un progetto sperimentale pensato per gli scrittori. L'applicazione ha una dotazione di tool utili per strutturare una narrativa complessa, e gestirne le singole parti.
 Attualmente il progetto viene mantenuto e distribuito con pacchetti verificati localmente su macOS e Windows.
 
+### Lingua interfaccia
+
+The Novelist 5.0 introduce l'interfaccia bilingue italiano/inglese. La lingua viene scelta automaticamente dal sistema: italiano se la locale inizia con `it`, inglese negli altri casi. Nelle Impostazioni e comunque possibile forzare manualmente `Italiano`, `English` oppure tornare ad `Automatico`.
+
+La scelta riguarda interfaccia, dialoghi, stati operativi, export generati dall'app e istruzioni AI. I contenuti dei progetti non vengono tradotti automaticamente: capitoli, scene, trame, schede, memoria Wiki e testi selezionati restano nella lingua scritta dall'autore.
+
 Funzionalità principali:
 
 - Cruscotto con tutte le informazioni sul romanzo/racconto.
@@ -280,6 +286,16 @@ _Nota:_ Le impostazioni AI sono salvate all'interno dei singoli progetti. Le pre
 # The Novelist - Tech Notes
 
 App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas trame/personaggi/location, editor capitoli, export e assistenza AI.
+
+## Novita 5.0 rispetto alla release 4.x
+
+La 5.0 aggiunge la localizzazione italiano/inglese mantenendo invariato il modello locale dei progetti:
+
+- **Interfaccia bilingue**: shell, dashboard, editor, canvas, impostazioni, memoria, revisioni e analisi sono disponibili in italiano e inglese.
+- **Lingua automatica o manuale**: l'app usa la lingua del sistema per default, con override nelle Impostazioni.
+- **Prompt AI localizzati**: istruzioni operative, fallback e report seguono la lingua dell'interfaccia senza tradurre automaticamente il testo narrativo dell'autore.
+- **Export e dialoghi coerenti**: intestazioni generate, dialoghi Electron e messaggi di errore user-facing seguono la lingua effettiva.
+- **Copertura test release**: test unitari per dizionari/interpolazione/lingua, smoke e2e in inglese e checklist completa su browser, Electron e packaging.
 
 ## Novita 4.x rispetto alla release 3.x
 

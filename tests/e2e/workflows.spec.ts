@@ -342,6 +342,86 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Create Location' })).toBeVisible();
   await page.getByRole('button', { name: 'Memory' }).click();
   await expect(page.getByText('Project Memory')).toBeVisible();
+
+  await page.setViewportSize({ width: 1024, height: 720 });
+  await expect(page.getByRole('button', { name: 'Chapters' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Revisions' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Analysis' }).click();
+  await expect(page.getByRole('heading', { name: 'Project Editorial Checks' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Narrative Coherence' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run Test' }).first()).toBeVisible();
+});
+
+test('English interface smoke covers primary creation surfaces', async ({ page }) => {
+  await page.getByRole('button', { name: 'Impostazioni' }).click();
+  const settingsModal = page.locator('.settings-modal-card');
+  const preferencesSection = settingsModal.locator('details.settings-section').nth(0);
+  await preferencesSection.getByLabel('Lingua interfaccia').selectOption('en');
+  await expect(settingsModal.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await settingsModal.getByRole('button', { name: 'Close' }).click();
+
+  await page.evaluate(() => {
+    window.novelistApi.selectProjectDirectory = async () => `/tmp/the-novelist-e2e-${Date.now()}`;
+  });
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  const createProjectModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'Create Project' }),
+  });
+  await expect(createProjectModal).toBeVisible();
+  await expect(createProjectModal.getByLabel('Work directory')).toBeVisible();
+  await createProjectModal.getByRole('button', { name: 'Browse...' }).click();
+  await createProjectModal.getByLabel('Project name').fill('E2E English Smoke');
+  await expect(createProjectModal.getByLabel('Project word target')).toBeVisible();
+  await expect(createProjectModal.getByLabel('Chapter word target')).toBeVisible();
+  await expect(createProjectModal.getByLabel('Planned completion date')).toBeVisible();
+  await createProjectModal.getByLabel('Project word target').fill('80000');
+  await createProjectModal.getByLabel('Planned completion date').fill('2099-12-31');
+  await createProjectModal.getByRole('button', { name: 'Create and Open' }).click();
+  await expect(page.getByText('Project created: E2E English Smoke')).toBeVisible();
+  await expect(page.getByRole('button', { name: /words\/day required/ })).toBeVisible();
+  await expect(page.getByText('Required', { exact: true })).toBeVisible();
+  await expect(page.getByText('Current', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Chapters' }).click();
+  await page.getByRole('button', { name: 'New Chapter' }).click();
+  const createChapterModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'New Chapter' }),
+  });
+  await expect(createChapterModal).toBeVisible();
+  await expect(createChapterModal.getByLabel('Title')).toBeVisible();
+  await expect(createChapterModal.getByLabel('Description')).toBeVisible();
+  await expect(createChapterModal.getByRole('button', { name: 'Create Block' })).toBeVisible();
+  await createChapterModal.getByLabel('Title').fill('Chapter Alpha');
+  await createChapterModal.getByRole('button', { name: 'Create Block' }).click();
+  await expect(page.getByText('Block created: Chapter Alpha')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Outline' }).click();
+  const outlineChapter = page.locator('.outline-chapter-card').filter({ hasText: 'Chapter Alpha' });
+  await expect(outlineChapter.getByText('Scenes', { exact: true })).toBeVisible();
+  await expect(outlineChapter.getByText('Characters', { exact: true })).toBeVisible();
+  await expect(outlineChapter.getByText('Locations', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Plots' }).click();
+  await page.getByRole('button', { name: 'New Plot' }).click();
+  const createPlotModal = page.locator('.modal-card').filter({
+    has: page.getByRole('heading', { name: 'New Plot' }),
+  });
+  await expect(createPlotModal.getByLabel('Plot number')).toBeVisible();
+  await expect(createPlotModal.getByLabel('Plot draft / structure')).toBeVisible();
+  await createPlotModal.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('button', { name: 'Characters' }).click();
+  await expect(page.getByRole('button', { name: 'Create Character' })).toBeVisible();
+  await page.getByRole('button', { name: 'Locations' }).click();
+  await expect(page.getByRole('button', { name: 'Create Location' })).toBeVisible();
+  await expect(page.getByText('Location canvas loaded')).toBeVisible();
+  await page.getByRole('button', { name: 'Plots' }).click();
+  await expect(page.getByText('Plots canvas ready')).toBeVisible();
+  await page.getByRole('button', { name: 'Memory' }).click();
+  await expect(page.getByText('Project Memory')).toBeVisible();
+  await page.getByRole('button', { name: 'Revisions' }).click();
+  await expect(page.getByText(/Revisions loaded:/)).toBeVisible();
 });
 
 test('character board create and edit card', async ({ page }) => {
