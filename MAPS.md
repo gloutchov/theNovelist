@@ -14,7 +14,7 @@ theNovelist/
 |   |-- icon.ico
 |   `-- icon.png
 |-- checksums/
-|   `-- SHA256SUMS-v4.0.0.txt
+|   `-- SHA256SUMS-*.txt
 |-- scripts/
 |   |-- electron-builder-after-pack.cjs
 |   |-- generate-checksums.mjs
@@ -35,6 +35,7 @@ theNovelist/
 |-- AGENTS.md
 |-- MAPS.md
 |-- README.md
+|-- RELEASE_NOTES.md
 |-- sicurezza.md
 |-- package.json
 |-- package-lock.json
@@ -83,6 +84,7 @@ src/
 |-- main/
 |   |-- index.ts
 |   |-- app-preferences.ts
+|   |-- i18n.ts
 |   |-- chapters/
 |   |-- codex/
 |   |-- config/
@@ -105,6 +107,7 @@ src/
 |       |-- *Board.tsx
 |       |-- *FlowNode.tsx
 |       |-- features/
+|       |-- i18n/
 |       |-- shared/
 |       |-- styles/
 |       `-- styles.css
@@ -120,6 +123,7 @@ Processo principale Electron. Gestisce finestra, IPC, persistenza locale, serviz
 src/main/
 |-- index.ts                 # Bootstrap main process, finestra Electron e registrazione IPC.
 |-- app-preferences.ts       # Preferenze applicative persistenti.
+|-- i18n.ts                  # Risoluzione lingua lato main process.
 |-- chapters/                # Rich text e export dei capitoli.
 |-- codex/                   # Client per funzionalita AI/Codex.
 |-- config/                  # Configurazione applicativa caricata dal main.
@@ -161,6 +165,7 @@ src/renderer/
     |-- TimelineBoard.tsx    # Timeline narrativa.
     |-- *FlowNode.tsx        # Nodi React Flow per entita diverse.
     |-- features/            # Funzionalita divise per area UI.
+    |-- i18n/                # Dizionari e helper di localizzazione renderer.
     |-- shared/              # Utility condivise nel renderer.
     |-- styles/              # CSS diviso per area funzionale.
     `-- styles.css           # Entrypoint CSS del renderer.
@@ -182,6 +187,21 @@ features/
 |-- project/     # Sessione progetto e modali progetto.
 |-- settings/    # Preferenze e modal impostazioni.
 `-- story/       # Modali dei nodi story.
+```
+
+### `src/renderer/src/i18n`
+
+Dizionari e helper per localizzazione renderer italiano/inglese.
+
+```text
+i18n/
+|-- dictionaries.ts          # Registro dei dizionari disponibili.
+|-- en.ts                    # Dizionario inglese.
+|-- it.ts                    # Dizionario italiano.
+|-- i18n-provider.tsx        # Provider/hook React per traduzioni.
+|-- renderer-language.ts     # Risoluzione lingua da preferenze e sistema.
+|-- types.ts                 # Tipi condivisi per chiavi e parametri.
+`-- index.ts                 # Barrel export del modulo i18n.
 ```
 
 ### `src/shared`
@@ -209,7 +229,15 @@ tests/
 |   `-- canvas-selection-elevation.spec.ts
 `-- unit/
     |-- app-config.test.ts
+    |-- app-preferences.test.ts
+    |-- asset-paths.test.ts
+    |-- card-extraction.test.ts
+    |-- chapter-exporters.test.ts
     |-- ipc*.test.ts
+    |-- i18n.test.ts
+    |-- main-i18n.test.ts
+    |-- network-http.test.ts
+    |-- production-security.test.ts
     |-- repository.test.ts
     |-- migrations.test.ts
     |-- rich-text.test.ts
@@ -243,6 +271,7 @@ playwright.perf.config.ts    # Test performance.
 ```text
 AGENTS.md                    # Istruzioni operative per agenti sul repository.
 README.md                    # Documentazione principale del progetto.
+RELEASE_NOTES.md             # Note operative per la release corrente.
 sicurezza.md                 # Note e controlli di sicurezza.
 LICENSE                      # Licenza Apache 2.0.
 MAPS.md                      # Questa mappa del repository.
