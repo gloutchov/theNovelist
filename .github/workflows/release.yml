@@ -49,7 +49,7 @@ jobs:
         shell: bash
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos
           if-no-files-found: error
@@ -89,7 +89,7 @@ jobs:
         shell: pwsh
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows
           if-no-files-found: error
@@ -107,7 +107,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           path: release-assets
           merge-multiple: true
@@ -147,7 +147,7 @@ jobs:
             done
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           name: The Novelist ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
