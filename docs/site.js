@@ -1,7 +1,8 @@
 const translations = {
   it: {
-    'nav.features': 'Funzionalita',
+    'nav.features': 'Funzionalità',
     'nav.gallery': 'Immagini',
+    'nav.privacy': 'Privacy',
     'nav.download': 'Download',
     'hero.eyebrow': 'Desktop app open source',
     'hero.copy':
@@ -69,6 +70,7 @@ const translations = {
   en: {
     'nav.features': 'Features',
     'nav.gallery': 'Images',
+    'nav.privacy': 'Privacy',
     'nav.download': 'Download',
     'hero.eyebrow': 'Open source desktop app',
     'hero.copy':
