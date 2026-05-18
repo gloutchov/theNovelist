@@ -242,6 +242,7 @@ Il menù impostazioni serve principalmente per:
 
 - Impostare l'autosave.
 - Impostare la lingua del programma.
+- Impostare il tema dell'interfaccia.
 - Impostare il servizio AI da usare.
 - Impostare il consenso alle AI di usare i dati conservati nella Wiki.
 - Inserire la API Key (se necessario).
@@ -261,6 +262,14 @@ Il programma permette di scegliere tra:
 1. Automatico.
 2. Italiano.
 3. Inglese.
+
+### Tema Interfaccia
+
+Il programma permette di scegliere tra:
+
+1. Come da Sistema.
+2. Chiara.
+3. Scura.
 
 ### Impostazioni AI
 

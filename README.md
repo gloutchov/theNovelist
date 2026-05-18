@@ -38,7 +38,7 @@ Nota: la cartella locale `release/` puo contenere build precedenti o artefatti g
 ### Funzionalita principali
 
 - Cruscotto progetto con metriche, obiettivi, snapshot, stato AI/autosave e controlli editoriali.
-- Interfaccia bilingue italiano/inglese con rilevamento automatico della lingua di sistema e override manuale.
+- Interfaccia bilingue italiano/inglese con rilevamento automatico della lingua di sistema, override manuale e tema chiaro/scuro/sistema.
 - Canvas capitoli con nodi, connessioni e trame parallele colorate.
 - Canvas dedicati per trame, scene, personaggi e location.
 - Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`.
@@ -149,7 +149,7 @@ Note: the local `release/` folder may contain older builds or artifacts produced
 ### Main Features
 
 - Project dashboard with metrics, goals, snapshots, AI/autosave status, and editorial checks.
-- Bilingual Italian/English interface with automatic system-language detection and manual override.
+- Bilingual Italian/English interface with automatic system-language detection, manual override, and light/dark/system theme selection.
 - Chapter canvas with nodes, connections, and color-coded parallel plots.
 - Dedicated canvases for plots, scenes, characters, and locations.
 - Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`.

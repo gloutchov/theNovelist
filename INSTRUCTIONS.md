@@ -243,6 +243,7 @@ The settings menu is mainly used to:
 
 - Set autosave.
 - Set the program language.
+- Set the interface theme.
 - Set the AI service to use.
 - Set consent for AI to use data stored in the Wiki.
 - Enter the API key, if needed.
@@ -262,6 +263,14 @@ The program lets you choose between:
 1. Automatic.
 2. Italian.
 3. English.
+
+### Interface Theme
+
+The program lets you choose between:
+
+1. System Theme.
+2. White.
+3. Black.
 
 ### AI Settings
 

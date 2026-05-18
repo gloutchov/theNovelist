@@ -72,7 +72,7 @@ checksums/
 `-- *.txt           # Checksum storici o di supporto alle release.
 
 docs/
-|-- assets/         # Icona e anteprime visuali del mini sito.
+|-- assets/         # Icona e anteprime visuali scure/chiare del mini sito.
 |-- index.html      # Landing page bilingue pubblicabile via GitHub Pages.
 |-- site.js         # Switch lingua italiano/inglese.
 `-- styles.css      # Stili responsive del sito statico.
@@ -127,7 +127,7 @@ Processo principale Electron. Gestisce finestra, IPC, persistenza locale, serviz
 ```text
 src/main/
 |-- index.ts                 # Bootstrap main process e finestra Electron.
-|-- app-preferences.ts       # Preferenze globali utente.
+|-- app-preferences.ts       # Preferenze globali utente: autosave, lingua e tema.
 |-- i18n.ts                  # Traduzioni lato main per dialoghi Electron.
 |-- chapters/                # Rich text, conteggio parole, export e stampa.
 |-- codex/                   # Client AI per OpenAI API e Ollama.
@@ -339,7 +339,7 @@ checksums/
 `-- *.txt           # Historical or release-support checksums.
 
 docs/
-|-- assets/         # Icon and visual previews for the mini site.
+|-- assets/         # Icon and dark/light visual previews for the mini site.
 |-- index.html      # Bilingual landing page publishable through GitHub Pages.
 |-- site.js         # Italian/English language switcher.
 `-- styles.css      # Responsive styles for the static site.
@@ -394,7 +394,7 @@ Electron main process. Owns the application window, IPC, local persistence, appl
 ```text
 src/main/
 |-- index.ts                 # Main process and Electron window bootstrap.
-|-- app-preferences.ts       # Global user preferences.
+|-- app-preferences.ts       # Global user preferences: autosave, language, and theme.
 |-- i18n.ts                  # Main-process translations for Electron dialogs.
 |-- chapters/                # Rich text, word count, export, and print.
 |-- codex/                   # AI client for OpenAI API and Ollama.

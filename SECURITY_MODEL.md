@@ -128,7 +128,7 @@ Riferimenti:
   - il consenso AI generale e attivo;
   - e, se provider o fallback possono uscire dal computer, `allowExternalMemorySharing` e attivo.
 - Se `allowExternalMemorySharing` e disattivato, la chat puo continuare a funzionare, ma senza allegare la wiki a provider esterni.
-- Le impostazioni AI sono salvate per progetto. Le preferenze autosave/lingua sono preferenze utente globali.
+- Le impostazioni AI sono salvate per progetto. Le preferenze autosave, lingua e tema interfaccia sono preferenze utente globali.
 
 Riferimenti:
 
@@ -400,7 +400,7 @@ References:
   - the general AI consent is enabled;
   - and, when provider or fallback may leave the computer, `allowExternalMemorySharing` is enabled.
 - If `allowExternalMemorySharing` is disabled, chat can continue to work, but without attaching the wiki to external providers.
-- AI settings are saved per project. Autosave/language preferences are global user preferences.
+- AI settings are saved per project. Autosave, language, and interface theme preferences are global user preferences.
 
 References:
 
