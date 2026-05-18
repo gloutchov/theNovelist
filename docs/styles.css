@@ -396,24 +396,30 @@ main > section:not(.hero) {
 }
 
 .gallery-grid figure {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   margin: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
+  padding: 14px;
+  border: 1px solid #c8d8de;
   border-radius: 8px;
-  background: #ffffff;
+  background: #dfeaec;
   box-shadow: var(--shadow);
 }
 
 .gallery-grid img {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 1px solid rgba(47, 111, 115, 0.28);
+  border-radius: 6px;
   object-fit: contain;
-  background: #07101f;
+  background: #fbfcfb;
 }
 
 .gallery-grid figcaption {
   min-height: 88px;
-  padding: 18px;
+  padding: 4px 4px 2px;
   color: var(--muted);
   font-weight: 700;
 }
