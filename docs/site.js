@@ -139,6 +139,7 @@ const buttons = document.querySelectorAll('[data-language]');
 const translatable = document.querySelectorAll('[data-i18n]');
 const localizedImages = document.querySelectorAll('[data-src-it][data-src-en]');
 const localizedBackgrounds = document.querySelectorAll('[data-background-it][data-background-en]');
+const localizedLinks = document.querySelectorAll('[data-href-it][data-href-en]');
 
 function setLanguage(language) {
   const dictionary = translations[language] ?? translations.it;
@@ -163,6 +164,12 @@ function setLanguage(language) {
     const source = element.getAttribute(`data-background-${language}`);
     if (source) {
       element.style.setProperty('--hero-image', `url("${source}")`);
+    }
+  });
+  localizedLinks.forEach((element) => {
+    const href = element.getAttribute(`data-href-${language}`);
+    if (href) {
+      element.setAttribute('href', href);
     }
   });
   buttons.forEach((button) => {
