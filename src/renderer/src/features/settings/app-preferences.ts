@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import type { AppLanguage } from '../../i18n';
+import { createTranslator, resolveRendererLanguage, type AppLanguage } from '../../i18n';
 
 export type AppPreferences = Awaited<ReturnType<(typeof window.novelistApi)['getAppPreferences']>>;
 
@@ -72,11 +72,13 @@ export function useAppPreferencesState({ setError, setStatus }: AppPreferencesSt
         languageMode: appPreferences.languageMode,
       });
       setAppPreferences(saved);
-      setStatus('Preferenze utente salvate');
+      const t = createTranslator(resolveRendererLanguage(saved));
+      setStatus(t('settings.status.userPreferencesSaved'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const t = createTranslator(resolveRendererLanguage(appPreferences));
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore salvataggio preferenze utente');
+      setStatus(t('settings.status.userPreferencesSaveError'));
     } finally {
       setAppPreferencesBusy(false);
     }

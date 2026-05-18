@@ -23,6 +23,7 @@ The Novelist e una app desktop Electron + React + TypeScript per la scrittura na
 - Non introdurre dipendenze senza una ragione concreta.
 - Evita refactor non richiesti, soprattutto nei file grandi come `src/renderer/src/App.tsx` e `src/renderer/src/ChapterEditor.tsx`.
 - Quando tocchi UI, verifica anche layout mobile/desktop se il cambiamento puo alterare overflow o modali.
+- Aggiorna la documentazione collegata quando cambi comportamento utente, sicurezza, packaging, i18n o struttura del repository.
 
 ## Architettura e manutenibilita
 
@@ -102,6 +103,14 @@ Non usare direttamente `npm run test:e2e:electron:run` se non hai gia rebuildato
 - Mantieni testi e pulsanti entro i contenitori su desktop e mobile.
 - Se modifichi layout o CSS globali, esegui almeno `npm run test:e2e` per i visual smoke.
 
+## i18n e testi utente
+
+- L'interfaccia e bilingue italiano/inglese. Ogni nuovo testo user-facing deve passare dai dizionari renderer `src/renderer/src/i18n/it.ts` e `src/renderer/src/i18n/en.ts`, oppure da `src/main/i18n.ts` per dialoghi main process.
+- Non inserire nuove stringhe hardcoded in `setStatus`, `onStatus`, modali, bottoni, label o messaggi di errore se devono essere visibili all'utente.
+- Mantieni allineati i dizionari: ogni chiave aggiunta in italiano deve esistere anche in inglese.
+- I contenuti dei progetti dell'utente non devono essere tradotti automaticamente: capitoli, scene, trame, schede, wiki e testo selezionato restano nella lingua dell'autore.
+- Per prompt e output AI user-facing, rispetta la lingua effettiva dell'interfaccia. I report di analisi non devono includere offerte finali di follow-up del modello.
+
 ## AI e privacy
 
 Le funzionalita AI supportano OpenAI API e Ollama. Rispetta le impostazioni di consenso gia presenti:
@@ -113,6 +122,16 @@ Le funzionalita AI supportano OpenAI API e Ollama. Rispetta le impostazioni di c
 - `allowExternalMemorySharing`
 
 Non inviare contenuti esterni o introdurre nuove chiamate di rete senza passare dalle impostazioni esistenti.
+
+## Documentazione
+
+- `README.md`: pagina principale GitHub bilingue, con riepilogo prodotto, distribuzione, sviluppo e release corrente.
+- `ISTRUZIONI.md`: manuale utente completo in italiano.
+- `INSTRUCTIONS.md`: traduzione inglese completa del manuale.
+- `SECURITY_MODEL.md`: modello di sicurezza bilingue e limiti residui.
+- `MAPS.md`: mappa bilingue della struttura del repository.
+- `AGENTS.md`: queste istruzioni operative.
+- Non ricreare `RELEASE_NOTES.md`: le note sintetiche della release corrente sono integrate nel README.
 
 ## Packaging
 

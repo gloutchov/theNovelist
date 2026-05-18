@@ -34,7 +34,12 @@ import { MentionMenu } from './features/editor/mention-menu';
 import { ReferencePanel } from './features/editor/reference-panel';
 import { SelectionContextMenu } from './features/editor/selection-context-menu';
 import { SelectionDiffModal } from './features/editor/selection-diff-modal';
-import { createTranslator, resolveRendererLanguage, type AppLanguage } from './i18n';
+import {
+  createTranslator,
+  resolveRendererLanguage,
+  type AppLanguage,
+  type Translate,
+} from './i18n';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -56,6 +61,19 @@ type StoryChapterNode = Awaited<
 
 type BlockStyle = 'paragraph' | 'heading' | 'blockquote';
 type ReferenceType = 'character' | 'location' | 'scene';
+
+function getSelectionActionStatusLabel(action: CodexTransformAction, t: Translate): string {
+  switch (action) {
+    case 'correggi':
+      return t('editor.selection.correct');
+    case 'riscrivi':
+      return t('editor.selection.rewrite');
+    case 'espandi':
+      return t('editor.selection.expand');
+    case 'riduci':
+      return t('editor.selection.reduce');
+  }
+}
 
 interface RichTextNodeJson {
   type?: string;
@@ -1565,7 +1583,7 @@ export default function ChapterEditor({
           setMentionMenu(null);
           isDirtyRef.current = false;
           setIsDirty(false);
-          onStatus(`Editor aperto: ${sceneCard.name}`);
+          onStatus(t('editor.status.opened', { title: sceneCard.name }));
           setLoading(false);
 
           const [
@@ -1627,7 +1645,7 @@ export default function ChapterEditor({
         setMentionMenu(null);
         isDirtyRef.current = false;
         setIsDirty(false);
-        onStatus(`Editor aperto: ${chapterTitle}`);
+        onStatus(t('editor.status.opened', { title: chapterTitle }));
         setLoading(false);
 
         const [
@@ -1685,7 +1703,7 @@ export default function ChapterEditor({
     return () => {
       isMounted = false;
     };
-  }, [chapterNodeId, chapterTitle, editor, onStatus, sceneCard]);
+  }, [chapterNodeId, chapterTitle, editor, onStatus, sceneCard, t]);
 
   useEffect(() => {
     if (!editor) {
@@ -1868,7 +1886,7 @@ export default function ChapterEditor({
 
   function selectFindMatch(index: number): void {
     if (!editor || findMatches.length === 0) {
-      onStatus('Nessun risultato trovato');
+      onStatus(t('editor.status.findNoResults'));
       return;
     }
 
@@ -1885,12 +1903,19 @@ export default function ChapterEditor({
       .setTextSelection({ from: match.from, to: match.to })
       .scrollIntoView()
       .run();
-    onStatus(`Risultato ${normalizedIndex + 1} di ${findMatches.length}`);
+    onStatus(
+      t('editor.status.findResult', {
+        current: normalizedIndex + 1,
+        total: findMatches.length,
+      }),
+    );
   }
 
   function handleFindSubmit(direction: 'next' | 'previous' = 'next'): void {
     if (findMatches.length === 0) {
-      onStatus(findQuery.trim() ? 'Nessun risultato trovato' : 'Inserisci un testo da cercare');
+      onStatus(
+        findQuery.trim() ? t('editor.status.findNoResults') : t('editor.status.findEnterText'),
+      );
       return;
     }
 
@@ -1900,7 +1925,7 @@ export default function ChapterEditor({
   function handleReplaceCurrent(): void {
     if (!editor || findMatches.length === 0) {
       onStatus(
-        findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare',
+        findQuery.trim() ? t('editor.status.replaceNoResults') : t('editor.status.findEnterText'),
       );
       return;
     }
@@ -1913,13 +1938,13 @@ export default function ChapterEditor({
     editor.chain().focus().insertContentAt({ from: match.from, to: match.to }, replaceQuery).run();
     isDirtyRef.current = true;
     setIsDirty(true);
-    onStatus('Occorrenza sostituita');
+    onStatus(t('editor.status.replaceOne'));
   }
 
   function handleReplaceAll(): void {
     if (!editor || findMatches.length === 0) {
       onStatus(
-        findQuery.trim() ? 'Nessun risultato da sostituire' : 'Inserisci un testo da cercare',
+        findQuery.trim() ? t('editor.status.replaceNoResults') : t('editor.status.findEnterText'),
       );
       return;
     }
@@ -1932,7 +1957,7 @@ export default function ChapterEditor({
     chain.run();
     isDirtyRef.current = true;
     setIsDirty(true);
-    onStatus(`Sostituite ${matches.length} occorrenze`);
+    onStatus(t('editor.status.replaceAll', { count: matches.length }));
   }
 
   async function refreshCodexSettings(): Promise<CodexSettings> {
@@ -2129,14 +2154,14 @@ export default function ChapterEditor({
     try {
       const response = await window.novelistApi.codexCancelActiveRequest();
       if (response.cancelled) {
-        onStatus('Richiesta AI annullata');
+        onStatus(t('entity.status.aiRequestCancelled'));
       } else {
-        onStatus('Nessuna richiesta AI attiva');
+        onStatus(t('editor.status.aiNoActiveRequest'));
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore annullamento richiesta AI');
+      onStatus(t('editor.status.aiCancelError'));
     }
   }
 
@@ -2201,16 +2226,17 @@ export default function ChapterEditor({
               const message =
                 caughtReferenceError instanceof Error
                   ? caughtReferenceError.message
-                  : 'Errore sincronizzazione riferimenti';
-              setError(`Scena salvata, ma sincronizzazione riferimenti fallita: ${message}`);
-              onStatus('Scena salvata, ma sincronizzazione riferimenti fallita');
+                  : t('editor.status.referenceSyncError');
+              setError(t('editor.status.sceneReferenceSyncFailedWithReason', { message }));
+              onStatus(t('editor.status.sceneReferenceSyncFailed'));
             }
             await onSceneSaved?.(updated);
             if (!referenceSyncFailed && !options?.silent) {
               onStatus(
                 chapterTextReplaced
-                  ? (options?.successStatus ?? `Scena salvata (${currentWordCount} parole)`)
-                  : 'Scena salvata, ma i badge nel capitolo non sono stati trovati.',
+                  ? (options?.successStatus ??
+                      t('editor.status.sceneSavedWithWords', { count: currentWordCount }))
+                  : t('editor.status.sceneSavedMissingBadges'),
               );
             }
             return true;
@@ -2237,20 +2263,25 @@ export default function ChapterEditor({
             const message =
               caughtReferenceError instanceof Error
                 ? caughtReferenceError.message
-                : 'Errore sincronizzazione riferimenti';
-            setError(`Capitolo salvato, ma sincronizzazione riferimenti fallita: ${message}`);
-            onStatus('Capitolo salvato, ma sincronizzazione riferimenti fallita');
+                : t('editor.status.referenceSyncError');
+            setError(t('editor.status.chapterReferenceSyncFailedWithReason', { message }));
+            onStatus(t('editor.status.chapterReferenceSyncFailed'));
           }
           await onChapterSaved?.();
           if (!referenceSyncFailed && !options?.silent) {
-            onStatus(options?.successStatus ?? `Capitolo salvato (${saved.wordCount} parole)`);
+            onStatus(
+              options?.successStatus ??
+                t('editor.status.chapterSavedWithWords', { count: saved.wordCount }),
+            );
           }
           return true;
         } catch (caughtError) {
           const message =
             caughtError instanceof Error ? caughtError.message : t('common.unknownError');
           setError(message);
-          onStatus(isSceneEditor ? 'Errore salvataggio scena' : 'Errore salvataggio capitolo');
+          onStatus(
+            isSceneEditor ? t('editor.status.sceneSaveError') : t('editor.status.chapterSaveError'),
+          );
           return false;
         } finally {
           setSaving(false);
@@ -2280,6 +2311,7 @@ export default function ChapterEditor({
       syncSceneEditorContentToChapter,
       syncSceneCardsFromDocument,
       syncSceneReferencesToParentChapter,
+      t,
     ],
   );
 
@@ -2323,13 +2355,13 @@ export default function ChapterEditor({
     const saved = await flushDirtyDocument({ silent: true });
     if (!saved) {
       setClosingAfterSave(false);
-      onStatus('Salvataggio non riuscito. Editor ancora aperto.');
+      onStatus(t('editor.status.saveFailedEditorOpen'));
       return;
     }
 
     if (isDirtyRef.current) {
       setClosingAfterSave(false);
-      onStatus('Nuove modifiche non salvate rilevate. Salva di nuovo prima di chiudere.');
+      onStatus(t('editor.status.newUnsavedChangesBeforeClose'));
       return;
     }
 
@@ -2345,8 +2377,8 @@ export default function ChapterEditor({
     const saved = isDirty
       ? await handleSave({
           successStatus: isSceneEditor
-            ? 'Scena salvata prima della versione'
-            : 'Capitolo salvato prima della versione',
+            ? t('editor.status.sceneSavedBeforeVersion')
+            : t('editor.status.chapterSavedBeforeVersion'),
         })
       : true;
     if (!saved) {
@@ -2361,15 +2393,20 @@ export default function ChapterEditor({
         label: 'Versione manuale',
       });
       onStatus(
-        `${isSceneEditor ? 'Versione scena' : 'Versione capitolo'} creata: ${new Date(
-          revision.createdAt,
-        ).toLocaleString()}`,
+        t(
+          isSceneEditor
+            ? 'editor.status.sceneVersionCreated'
+            : 'editor.status.chapterVersionCreated',
+          { date: new Date(revision.createdAt).toLocaleString() },
+        ),
       );
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
       onStatus(
-        isSceneEditor ? 'Errore creazione versione scena' : 'Errore creazione versione capitolo',
+        isSceneEditor
+          ? t('editor.status.sceneVersionCreateError')
+          : t('editor.status.chapterVersionCreateError'),
       );
     }
   }
@@ -2470,13 +2507,15 @@ export default function ChapterEditor({
   }
 
   async function handleSelectionAction(action: CodexTransformAction): Promise<void> {
+    const actionLabel = getSelectionActionStatusLabel(action, t);
+
     if (!editor || !selectedText || !selectionRange) {
-      onStatus('Seleziona prima del testo nel capitolo.');
+      onStatus(t('editor.status.selectionRequired'));
       return;
     }
 
     if (!codexSettings?.enabled) {
-      onStatus('Abilita prima il consenso AI per usare le azioni su selezione.');
+      onStatus(t('editor.status.selectionAiConsentRequired'));
       return;
     }
 
@@ -2502,7 +2541,7 @@ export default function ChapterEditor({
       });
 
       if (result.cancelled || !result.output.trim()) {
-        onStatus('Richiesta AI annullata');
+        onStatus(t('entity.status.aiRequestCancelled'));
         return;
       }
 
@@ -2514,11 +2553,13 @@ export default function ChapterEditor({
         transformedText: result.output,
         selectionRange: selectionRangeSnapshot,
       });
-      onStatus(`Anteprima ${action} pronta (${result.mode}). Scegli Applica o Scarta.`);
+      onStatus(
+        t('editor.status.selectionPreviewReady', { action: actionLabel, mode: result.mode }),
+      );
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore richiesta AI su selezione');
+      onStatus(t('editor.status.selectionAiRequestError'));
     } finally {
       setCodexBusy(false);
     }
@@ -2537,7 +2578,7 @@ export default function ChapterEditor({
       selectionRange.from >= selectionRange.to
     ) {
       setPendingSelectionDiff(null);
-      onStatus('Anteprima non applicabile: selezione non piu valida, ripeti l’azione AI.');
+      onStatus(t('editor.status.selectionPreviewInvalid'));
       return;
     }
 
@@ -2555,12 +2596,17 @@ export default function ChapterEditor({
       setSelectionBubble(null);
       setSelectedText('');
       setSelectionRange(null);
-      onStatus(`Azione ${action} applicata (${mode})`);
+      onStatus(
+        t('editor.status.selectionActionApplied', {
+          action: getSelectionActionStatusLabel(action, t),
+          mode,
+        }),
+      );
       await handleSave();
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore applicazione anteprima AI');
+      onStatus(t('editor.status.selectionPreviewApplyError'));
     } finally {
       setApplyingSelectionDiff(false);
     }
@@ -2572,7 +2618,7 @@ export default function ChapterEditor({
     }
 
     setPendingSelectionDiff(null);
-    onStatus('Anteprima AI scartata');
+    onStatus(t('editor.status.selectionPreviewDiscarded'));
   }
 
   async function handlePrint(): Promise<void> {
@@ -2621,7 +2667,7 @@ export default function ChapterEditor({
     }
 
     if (!codexSettings?.enabled) {
-      onStatus('Abilita prima il consenso AI per usare la chat.');
+      onStatus(t('editor.status.chatAiConsentRequired'));
       return;
     }
 
@@ -2655,22 +2701,22 @@ export default function ChapterEditor({
           {
             id: `a-${Date.now()}`,
             role: 'assistant',
-            content: 'Richiesta annullata.',
+            content: t('editor.ai.requestCancelledMessage'),
             mode: 'fallback',
           },
         ]);
-        onStatus('Richiesta AI annullata');
+        onStatus(t('entity.status.aiRequestCancelled'));
         return;
       }
 
       onMemorySources?.(result.memorySources ?? []);
       await refreshCodexHistory();
-      onStatus(`Risposta AI ricevuta (${result.mode})`);
+      onStatus(t('editor.status.chatResponseReceived', { mode: result.mode }));
     } catch (caughtError) {
       const messageText =
         caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(messageText);
-      onStatus('Errore chat AI');
+      onStatus(t('editor.status.chatError'));
     } finally {
       setCodexBusy(false);
     }
@@ -2908,15 +2954,15 @@ export default function ChapterEditor({
 
     const name = createReferenceModal.name.trim();
     if (createReferenceModal.type === 'scene' && !allowSceneReferenceCreation) {
-      onStatus('La creazione di scene da selezione non e disponibile nell’editor scena.');
+      onStatus(t('editor.status.sceneReferenceCreationUnavailable'));
       setCreateReferenceModal(null);
       return;
     }
     if (!name) {
       onStatus(
         createReferenceModal.type === 'character'
-          ? 'Inserisci il nome del personaggio.'
-          : 'Inserisci il nome della location.',
+          ? t('editor.status.characterNameRequired')
+          : t('editor.status.locationNameRequired'),
       );
       return;
     }
@@ -2990,7 +3036,9 @@ export default function ChapterEditor({
             autoImageGenerated = true;
           } catch (caughtError) {
             autoImageError =
-              caughtError instanceof Error ? caughtError.message : 'Errore generazione immagine';
+              caughtError instanceof Error
+                ? caughtError.message
+                : t('editor.status.imageGenerationError');
           }
         }
 
@@ -3042,7 +3090,9 @@ export default function ChapterEditor({
             autoImageGenerated = true;
           } catch (caughtError) {
             autoImageError =
-              caughtError instanceof Error ? caughtError.message : 'Errore generazione immagine';
+              caughtError instanceof Error
+                ? caughtError.message
+                : t('editor.status.imageGenerationError');
           }
         }
 
@@ -3093,21 +3143,27 @@ export default function ChapterEditor({
       setCreateReferenceModal(null);
       const baseStatus =
         createReferenceModal.type === 'character'
-          ? `Personaggio creato e inserito nel testo: @${name}`
+          ? t('editor.status.characterCreatedInserted', { name })
           : createReferenceModal.type === 'location'
-            ? `Location creata e inserita nel testo: @${name}`
-            : `Scena creata e inserita nel testo: #${name}`;
+            ? t('editor.status.locationCreatedInserted', { name })
+            : t('editor.status.sceneCreatedInserted', { name });
       if (createReferenceModal.type === 'scene') {
         onStatus(baseStatus);
       } else if (autoImageGenerated) {
-        onStatus(`${baseStatus} con immagine generata automaticamente`);
+        onStatus(t('editor.status.referenceCreatedWithAutoImage', { status: baseStatus }));
       } else if (autoImageError) {
-        onStatus(`${baseStatus}. Immagine automatica non generata: ${autoImageError}`);
+        onStatus(
+          t('editor.status.referenceCreatedAutoImageError', {
+            status: baseStatus,
+            message: autoImageError,
+          }),
+        );
       } else if (missingImageGenerationRequirements.length > 0) {
         onStatus(
-          `${baseStatus}. Generazione automatica non disponibile: manca ${missingImageGenerationRequirements.join(
-            ', ',
-          )}.`,
+          t('editor.status.referenceCreatedAutoImageUnavailable', {
+            status: baseStatus,
+            requirements: missingImageGenerationRequirements.join(', '),
+          }),
         );
       } else {
         onStatus(baseStatus);
@@ -3115,7 +3171,7 @@ export default function ChapterEditor({
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      onStatus('Errore creazione scheda da selezione');
+      onStatus(t('editor.status.referenceCreationError'));
       setCreateReferenceModal((prev) => (prev ? { ...prev, submitting: false } : prev));
     }
   }

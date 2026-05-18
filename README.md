@@ -1,686 +1,241 @@
-# Premessa
-
-Non sono un esperto nella scrittura di codice. Per lo meno così mi vedo. Ma non sono neppure una persona che ha scoperto che chatGPT può fare APP e subito ha avuto l'ambizione di fargli fare l'applicazione must have che tutti desiderano da una vita.
-The Novelist nasce da diverse esigenze:
-
-- Come Scrittore
-  Scrivo racconti e romanzi da quando ero ragazzino. C'è stato anche un periodo della mia vita in cui ho pubblicato qualche mio lavoro con piccoli editori, in cui ho vinto qualche concorso, in cui ho reso pubblica questa mia vocazione.
-  Per scrivere ho usato un po' di tutto. Partendo dal classico Microsoft Word, poi per un breve periodo ho usato Google Write, poi sono passato per altre app specializzate per la scrittura (come Scrivener), per poi tornare a Pages.
-  Ho sempre avuto la necessità di una applicazione che, sì, mi permettesse di scrivere le mie storie, ma che allo stesso tempo mi aiutasse a tenere traccia delle location, dei personaggi, del contenuto dei vari capitoli. Volevo un programma che mi permettesse di scrivere i singoli capitoli, e poi di organizzarli in un secondo momento, modificando la struttura del romanzo, per ottenere l'effetto migliore.
-  Ma non ho mai trovato l'app giusta. Perciò ho pensato di farmela da solo.
-
-- Come appassionato di AI
-  L'intelligenza artificiale è uno strumento incredibile, e come avrete già visto con Coworker, non mi limito al semplice uso di un chatbot. Volevo quindi integrare la AI in questa app di scrittura. Volevo uno strumento che, partendo dalla descrizione di un personaggio, di un luogo, mi facesse il ritratto, o una immagine del luogo. Volevo che l'editor mi aiutasse in quei passaggi difficili, semplicemente selezionandoli. E volevo che ogni capitolo, mano a mano che veniva scritto, avesse corredato un piccolo riassunto, utile per poi costruire la struttura finale del romanzo.
-
-- Come conseguenza naturale di altri progetti a cui sto lavorando
-  Grazie all'esperienza che sto facendo con altri applicativi che sto sviluppando per vari scopi, ho pensato che fosse davvero giunto il momento per posare la prima pietra con The Novelist.
-
-1. Volevo una struttura modulare: Perché non fare una interfaccia a blocchi e connessioni? Ogni blocco rappresenta un capitolo. Le connessioni mi permettono di scegliere come collegare l'uno all'altro.
-2. Volevo poter gestire meglio le trame parallele: L'interfaccia a blocchi è perfetta. I blocchi di una trama hanno tutti lo stesso colore. Se genero un altro percorso narrativo, ho un colore differente.
-3. Volevo le schede personaggi: Anche qui, interfaccia a blocchi. Ogni blocco è una scheda personaggio in stile identikit. Nella scheda e persino possibile indicare in quali capitoli il personaggio è presente. E con la AI posso persino generare una immagine del personaggio.
-4. Volevo le schede paesaggi: Anche qui, interfaccia a blocchi. Identiche in tutto e per tutto a quelle dei personaggi, ma dedicate alle location.
-5. Intervento della AI: per l'assistenza testuale l'app usa OpenAI API oppure Ollama. Per le funzionalità cloud complete, inclusa la generazione immagini in-app, è necessario usare una API Key di OpenAI. Ollama resta disponibile come provider locale per chi vuole tenere il testo sul proprio computer.
-
-Tutto ciò ha portato a The Novelist.
-
-L'applicazione è stata interamente realizzata con assistenza AI. L'interfaccia è un po' 'techie', ma non mi dispiace, anche se avrei potuto insistere un po' di più per renderla maggiormente user-friendly.
-
-E' perfetta?
-Diciamo che funziona, e non mi pare che abbia bug evidenti. Al momento il progetto viene mantenuto con build verificate localmente su macOS e Windows, cosi da allineare supporto dichiarato e supporto realmente verificato.
-Un Dev professionista potrebbe trovarci molti difetti, e qualche vulnerabilità che mi è scappata. Lascio a loro l'onere e l'onore di sistemare ciò che i miei occhi imberbi non hanno scovato.
-Rimane comunque, e sempre, una app realizzata in vibe-coding.
-
-# The Novelist - Manuale Utente (IT)
-
-> Questa app è stata realizzata in vibecoding con codex CLI. Attualmente è da intendersi come alpha funzionante. Potrebbe necessitare di ottimizzazione, pulizia di codice orfano, interventi di sicurezza, e molto altro ancora...
-
-## Sommario
-
-- Introduzione
-- Come iniziare
-- L'interfaccia
-- Canvas Capitoli/Scene: Come funziona l'editor di testo
-- Canvas Trame/Personaggi/Location
-- Memoria
-- Impostazioni
-
-## Introduzione
-
-The Novelist è un progetto sperimentale pensato per gli scrittori. L'applicazione ha una dotazione di tool utili per strutturare una narrativa complessa, e gestirne le singole parti.
-Attualmente il progetto viene mantenuto e distribuito con pacchetti verificati localmente su macOS e Windows.
-
-### Lingua interfaccia
-
-The Novelist 5.0 introduce l'interfaccia bilingue italiano/inglese. La lingua viene scelta automaticamente dal sistema: italiano se la locale inizia con `it`, inglese negli altri casi. Nelle Impostazioni e comunque possibile forzare manualmente `Italiano`, `English` oppure tornare ad `Automatico`.
-
-La scelta riguarda interfaccia, dialoghi, stati operativi, export generati dall'app e istruzioni AI. I contenuti dei progetti non vengono tradotti automaticamente: capitoli, scene, trame, schede, memoria Wiki e testi selezionati restano nella lingua scritta dall'autore.
-
-Funzionalità principali:
-
-- Cruscotto con tutte le informazioni sul romanzo/racconto.
-- Timeline Grafica della storia.
-- Struttura a Nodi per definire la traccia del romanzo/racconto.
-- Schede trama.
-- Schede personaggio.
-- Schede Location.
-- Ogni blocco narrativo (scena/capitolo) è dotato di un editor assistito da AI.
-- Ogni Scheda Personaggio, e Scheda Location, è dotata di un assistente AI.
-- Strumento per la gestione delle revisioni di ogni scena/capitolo/personaggio/location.
-- Strumento per l'analisi del romanzo/racconto con l'assistenza della AI.
-- Strumento di consultazione della 'memoria' del romanzo/racconto.
-- Possibilità di stampare il singolo blocco narrativo (capitolo).
-- Possibilità di stampare l'intero romanzo.
-- Possibilità di export in formato ePUB e DOCX.
-
-Funzionalità secondarie:
-
-- Abbinamento a modelli cloud tramite API Key
-- Abbinamento a modelli locali con Ollama
-
-## Come iniziare
-
-### Download, firma e checksum
-
-The Novelist e nato come programma personale ed e poi stato pubblicato come progetto open source con licenza Apache 2.0. Le build pubblicate non sono firmate con certificati Apple o Windows.
-
-Questo significa che:
-
-- su macOS puo comparire un avviso di Gatekeeper al primo avvio;
-- su Windows puo comparire un avviso SmartScreen o "autore sconosciuto";
-- il codice sorgente resta ispezionabile nel repository, ma i pacchetti scaricati non hanno una firma commerciale del sistema operativo.
-
-E' quindi possibile che all'avvio il Sistema Operativo vi chieda il permesso a procedere nell'apertura dell'app.
-
-Nota: In caso abbiate dubbi, nel repository trovate i checksum dei programmi. Nell'area Tech di questo documento trovate le istruzioni per verificare che i files non siano stati compromessi.
-
-### Avvio di The Novelist
-
-Sia su macOS. sia su Windows, è sufficiente fare doppioclick sull'icona del programma.
-
-### Creazione di un romanzo/racconto
-
-Cliccare su Crea.
-Inserire il direttorio dove posizionare il progetto.
-Indicare il titolo del progetto.
-Inserire un target di parole per l'intero romanzo/racconto, e per i singoli capitoli (opzionale, ma utile).
-Inserire una data prevista di conclusione del progetto (opzionale, ma utile).
-
-### Definire una o più trame
-
-Cliccare su Trame.
-Cliccare su Nuova Trama.
-Definire il numero di trama. Il programma può gestire più trame parallele. Ad esempio si può creare una trama principale, più altre trame secondarie legate a singoli personaggi. Scegliere il numero subito successivo all'ultimo usato. Nel caso della trama principale, usare 1.
-Definire un nome della trama (Trama Principale, Storia del personaggio, etc).
-Scrivere una bozza, un idea, una struttura, o un breve riassunto della trama che si vuole definire.
-Cliccare su Crea Trama.
-Verrà creato un 'box' relativo alla trama. La trama sarà definita per titolo, numero, e colore. Cliccando sul box è possibile rivedere quanto scritto, ed eventualmente modificarlo.
-In alternativa si può cliccare su Crea Capitoli. In questo caso, oltre alla generazione del box legato alla trama, vengono prodotti dalla AI un certo numero di capitoli, con una indicazione del tema di cui dovranno parlare, per completare l'opera. Questa generazione è solamente propositiva, e l'autore può modificarla in ogni momento, e anche cancellarla.
-
-### Iniziare a scrivere
-
-A seconda di come intenda lavorare l'autore, è possibile partire direttamente scrivendo un capitolo del libro, o semplicemente scrivendo una delle scene che saranno incluse nei capitoli.
-La scelta è puramente personale. Dalla stesura dei capitoli è possibile definire successivamente le varie scene. Oppure, dopo aver scritto le singole scene, è possibile aprire un capitolo vuoto e richiamare le scene nell'ordine che si preferisce.
-L'editor è semplice ma possiede tutto ciò che serve, ovvero:
-
-- Giustificazione del Testo.
-- Formattazione del testo e del font.
-- Sistema di ricerca.
-- Sistema di ricerca e sostituzione.
-- Sistemi di correzione di un testo selezionato (tramite AI).
-- Chatbot AI per la consultazione/ricerca.
-  L'editor riconosce il '<<', e il '>>' come 'baffi' per i dialoghi e li converte nei simboli tipografici corretti.
-  Sia che si scriva una scena, sia che si scriva un capitolo, è possibile selezionare un testo e definirlo come descrizione di un personaggio, o di una location. Con la definizione, l'app genererà in automatico una scheda personaggio (volendo anche compresa di foto), o una scheda location (volendo anche compresa di foto).
-  Per avere una correlazione tra personaggi/paesaggi e i capitoli/scene, è sufficiente richiamarli con la @. Questo permetterà all'autore di sapere sempre dove è presente un personaggio o quali capitoli si svolgono in una determinata location.
-  Tutte le informazioni saranno utilizzate per creare una 'memoria' del progetto, e per compilare sia il cruscotto, sia la timeline. Le informazioni saranno anche fondamentali affinché la AI sappia su cosa si sta lavorando.
-
-### Timeline
-
-La timeline viene utile per dare ordine cronologico agli eventi raccontati. La sua costruzione è manuale, ma ogni volta che si entra nella vista timeline, questa mostrerà gli elementi già posizionati, e quelli nuovi ancora da posizionare.
-L'autore può anche indicare date precise, sia di inizio, sia di fine, della timeline. E definire anche date specifiche per ogni singolo elemento connesso ad essa.
-
-### Scaletta
-
-La scaletta è uno strumento di drag and drop verticale in cui l'autore può disporre i capitoli come meglio preferisce. La stampa, o l'export del romanzo/racconto avverrà in base all'ordinamento scelto in questa vista. Il pulsante Apri permette di leggere il capitolo, o l'intero documento, in una finestra a zero-fastidi, pensata per non affaticare gli occhi.
-
-### Revisioni
-
-Il programma tiene memoria di ogni modifica fatta nei capitoli e nelle scene, così come nelle schede personaggio e location. Nel caso si voglia tornare indietro, è possibile andare sulla vista Revisioni, cercare quella desiderata, e ripristinarla.
-Attenzione però: una volta ripristinata una vecchia stesura, non sarà più possibile tornare all'ultima generata.
-
-### Analisi
-
-Il programma offre una serie di strumenti, che grazie alla AI, sono in grado di valutare il tasto scritto e individuarne i potenziali difetti, o le eventuali mancanze.
-
-### Memoria
-
-Il programma memorizza ogni modifica, ogni richiesta alla AI, ogni salvataggio fatto dall'utente. Questa 'memoria' del programma può essere interrogato in ogni momento, attraverso una barra di ricerca che funziona in stile 'Google'.
-
-## L'interfaccia
-
-L'interfaccia principale è divisa in tre aree distinte.
-
-### Centro di controllo
-
-Sotto al logo, sono presenti diversi tasti che permettono di spostarsi tra le varie viste.
-
-### Area Comandi (sinistra)
-
-Il lato sinistro dell'applicazione, solitamente, ha una serie di opzioni utili per la vista scelta. Solitamente tasti per creare nuovi elementi, per avere informazioni su quelli selezionati, ed eventualmente cancellarli.
-
-### Canvas (destra)
-
-Il lato destro è il foglio di lavoro. Si tratta di una lavagna su cui appoggiare i blocchi (ogni blocco rappresenta un elemento relativo alla vista scelta), e decidere come connettere l'uno all'altro. Nelle pagine di analisi, così come nel cruscotto e nella memoria, saranno mostrate le informazioni relative alle specificità della vista scelta.
-
-## Canvas Capitoli/Scene: Come Funziona l'editor di testo
-
-L'editor di testo è molto semplice. Anche in questo caso è diviso in due aree distinte:
-
-- Sul lato sinistro è presente l'editor di scrittura. E' possibile scegliere lo stile, il tipo di font, la giustificazione e la dimensione del font. La scrittura è snella. Riconosce il '-' e i baffi '<<' '>>' per i dialoghi. Mentre se vi serve un elenco puntato (sul serio?) vi basta usare l'asterisco. L'editor mostrerà anche la location associata, e i personaggi. Se si seleziona un testo, è possibile ritoccarlo direttamente tramite la AI.
-- Sul lato destro c'è una interfaccia in stile chatbot per consultare l'AI in caso di bisogno.
-  L'editor consente inoltre di esportare il capitolo in formato DOCX, o di stamparlo.
-  Quando si esce dall'editor, la AI farà un riassunto di quanto scritto e lo metterà in descrizione al blocco.
-
-Per richiamare un personaggio, o una location, è sufficiente digitare '@' e scegliere dall'elenco. Il richiamo non sarà visibile in fase di export, ma permetterà di avere una correlazione tra gli elementi, visibile sia nell'editor, sia nelle schede personaggio e nelle schede paesaggio.
-Se si vuole creare un nuovo personaggio, o una nuova location, senza passare ai Canvas Personaggi/Location (vedi capitoli successivi), è sufficiente scrivere nell'editor la descrizione, selezionare il testo, e cliccarci sopra col tasto destro. Si aprirà un menù ad hoc per generare direttamente ciò che si desidera. Una volta confermato, il programma creerà direttamente la scheda al posto dell'utente, andando a compilare gli attributi grazie alla AI, che cercherà nel testo evidenziato i dati, e li riporterà al posto giusto. Nel caso poi siano attive le API, verrà anche generata una immagine in automatico, sempre basata sulla descrizione.
-Nell'editor di testo, ovviamente, il testo selezionato rimarrà presente, ed apparirà il badge relativo al personaggio, o alla location, appena creata.
-Allo stesso modo è possibile creare una scena. In questo caso la scena verrà evidenziata con il '#'.
-
-Scorciatoie da tastiera nell'editor:
-
-| Azione                          | Windows/Linux                      | macOS                             |
-| ------------------------------- | ---------------------------------- | --------------------------------- |
-| Salva capitolo                  | `Ctrl+S`                           | `Cmd+S`                           |
-| Stampa capitolo                 | `Ctrl+P`                           | `Cmd+P`                           |
-| Interlinea 1                    | `Ctrl+Enter`                       | `Cmd+Enter`                       |
-| Trova                           | `Ctrl+F`                           | `Cmd+F`                           |
-| Sostituisci                     | `Ctrl+H`                           | `Cmd+H`                           |
-| Risultato successivo            | `Enter` nella barra Trova          | `Enter` nella barra Trova         |
-| Risultato precedente            | `Shift+Enter` nella barra Trova    | `Shift+Enter` nella barra Trova   |
-| Sostituisci occorrenza corrente | `Ctrl+Enter` nel campo Sostituisci | `Cmd+Enter` nel campo Sostituisci |
-| Chiudi Trova/Sostituisci        | `Esc`                              | `Esc`                             |
-| Invia messaggio AI              | `Ctrl+Enter` nella chat            | `Cmd+Enter` nella chat            |
-| Grassetto                       | `Ctrl+B`                           | `Cmd+B`                           |
-| Corsivo                         | `Ctrl+I`                           | `Cmd+I`                           |
-| Annulla                         | `Ctrl+Z`                           | `Cmd+Z`                           |
-| Ripristina                      | `Ctrl+Shift+Z`                     | `Cmd+Shift+Z`                     |
-
-## Canvas Trame/Personaggi/Location
-
-Le due aree non sono molto differenti da quelle già viste. Sia il blocco personaggio, sia il blocco paesaggio permette di inserire delle caratteristiche specifiche, ed eventualmente generare una immagine del personaggio/paesaggio.
-Sia i blocchi personaggio, sia i blocchi location, sono dotati di 'maniglie', esattamente come avviene nel Canvas dells Struttura Progetto. Ciò permette di collegare tra loro personaggi che hanno un legame, o location legate tra loro.
-Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, tramite il tab `Trame` e il tasto `Nuova Trama`.
-
-Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
-
-## Memoria
-
-Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, e dalle Location. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
-
-###
-
-La memoria può essere interrogata in ogni momento, sia dal chatbot presente nell'editor di testo, sia direttamente dalla vista chiamata memoria. Qui è presente una barra di ricerca in stile 'Google'. Oltre alle risposte relative alla domanda posta, o alla parola chiave cercata, saranno disponibili le fonti da cui è stata estrapolata la risposta.
-
-## Analisi
-
-Il programma è dotato di una serie di servizi, svolti tramite AI, capaci di identificare potenziali problemi in questi ambiti:
-
-- Coerenza Narrativa: Tempi, personaggi e location descritti in modo contradditorio, etc.
-- Eventi non risolti: Vicende, promesse narrative e trame lasciate aperte.
-- Stile: Tono, punteggiatura, ricorrenze, ripetizioni, e leggibilità del testo.
-- Ritmo narrativo: Capitoli deboli, scene ridondanti, personaggi superficiali o assenti nella narrazione.
-- Nomi e convenzioni: Nomi propri, terminologie, convenzioni, e coerenza interna.
-
-Il report fornito è solamente indicativo, ma utile all'autore durante la fase di revisione del testo. Volendo, il report può essere stampato per poter conservare le informazioni e fare le correzioni in un secondo momento.
-
-## Impostazioni
-
-Il menù impostazioni serve principalmente per:
-
-- Impostare l'autosave.
-- Impostare il servizio AI da usare.
-- Impostare il consenso alle AI di usare i dati conservati nella Wiki.
-
-### Autosave
-
-Il programma permette di scegliere tra:
-
-1. Salvataggio manuale.
-2. Salvataggio ogni N Minuti.
-3. Salvataggio automatico, a ogni modifica fatta dall'utente.
-
-### Impostazioni AI
-
-Qui si può scegliere il modello AI da usare (OpenAI API Key oppure Ollama), il fallback nel caso la AI scelta abbia problemi (tra cui anche No AI), e impostare i modelli a cui fare le richieste (prima di cambiare quelli di default, verificare i costi per token).
-
-### Consensi
-
-Qui sono presenti le box per abilitare le varie funzionalità AI previste dall'applicazione.
-
-### Segreti
-
-Qui va inserita la API KEY per i servizi cloud.
-
-#### API KEY
-
-Questo è l'unico sistema che permette di generare le immagini In-App, sempre che il servizio associato alla vostra chiave API lo permetta. E' prevista la compatibilità alle API KEY di OpenAI, che sono un po' uno standard de facto.
-
-#### Ollama
-
-Ollama è un tool che, una volta installato sul proprio computer, permette di scaricare dei modelli AI locali (misurati sulle prestazioni del PC), o di usare dei modelli Open Source in Cloud. Questa soluzione è utile per chi vuole la massima tutela della privacy, a scapito delle prestazioni dei modelli.
-
-Attenzione: Ollama deve essere installato e in esecuzione sul computer. In caso contrario il provider locale non sarà attivo.
-
-Il menù impostazioni presenta anche quattro check box importanti:
-
-1. Consenso invio testo a strumenti AI: Senza questo consenso non si potranno usare i servizi AI.
-2. Abilita chiamate API esterne: Senza questo consenso non potrà funzionare il servizio tramite API KEY.
-3. Auto-riassunto della descrizione blocco al salvataggio: Senza questo consenso non si avrà il riassunto automatico dei capitoli in descrizione al blocco.
-4. Consenso invio memoria progetto a provider esterni: se disattivato, la AI non riceverà la memoria Wiki quando il provider o il fallback possono inviare il prompt fuori dal computer.
-
-E' inoltre presente un Fallback nel caso il servizio AI scelto non sia operativo per qualche motivo. Questo fallback può ridirigere le richieste all'altro provider disponibile, o essere completamente 'Non AI'.
-
-_Nota:_ Le impostazioni AI sono salvate all'interno dei singoli progetti. Le preferenze di autosave invece sono globali utente, quindi restano valide anche quando si apre o si crea un altro progetto.
+<p align="center">
+  <img src="build/icon.png" alt="The Novelist icon" width="128" />
+</p>
+
+<h1 align="center">The Novelist</h1>
+
+<p align="center">
+  Desktop app for planning, writing, revising, and exporting novels with local project storage, visual narrative canvases, and optional AI assistance.
+</p>
+
+<p align="center">
+  <strong>Versione sorgente / Source version:</strong> 5.0.0<br />
+  <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
+  <strong>Licenza / License:</strong> Apache 2.0
+</p>
 
 ---
 
-# The Novelist - Tech Notes
+## Italiano
 
-App desktop Electron per progettare e scrivere romanzi: canvas narrativo, canvas trame/personaggi/location, editor capitoli, export e assistenza AI.
+The Novelist e un'app desktop Electron pensata per scrittori che vogliono progettare e scrivere romanzi o racconti complessi. Unisce editor rich text, canvas narrativi, schede personaggio/location, timeline, revisioni, memoria locale del progetto, export e assistenza AI opzionale.
 
-## Novita 5.0 rispetto alla release 4.x
+L'app nasce come progetto personale realizzato con assistenza AI. Il codice e open source, ispezionabile e modificabile, ma il progetto va considerato una alpha funzionante: utile, concreta, ma ancora migliorabile sul piano tecnico, UX e sicurezza.
 
-La 5.0 aggiunge la localizzazione italiano/inglese mantenendo invariato il modello locale dei progetti:
+### Download e distribuzione
 
-- **Interfaccia bilingue**: shell, dashboard, editor, canvas, impostazioni, memoria, revisioni e analisi sono disponibili in italiano e inglese.
-- **Lingua automatica o manuale**: l'app usa la lingua del sistema per default, con override nelle Impostazioni.
-- **Prompt AI localizzati**: istruzioni operative, fallback e report seguono la lingua dell'interfaccia senza tradurre automaticamente il testo narrativo dell'autore.
-- **Export e dialoghi coerenti**: intestazioni generate, dialoghi Electron e messaggi di errore user-facing seguono la lingua effettiva.
-- **Copertura test release**: test unitari per dizionari/interpolazione/lingua, smoke e2e in inglese e checklist completa su browser, Electron e packaging.
+Le build pubblicate sono disponibili nella sezione GitHub Releases del repository.
 
-## Novita 4.x rispetto alla release 3.x
+- Build supportate: macOS e Windows.
+- Build non firmate: su macOS puo comparire Gatekeeper; su Windows puo comparire SmartScreen o un avviso di autore sconosciuto.
+- Checksum: gli artefatti di release includono SHA-256 quando generati dal workflow o da `npm run release:checksums`.
+- Installazione macOS: apri il `.dmg` e trascina l'app in `Applicazioni`. Se necessario, usa `tasto destro > Apri` al primo avvio.
+- Installazione Windows: usa l'installer `The-Novelist-Setup-<version>-x64.exe` oppure la build portable `The-Novelist-Portable-<version>-x64.exe`.
 
-La release 3.x aveva gia introdotto la memoria Wiki locale e il flusso AI contestuale. La 4.x trasforma il programma in un ambiente editoriale piu completo:
+Nota: la cartella locale `release/` puo contenere build precedenti o artefatti generati durante sviluppo e test. Per gli utenti finali fa fede la pagina GitHub Releases.
 
-- **Cruscotto progetto**: vista iniziale con parole totali, capitoli, scene, trame, personaggi, location, snapshot, stato Wiki, stato AI/autosave, controlli sui capitoli incompleti e suggerimenti su cosa riprendere.
-- **Obiettivi e sessioni di scrittura**: target parole progetto, target medio per capitolo, data prevista di conclusione, progresso percentuale, parole residue, parole richieste al giorno, stima di consegna e storico delle sessioni di scrittura.
-- **Scaletta editoriale**: vista lineare ordinata dei capitoli, drag and drop per riordinare il manoscritto e sincronizzazione con il canvas.
-- **Vista lettura**: overlay a zero distrazioni per leggere un singolo capitolo o il documento completo senza entrare nell'editor.
-- **Scene**: nuovo livello narrativo sotto il capitolo, con canvas dedicato, editor scena, contenuto rich text, note, trama di appartenenza, collegamento al capitolo e riferimenti `#scena` dentro l'editor.
-- **Sincronizzazione capitoli-scene**: le scene possono essere inserite/richiamate nel capitolo e il testo scena puo essere aggiornato dal contenuto del capitolo.
-- **Timeline narrativa**: vista cronologica separata dall'ordine di lettura, con capitoli e scene posizionabili, etichette data, estremi timeline, zoom, minimap e salvataggio su database.
-- **Revisioni entita**: storico manuale/automatico/ripristino per capitoli, scene, personaggi e location, con snapshot strutturati e ripristino controllato.
-- **Analisi AI strutturata**: controlli dedicati per coerenza narrativa, eventi non risolti, stile, ritmo narrativo, nomi e convenzioni, usando capitoli, scene, schede, timeline e Wiki come contesto.
-- **Personaggi e immagini**: le schede personaggio includono anche colore occhi e pelle; l'import immagini ora valida estensione, firma binaria e dimensione massima lato main process prima della copia in `assets/`.
-- **Memoria Wiki estesa**: le fonti generate includono anche scene e timeline, oltre a capitoli, trame, personaggi, location e chat AI.
-- **Impostazioni AI piu granulari**: fallback provider per progetto, modello Ollama configurabile, modello immagini OpenAI configurabile, stato provider, consenso separato per invio memoria a provider esterni.
-- **Robustezza tecnica**: nuove migration SQLite per scene, revisioni, obiettivi/sessioni e timeline; test unitari/e2e aggiornati per i nuovi flussi.
+### Funzionalita principali
 
-## Funzionalita principali
+- Cruscotto progetto con metriche, obiettivi, snapshot, stato AI/autosave e controlli editoriali.
+- Interfaccia bilingue italiano/inglese con rilevamento automatico della lingua di sistema e override manuale.
+- Canvas capitoli con nodi, connessioni e trame parallele colorate.
+- Canvas dedicati per trame, scene, personaggi e location.
+- Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`.
+- Creazione rapida di schede da testo selezionato.
+- Timeline cronologica separata dall'ordine di lettura.
+- Scaletta drag and drop per ordinare il manoscritto.
+- Vista lettura per capitolo singolo o documento completo.
+- Revisioni di capitoli, scene, personaggi e location.
+- Memoria Wiki locale in Markdown, derivata dal database del progetto e interrogabile dall'app.
+- Analisi AI per coerenza narrativa, eventi non risolti, stile, ritmo e nomi/convenzioni.
+- Export e stampa: capitolo singolo in DOCX/stampa; manoscritto completo in DOCX, ePUB e stampa.
 
-- Gestione progetto locale con `Crea`, `Apri`, `Salva`, `Chiudi`, pianificazione, snapshot DB e recovery.
-- Cruscotto con metriche, controlli editoriali, obiettivi di scrittura e stato dei sottosistemi.
-- Canvas storia con trame, capitoli, connessioni persistenti e ordinamento narrativo.
-- Scaletta lineare con drag and drop e vista lettura per capitolo o manoscritto completo.
-- Canvas Scene dedicato con schede scena, editor scena, connessioni e sincronizzazione con i capitoli.
-- Timeline cronologica per capitoli e scene.
-- Revisioni di capitoli, scene, personaggi e location con ripristino.
-- Canvas Trame dedicato con creazione/modifica/eliminazione trame e generazione AI di una bozza struttura a blocchi.
-- Editor capitolo con formattazione ricca, riferimenti rapidi a personaggi/location/scene e azioni AI su selezione.
-- Chat AI contestuale al capitolo.
-- Analisi AI strutturata del progetto.
-- Memoria progetto locale in Markdown con sorgenti deterministic-first, ricerca locale e contesto citabile per chat e analisi AI.
-- Canvas Personaggi e Location con collegamenti ai capitoli.
-- Autosave configurabile lato utente (`manuale`, `a intervallo`, `automatico`).
-- Gestione immagini per personaggi/location:
-  - associazione file locale;
-  - anteprima e visualizzazione completa;
-  - generazione in-app (solo via OpenAI API).
-- Export e stampa:
-  - singolo capitolo: `DOCX`, `Stampa`;
-  - manoscritto completo: `ePUB`, `DOCX`, `Stampa`.
+### AI e privacy
 
-## Requisiti
+Le funzioni AI sono disattivate per default nei nuovi progetti. L'utente deve abilitarle esplicitamente dalle Impostazioni.
+
+Provider supportati:
+
+- OpenAI API per assistenza testuale e generazione immagini in-app.
+- Ollama per modelli locali.
+
+Consensi disponibili:
+
+- invio testo a strumenti AI;
+- chiamate API esterne;
+- auto-riassunto delle descrizioni;
+- invio memoria progetto a provider esterni.
+
+La memoria locale viene inviata a provider esterni solo se il consenso dedicato e attivo. Ollama resta disponibile per chi vuole mantenere il testo sul proprio computer.
+
+### Documentazione utente
+
+- [ISTRUZIONI.md](./ISTRUZIONI.md): manuale completo in italiano.
+- [INSTRUCTIONS.md](./INSTRUCTIONS.md): traduzione completa in inglese.
+- [SECURITY_MODEL.md](./SECURITY_MODEL.md): note tecniche su sicurezza, limiti residui e hardening.
+- [MAPS.md](./MAPS.md): mappa del repository.
+
+### Sviluppo locale
+
+Requisiti:
 
 - Node.js 22+
 - npm 10+
 
-Nota per chi usa il repository sorgente:
-
-- il vincolo su toolchain/licenza Xcode riguarda sviluppo e test locali su macOS, non l'uso dell'app gia buildata;
-- chi scarica una release `.dmg` non deve installare Xcode o ricompilare moduli nativi.
-
-## Avvio rapido
-
-1. Installa dipendenze:
-   - `npm install`
-2. Avvia in sviluppo:
-   - `npm run dev`
-
-## Nota sviluppo macOS
-
-- `npm test` passa da `pretest` e lancia `npm run rebuild:node-native`.
-- Questo step serve a chi sviluppa o testa il sorgente localmente e puo richiedere toolchain Xcode configurata e licenza accettata.
-- Non impatta gli utenti finali che scaricano la build `.dmg` o l'app gia pacchettizzata.
-- Le istruzioni operative per agenti e manutentori sono raccolte in `AGENTS.md`.
-
-## Comandi utili
-
-- `npm run dev`: avvio sviluppo Electron + renderer.
-- `npm run build`: build main/preload/renderer in `out/`.
-- `npm run pack`: crea app unpacked locale in `release/`.
-- `npm run dist`: crea gli artefatti macOS ufficiali.
-- `npm run dist:mac`: crea artefatti macOS (`dmg`, `zip`).
-- `npm run dist:win`: crea artefatti Windows (`installer .exe`, `portable .exe`).
-- `npm run release:checksums`: genera `release/SHA256SUMS.txt` per gli artefatti compilati.
-- `npm run rebuild:electron-native`: rebuild moduli nativi (es. `better-sqlite3`) per Electron.
-- `npm run rebuild:node-native`: rebuild moduli nativi per runtime Node locale.
-- `npm run lint`: lint.
-- `npm run typecheck`: type check TypeScript.
-- `npm run test`: test unitari Vitest.
-- `npm run test:e2e:install`: installa Chromium locale per Playwright.
-- `npm run test:e2e`: suite e2e renderer.
-- `npm run test:perf`: benchmark e2e performance.
-- `npm run test:e2e:electron`: suite e2e Electron reale (IPC + DB).
-- `npm run test:smoke:electron`: smoke Electron reale su build pacchettizzata.
-
-Nota su `pack`, `dist:mac` e `dist:win`:
-
-- prima del packaging viene forzata una rebuild Electron-native di `better-sqlite3`;
-- dopo il packaging viene ripristinata la rebuild Node-native per non sporcare l'ambiente di sviluppo locale;
-- questo evita mismatch ABI tra app pacchettizzata ed esecuzione locale dei test/script Node.
-
-## AI: provider e comportamento
-
-Nelle Impostazioni AI puoi scegliere il provider:
-
-- `OpenAI API`
-- `Ollama (locale)`
-
-Note operative:
-
-- Prompt/suggerimenti/chat/creazione struttura trama usano il provider selezionato.
-- L'app controlla lo stato del provider e puo bloccare una nuova analisi se esiste gia una richiesta AI attiva o in coda.
-- Il fallback provider puo essere `OpenAI API`, `Ollama` oppure `none`.
-- La chat AI puo ricevere un blocco "Memoria progetto" costruito dalla wiki locale. Questo avviene solo se il consenso AI e attivo e, quando provider o fallback possono uscire dal computer, se e attivo anche il consenso "Invio memoria progetto a provider esterni".
-- La generazione immagini in-app usa OpenAI Images API, quindi richiede:
-  - consenso AI attivo;
-  - provider `OpenAI API`;
-  - chiamate API abilitate;
-  - API key disponibile.
-- Il modello testo OpenAI, il modello immagini OpenAI e il modello Ollama sono configurabili per singolo progetto.
-
-## Setup provider AI
-
-Questa sezione serve solo se si vuole usare l'assistenza AI. The Novelist puo funzionare anche senza provider esterni, ma le funzioni AI restano disattivate o limitate.
-
-### OpenAI API Key
-
-La API key serve per il provider `OpenAI API` e per la generazione immagini in-app.
-
-Procedura:
-
-1. Vai alla pagina API Keys della piattaforma OpenAI: <https://platform.openai.com/api-keys>.
-2. Crea una nuova secret key.
-3. Copiala subito: di norma la chiave completa viene mostrata una sola volta.
-4. In The Novelist apri `Impostazioni > Impostazioni AI`.
-5. Seleziona `OpenAI API` come provider, abilita le chiamate API e incolla la chiave nel campo dedicato.
-6. Salva le impostazioni.
-
-Fallback via ambiente:
+Installazione e avvio:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+npm install
+npm run dev
 ```
 
-Su Windows PowerShell:
-
-```powershell
-$env:OPENAI_API_KEY="sk-..."
-```
-
-Buone pratiche:
-
-- Non condividere la API key.
-- Non inserirla in file versionati, screenshot, issue o log.
-- Se possibile, usa permessi ristretti dalla pagina API Keys.
-- Se sospetti una fuga della chiave, revocala e creane una nuova.
-
-### Ollama e modello locale
-
-Ollama permette di usare modelli locali tramite il provider `Ollama`. The Novelist parla con Ollama via API locale, di default `http://127.0.0.1:11434`.
-
-Installazione macOS:
-
-1. Scarica Ollama da <https://ollama.com/download>.
-2. Installa l'app `.dmg` in `Applicazioni`.
-3. Avvia Ollama almeno una volta, cosi il comando `ollama` viene reso disponibile nel `PATH`.
-4. Verifica da terminale:
+Comandi principali:
 
 ```bash
-ollama -v
+npm run typecheck
+npm run test
+npm run test:e2e
+npm run test:e2e:electron
+npm run build
 ```
 
-Installazione Windows:
-
-1. Scarica l'installer da <https://ollama.com/download>.
-2. Avvia `OllamaSetup.exe`.
-3. Apri PowerShell o `cmd` e verifica:
-
-```powershell
-ollama -v
-```
-
-Installazione Linux:
+Packaging:
 
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama -v
-```
-
-Scaricare e provare un modello:
-
-```bash
-ollama run gemma3:4b
-```
-
-Alternative utili:
-
-- macchina leggera: `ollama run gemma3:1b`
-- macchina piu robusta: `ollama run gemma3:12b`
-- solo download senza chat interattiva: `ollama pull gemma3:4b`
-
-Configurazione in The Novelist:
-
-1. Apri `Impostazioni > Impostazioni AI`.
-2. Seleziona `Ollama` come provider.
-3. Nel campo `Modello Ollama`, inserisci esattamente il nome scaricato, ad esempio `gemma3:4b`.
-4. Salva le impostazioni.
-5. Se Ollama gira su un host diverso, imposta `OLLAMA_HOST`.
-
-Note operative:
-
-- Il primo `ollama run` scarica il modello e puo richiedere tempo e spazio disco.
-- Modelli piu grandi richiedono piu RAM/VRAM; se il sistema e lento o va in errore, prova un tag piu piccolo.
-- Ollama deve essere in esecuzione mentre The Novelist usa il provider locale.
-
-Riferimenti ufficiali:
-
-- OpenAI API Keys: <https://platform.openai.com/api-keys>
-- Sicurezza API key OpenAI: <https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key>
-- Ollama docs: <https://docs.ollama.com/>
-- Libreria modelli Ollama: <https://ollama.com/library>
-
-## Preferenze e impostazioni
-
-- `Autosave`: preferenza utente globale salvata fuori dal progetto.
-- `Impostazioni AI`: salvate per singolo progetto.
-- `Consensi`: includono il consenso generale AI, le chiamate API esterne, l'auto-riassunto e l'invio della memoria progetto a provider esterni. Il consenso memoria esterna e attivo di default per mantenere il comportamento precedente, ma puo essere disattivato per usare la chat senza allegare la wiki a provider non locali.
-- Quando apri o crei un progetto nuovo, le impostazioni AI vengono caricate dal progetto corrente; l'autosave mantiene invece l'ultima preferenza utente salvata.
-
-## Memoria progetto locale
-
-- Ogni progetto contiene una directory `wiki/` generata dall'app accanto a `project.db`.
-- `project.db` resta la fonte di verita; la wiki e un artefatto derivato e recuperabile.
-- `wiki/sources/` contiene export Markdown deterministici di capitoli, scene, timeline, trame, personaggi, location e chat AI.
-- `wiki/index.md` viene rigenerato dal sync deterministico; `wiki/log.md` registra le operazioni.
-- La ricerca nella tab `Memoria` legge la wiki locale e non richiede provider esterni.
-- La chat usa la wiki a query time: cerca fonti rilevanti, allega un blocco citabile e chiede al modello di distinguere fatti espliciti, schede autore, sintesi e inferenze.
-- I file della wiki sono app-managed: sono leggibili e versionabili, ma non sono pensati come superficie di editing manuale. In caso di modifiche manuali, l'app puo riscriverli al sync successivo.
-- Alla chiusura progetto l'app tenta un sync deterministico con timeout breve, circa 12 secondi. Se non termina in tempo, la chiusura prosegue e la memoria resta recuperabile al prossimo avvio.
-
-## Variabili ambiente
-
-- `NOVELIST_CODEX_TIMEOUT_MS`: timeout richieste AI in ms.
-- `OPENAI_API_KEY`: chiave OpenAI usata come fallback se non salvata in-app.
-- `NOVELIST_IMAGE_MODEL`: override modello immagini (default runtime: `gpt-image-1`).
-- `OLLAMA_HOST`: endpoint Ollama (default: `http://127.0.0.1:11434`).
-
-## Build release
-
-Nota pratica: le build release vengono generate e verificate sui sistemi operativi di destinazione. La build include anche moduli nativi Electron, come `better-sqlite3`, quindi ha senso generare i pacchetti sul sistema operativo di destinazione.
-
-Per verifiche locali affidabili prima del rilascio conviene eseguire almeno:
-
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- `npm run test:smoke:electron`
-
-### Build macOS
-
-1. Esegui:
-   - `npm run dist`
-   - oppure `npm run dist:mac`
-2. Troverai gli artefatti in `release/`:
-   - `The Novelist-<version>-arm64.dmg`
-   - `The Novelist-<version>-arm64-mac.zip`
-3. Installa aprendo il `.dmg` e trascinando `The Novelist.app` in `Applicazioni`.
-4. Se la build non e firmata, al primo avvio su un altro Mac potrebbe essere necessario usare `tasto destro > Apri`.
-
-### Build Windows
-
-1. Assicurati che non ci siano istanze aperte di The Novelist, `electron`, o dev server che stanno usando il progetto, altrimenti la rebuild di `better-sqlite3` puo fallire.
-2. Esegui:
-   - `npm run dist:win`
-3. Troverai gli artefatti in `release/`:
-   - `The Novelist Setup <version>.exe`
-   - `The Novelist <version>.exe`
-   - `win-unpacked/`
-4. Per distribuire:
-   - usa `The Novelist Setup <version>.exe` come installer classico Windows;
-   - usa `The Novelist <version>.exe` come build portable senza installazione.
-5. Se la build non e firmata, su altri PC Windows potrebbe comparire SmartScreen o un warning di autore sconosciuto al primo avvio.
-
-### Release GitHub macOS
-
-Nel repository e presente anche un workflow GitHub Actions di release che costruisce in automatico la sola versione macOS su `macos-latest`.
-
-Flusso consigliato:
-
-1. aggiorna la versione in `package.json`
-2. crea e pubblica il tag, ad esempio `vX.Y.Z`
-3. lascia che GitHub Actions produca gli artifact e li alleghi alla release
-
-Il workflow supporta anche avvio manuale (`workflow_dispatch`) passando il tag da rilasciare.
-
-Nota:
-
-- la build locale e non firmata/notarizzata; al primo avvio potrebbe essere necessario `tasto destro > Apri`.
-- non e previsto l'uso di certificati Apple/Windows per questa app personale distribuita come open source.
-- il workflow genera anche `SHA256SUMS.txt` dagli artifact pubblicati e lo allega alla release.
-
-### Checksum manuali
-
-Se la release viene preparata localmente, genera un file checksum prima di caricare gli artifact su GitHub.
-
-Comando consigliato, valido su Windows/macOS/Linux:
-
-```bash
+npm run pack
+npm run dist:mac
+npm run dist:win
 npm run release:checksums
 ```
 
-Il comando scrive `release/SHA256SUMS.txt` con hash SHA-256 ordinati per percorso relativo. Per impostazione predefinita include gli artefatti della versione corrente indicata in `package.json` e i metadata `latest*.yml`; se serve includere tutto il contenuto top-level di `release`, usa `node scripts/generate-checksums.mjs --all`. Per verificare manualmente un file scaricato, calcola il suo SHA-256 e confrontalo con la riga corrispondente in `SHA256SUMS.txt`.
+Note sui moduli nativi:
 
-## Struttura repository
+- `better-sqlite3` viene rebuildato per Electron prima di sviluppo/packaging.
+- Dopo test Electron o packaging, i moduli vengono riportati al target Node per test e tool locali.
 
-- `src/main`: processo main Electron + IPC.
-- `src/main/config`: configurazione applicativa centrale.
-- `src/preload`: bridge sicuro `contextBridge`.
-- `src/renderer`: app React.
-- `src/main/persistence`: SQLite migration + repository.
-- `src/main/projects`: gestione progetto su disco + snapshot/recovery.
-- `src/main/wiki`: sync, sorgenti Markdown, ricerca locale, path safety e contesto AI.
-- `src/main/images`: generazione/import immagini e validazione dei file importati.
-- `src/renderer/src/ChapterEditor.tsx`: editor capitolo/scena, menzioni e AI su selezione.
-- `src/renderer/src/SceneBoard.tsx`: canvas scene.
-- `src/renderer/src/TimelineBoard.tsx`: timeline narrativa.
-- `src/renderer/src/RevisionBoard.tsx`: storico revisioni.
-- `src/renderer/src/AnalysisBoard.tsx`: analisi AI strutturata.
-- `tests/unit`: test unitari.
-- `tests/e2e`: test end-to-end.
+### Release 5.0.0
 
-## Integrità e Sicurezza (Note Tecniche)
+La versione 5.0.0 introduce:
 
-- **Validazione IPC**: Ogni payload è validato via `zod` lato Main Process.
-- **Appartenenza Progetto**: Tutte le operazioni su nodi, scene, timeline, revisioni, connessioni, schede e immagini verificano che gli ID coinvolti appartengano al progetto aperto. Questo impedisce manipolazioni tra progetti diversi.
-- **Gestione Chiavi**: Le chiavi API sono gestite via `safeStorage` (dove disponibile) e mai inviate in chiaro al renderer.
-- **Memoria Progetto**: La wiki locale e derivata dal database, scritta con operazioni atomiche, confinata nella directory `wiki/` e inviata a provider esterni solo con consenso dedicato.
-- **Import Immagini**: I file associati a personaggi/location sono accettati solo se hanno estensione raster prevista, signature binaria coerente e dimensione entro il limite configurato, con controllo centralizzato nel main process.
-- **Immagini Locali**: Le immagini remote non sono supportate. Le immagini devono essere copiate nella cartella `assets/` del progetto; la CSP del renderer non consente `http:` o `https:` in `img-src`.
-- **Export Pulito**: I riferimenti strutturati a personaggi, location e scene non vengono esportati nel testo finale.
+- interfaccia bilingue italiano/inglese;
+- selezione lingua automatica o manuale;
+- prompt AI e fallback localizzati;
+- dialoghi, stati operativi ed export coerenti con la lingua effettiva;
+- test di completezza dizionari e copertura smoke in inglese.
 
-Per il riepilogo completo delle misure implementate e dei limiti residui, vedi [sicurezza.md](./sicurezza.md).
+Le note sintetiche della release corrente sono mantenute qui nel README per evitare duplicazione con un file separato.
 
-## Configurazione tecnica
+---
 
-- I default applicativi sono raccolti in `src/main/config/app-config.ts`.
-- La sezione `ai` contiene provider, fallback, modelli predefiniti, timeout e default privacy.
-- La sezione `images` contiene formati ammessi, dimensione massima upload, directory interne e policy sulle sorgenti remote.
-- La sezione `wiki` contiene limiti di ricerca, lettura sorgenti e budget memoria AI.
-- La sezione `project` contiene i nomi canonici di `project.db`, `assets/`, `.snapshots/` e `wiki/`.
+## English
 
-Limite upload immagini:
+The Novelist is an Electron desktop app for writers who want to plan and write complex novels or short stories. It combines a rich text editor, visual narrative canvases, character/location cards, timeline, revisions, local project memory, exports, and optional AI assistance.
 
-- Il limite predefinito e `APP_CONFIG.images.maxUploadBytes`, oggi pari a `20 * 1024 * 1024` byte, cioe 20 MB.
-- Per aumentarlo o ridurlo, modifica `maxUploadBytes` in `src/main/config/app-config.ts` e rilancia typecheck/test.
-- Lo stesso limite viene applicato sia all'import utente sia alla lettura anteprima dagli asset del progetto.
-- Il limite non riguarda direttamente la chiamata OpenAI Images API: le immagini generate vengono salvate localmente in `assets/generated-images/` e poi lette come asset di progetto.
+The app started as a personal project built with AI assistance. The code is open source, inspectable, and modifiable, but the project should still be treated as a working alpha: useful and concrete, yet still open to technical, UX, and security improvements.
 
-## Struttura progetto narrativo su disco
+### Download and Distribution
 
-- `project.db`: database SQLite del progetto.
-- `assets/`: immagini, export e allegati.
-- `.snapshots/`: snapshot DB per recovery.
-- `wiki/`: memoria Markdown locale derivata dal database e riscrivibile dall'app.
+Published builds are available from the repository's GitHub Releases page.
 
-## Schema dati principale
+- Supported builds: macOS and Windows.
+- Unsigned builds: macOS Gatekeeper or Windows SmartScreen may show first-run warnings.
+- Checksums: release artifacts include SHA-256 checksums when generated by the workflow or by `npm run release:checksums`.
+- macOS install: open the `.dmg` and drag the app to `Applications`. If needed, use `Right click > Open` on first launch.
+- Windows install: use `The-Novelist-Setup-<version>-x64.exe` or the portable build `The-Novelist-Portable-<version>-x64.exe`.
 
-- `projects`: metadati progetto, target parole, target capitolo e data prevista di completamento.
-- `plots`: trame narrative.
-- `chapter_nodes`, `story_edges`, `chapter_documents`: struttura capitoli, connessioni e contenuto rich text.
-- `scene_cards`: scene collegate ai capitoli, con testo, contenuto rich text, note, trama e posizione canvas.
-- `character_cards`, `location_cards`: schede narrative e coordinate canvas.
-- `character_images`, `location_images`: immagini associate a schede.
-- `character_chapter_links`, `location_chapter_links`: presenza strutturata nei capitoli.
-- `timeline_settings`, `timeline_items`: timeline cronologica di capitoli e scene.
-- `entity_revisions`: revisioni di capitoli, scene, personaggi e location.
-- `writing_sessions`: metriche di sessione e avanzamento parole.
-- `codex_settings`, `codex_chat_messages`: impostazioni AI per progetto e cronologia chat.
+Note: the local `release/` folder may contain older builds or artifacts produced during development and testing. End users should rely on GitHub Releases.
 
-## IPC (selezione)
+### Main Features
 
-- App: `app:get-preferences`, `app:update-preferences`.
-- Progetto: `project:create`, `project:update-planning`, `project:open`, `project:close`, `project:inspect-path`, `project:select-directory`, `project:select-image-file`, `project:read-image-data-url`, `project:get-current`, `project:save-snapshot`, `project:list-snapshots`, `project:list-writing-sessions`, `project:recover-latest-snapshot`.
-- Storia: `story:get-state`, `story:create-plot`, `story:update-plot`, `story:delete-plot`, `story:create-node`, `story:update-node`, `story:delete-node`, `story:create-edge`, `story:delete-edge`.
-- Capitoli: `chapter:get-document`, `chapter:save-document`, `chapter:export-docx`, `chapter:print`, `chapter:list-characters`, `chapter:list-locations`, `chapter:list-scenes`.
-- Manoscritto: `manuscript:export-epub`, `manuscript:export-docx`, `manuscript:print`.
-- Personaggi/Location: CRUD schede, link capitoli, immagini (lista/associazione/generazione/eliminazione).
-- Scene: `scene:list-cards`, `scene:create-card`, `scene:update-card`, `scene:delete-card`.
-- Timeline: `timeline:get-state`, `timeline:update-settings`, `timeline:update-item`.
-- Revisioni: `revision:get-current`, `revision:create`, `revision:list`, `revision:restore`.
-- AI: `codex:status`, `codex:get-settings`, `codex:update-settings`, `codex:assist`, `codex:transform-selection`, `codex:chat`, `codex:get-chat-history`, `codex:cancel-active-request`.
-- Wiki: `wiki:get-status`, `wiki:sync`, `wiki:search`.
+- Project dashboard with metrics, goals, snapshots, AI/autosave status, and editorial checks.
+- Bilingual Italian/English interface with automatic system-language detection and manual override.
+- Chapter canvas with nodes, connections, and color-coded parallel plots.
+- Dedicated canvases for plots, scenes, characters, and locations.
+- Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`.
+- Quick card creation from selected text.
+- Chronological timeline independent from reading order.
+- Drag-and-drop outline for manuscript ordering.
+- Reading view for a single chapter or the full document.
+- Revisions for chapters, scenes, characters, and locations.
+- Local Markdown Wiki memory derived from the project database and searchable from the app.
+- AI analysis for narrative coherence, unresolved events, style, rhythm, and names/conventions.
+- Export and print: single chapter to DOCX/print; full manuscript to DOCX, ePUB, and print.
 
-## Licenza
+### AI and Privacy
 
-Questo progetto e distribuito sotto licenza Apache 2.0. Vedi [LICENSE](./LICENSE).
+AI features are disabled by default in new projects. The user must explicitly enable them in Settings.
+
+Supported providers:
+
+- OpenAI API for text assistance and in-app image generation.
+- Ollama for local models.
+
+Available consents:
+
+- sending text to AI tools;
+- external API calls;
+- automatic description summaries;
+- sending project memory to external providers.
+
+Local memory is sent to external providers only when the dedicated consent is enabled. Ollama remains available for users who want to keep text on their own computer.
+
+### User Documentation
+
+- [ISTRUZIONI.md](./ISTRUZIONI.md): complete Italian manual.
+- [INSTRUCTIONS.md](./INSTRUCTIONS.md): complete English translation.
+- [SECURITY_MODEL.md](./SECURITY_MODEL.md): technical security notes, residual risks, and hardening.
+- [MAPS.md](./MAPS.md): repository map.
+
+### Local Development
+
+Requirements:
+
+- Node.js 22+
+- npm 10+
+
+Install and run:
+
+```bash
+npm install
+npm run dev
+```
+
+Main commands:
+
+```bash
+npm run typecheck
+npm run test
+npm run test:e2e
+npm run test:e2e:electron
+npm run build
+```
+
+Packaging:
+
+```bash
+npm run pack
+npm run dist:mac
+npm run dist:win
+npm run release:checksums
+```
+
+Native module notes:
+
+- `better-sqlite3` is rebuilt for Electron before development/packaging.
+- After Electron tests or packaging, modules are restored to the Node target for local tests and tools.
+
+### Release 5.0.0
+
+Version 5.0.0 introduces:
+
+- bilingual Italian/English interface;
+- automatic or manual language selection;
+- localized AI prompts and fallbacks;
+- dialogs, operational statuses, and exports aligned with the effective language;
+- dictionary completeness tests and English smoke coverage.
+
+Short notes for the current release are kept here in the README to avoid duplicating them in a separate file.
+
+## License
+
+The Novelist is distributed under the Apache 2.0 license. See [LICENSE](./LICENSE).

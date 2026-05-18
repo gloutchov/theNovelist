@@ -30,6 +30,10 @@ interface RichTextNodeJson {
 
 const ANALYSIS_CONTEXT_LIMIT = 4_800;
 const ANALYSIS_TIMEOUT_MS = 120_000;
+const FOLLOW_UP_OFFER_PATTERNS = [
+  /^\s*(?:[-*]\s*)?(?:if you (?:want|would like)|if you'd like|i can (?:also|map|prepare|propose))\b/i,
+  /^\s*(?:[-*]\s*)?(?:se vuoi|se desideri|posso (?:anche|mappare|preparare|proporre))\b/i,
+];
 
 const ANALYSIS_TESTS: Array<{
   kind: AnalysisKind;
@@ -185,6 +189,26 @@ function truncateText(value: string, maxLength: number): string {
     return compact;
   }
   return `${compact.slice(0, maxLength).trim()}...`;
+}
+
+export function removeAnalysisFollowUpOffers(output: string): string {
+  const lines = output.trim().split(/\r?\n/);
+
+  while (lines.length > 0 && !lines[lines.length - 1]?.trim()) {
+    lines.pop();
+  }
+
+  while (
+    lines.length > 0 &&
+    FOLLOW_UP_OFFER_PATTERNS.some((pattern) => pattern.test(lines[lines.length - 1] ?? ''))
+  ) {
+    lines.pop();
+    while (lines.length > 0 && !lines[lines.length - 1]?.trim()) {
+      lines.pop();
+    }
+  }
+
+  return lines.join('\n').trim();
 }
 
 function escapeHtml(value: string): string {
@@ -357,6 +381,7 @@ function buildAnalysisPrompt(testTitle: string, testPrompt: string, language: Ap
       'For each issue always indicate Origin with the chapter, scene, character, location, or plot involved. Include ids in parentheses when possible.',
       'Distinguish between Issues, Evidence, Narrative risk, and Suggested intervention.',
       'Limit the report to the 8 most important issues and stay under 700 words. Avoid preambles and method explanations.',
+      'Do not include follow-up offers, invitations to ask for more work, or sentences such as "If you want, I can...".',
       'If you find no relevant issues, say so explicitly and note any limits of the analyzed context.',
       `Check title: ${testTitle}.`,
     ].join('\n');
@@ -369,6 +394,7 @@ function buildAnalysisPrompt(testTitle: string, testPrompt: string, language: Ap
     'Per ogni problema indica sempre Origine con capitolo, scena, personaggio, location o trama coinvolta. Se possibile includi gli id tra parentesi.',
     'Distingui tra Problemi, Evidenze, Rischio narrativo e Intervento suggerito.',
     'Limita il report agli 8 problemi piu importanti e resta sotto le 700 parole. Evita premesse e spiegazioni del metodo.',
+    'Non includere offerte di follow-up, inviti a chiedere altro lavoro o frasi come "Se vuoi, posso...".',
     'Se non trovi problemi rilevanti, dillo esplicitamente e indica eventuali limiti del contesto analizzato.',
     `Titolo controllo: ${testTitle}.`,
   ].join('\n');
@@ -615,7 +641,7 @@ export default function AnalysisBoard({
         return;
       }
 
-      const output = response.output.trim();
+      const output = removeAnalysisFollowUpOffers(response.output);
       setResults((previous) => [
         {
           kind,

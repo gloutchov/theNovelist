@@ -109,8 +109,7 @@ export const it: TranslationDictionary = {
   'dashboard.deliveryStatus.days': 'giorni',
   'dashboard.deliveryStatus.estimatedDelay': 'Ritardo stimato: {count} {unit}',
   'dashboard.deliveryStatus.missingTarget': 'Imposta un target parole e una data prevista',
-  'dashboard.deliveryStatus.needsSessions':
-    'Servono sessioni salvate per calcolare la proiezione',
+  'dashboard.deliveryStatus.needsSessions': 'Servono sessioni salvate per calcolare la proiezione',
   'dashboard.deliveryStatus.onTrack': 'In linea con la data prevista',
   'dashboard.deliveryStatus.requiredPace': '{count} parole/giorno richieste',
   'dashboard.empty.body':
@@ -164,6 +163,7 @@ export const it: TranslationDictionary = {
   'editor.ai.statusAvailable': 'Disponibile',
   'editor.ai.statusChecking': 'Verifica...',
   'editor.ai.statusFallback': 'Fallback',
+  'editor.ai.requestCancelledMessage': 'Richiesta annullata.',
   'editor.closeConfirm.body':
     'Il documento "{document}" contiene modifiche non salvate. Salva prima di chiudere l\'editor.',
   'editor.closeConfirm.saveAndClose': 'Salva e chiudi',
@@ -226,6 +226,67 @@ export const it: TranslationDictionary = {
   'editor.status.chapterPrintSent': 'Stampa capitolo inviata',
   'editor.status.autosavedChapter': 'Capitolo salvato automaticamente',
   'editor.status.autosavedBlock': 'Blocco salvato automaticamente',
+  'editor.status.aiCancelError': 'Errore annullamento richiesta AI',
+  'editor.status.aiNoActiveRequest': 'Nessuna richiesta AI attiva',
+  'editor.status.chapterReferenceSyncFailed':
+    'Capitolo salvato, ma sincronizzazione riferimenti fallita',
+  'editor.status.chapterReferenceSyncFailedWithReason':
+    'Capitolo salvato, ma sincronizzazione riferimenti fallita: {message}',
+  'editor.status.chapterSaveError': 'Errore salvataggio capitolo',
+  'editor.status.chapterSavedBeforeVersion': 'Capitolo salvato prima della versione',
+  'editor.status.chapterSavedWithWords': 'Capitolo salvato ({count} parole)',
+  'editor.status.chapterVersionCreateError': 'Errore creazione versione capitolo',
+  'editor.status.chapterVersionCreated': 'Versione capitolo creata: {date}',
+  'editor.status.characterCreatedInserted': 'Personaggio creato e inserito nel testo: @{name}',
+  'editor.status.characterNameRequired': 'Inserisci il nome del personaggio.',
+  'editor.status.chatAiConsentRequired': 'Abilita prima il consenso AI per usare la chat.',
+  'editor.status.chatError': 'Errore chat AI',
+  'editor.status.chatResponseReceived': 'Risposta AI ricevuta ({mode})',
+  'editor.status.findEnterText': 'Inserisci un testo da cercare',
+  'editor.status.findNoResults': 'Nessun risultato trovato',
+  'editor.status.findResult': 'Risultato {current} di {total}',
+  'editor.status.imageGenerationError': 'Errore generazione immagine',
+  'editor.status.locationCreatedInserted': 'Location creata e inserita nel testo: @{name}',
+  'editor.status.locationNameRequired': 'Inserisci il nome della location.',
+  'editor.status.newUnsavedChangesBeforeClose':
+    'Nuove modifiche non salvate rilevate. Salva di nuovo prima di chiudere.',
+  'editor.status.opened': 'Editor aperto: {title}',
+  'editor.status.referenceCreatedAutoImageError':
+    '{status}. Immagine automatica non generata: {message}',
+  'editor.status.referenceCreatedAutoImageUnavailable':
+    '{status}. Generazione automatica non disponibile: manca {requirements}.',
+  'editor.status.referenceCreatedWithAutoImage': '{status} con immagine generata automaticamente',
+  'editor.status.referenceCreationError': 'Errore creazione scheda da selezione',
+  'editor.status.referenceSyncError': 'Errore sincronizzazione riferimenti',
+  'editor.status.replaceAll': 'Sostituite {count} occorrenze',
+  'editor.status.replaceNoResults': 'Nessun risultato da sostituire',
+  'editor.status.replaceOne': 'Occorrenza sostituita',
+  'editor.status.saveFailedEditorOpen': 'Salvataggio non riuscito. Editor ancora aperto.',
+  'editor.status.sceneCreatedInserted': 'Scena creata e inserita nel testo: #{name}',
+  'editor.status.sceneReferenceCreationUnavailable':
+    'La creazione di scene da selezione non e disponibile nell’editor scena.',
+  'editor.status.sceneReferenceSyncFailed':
+    'Scena salvata, ma sincronizzazione riferimenti fallita',
+  'editor.status.sceneReferenceSyncFailedWithReason':
+    'Scena salvata, ma sincronizzazione riferimenti fallita: {message}',
+  'editor.status.sceneSaveError': 'Errore salvataggio scena',
+  'editor.status.sceneSavedBeforeVersion': 'Scena salvata prima della versione',
+  'editor.status.sceneSavedMissingBadges':
+    'Scena salvata, ma i badge nel capitolo non sono stati trovati.',
+  'editor.status.sceneSavedWithWords': 'Scena salvata ({count} parole)',
+  'editor.status.sceneVersionCreateError': 'Errore creazione versione scena',
+  'editor.status.sceneVersionCreated': 'Versione scena creata: {date}',
+  'editor.status.selectionActionApplied': 'Azione {action} applicata ({mode})',
+  'editor.status.selectionAiConsentRequired':
+    'Abilita prima il consenso AI per usare le azioni su selezione.',
+  'editor.status.selectionAiRequestError': 'Errore richiesta AI su selezione',
+  'editor.status.selectionPreviewApplyError': 'Errore applicazione anteprima AI',
+  'editor.status.selectionPreviewDiscarded': 'Anteprima AI scartata',
+  'editor.status.selectionPreviewInvalid':
+    'Anteprima non applicabile: selezione non piu valida, ripeti l’azione AI.',
+  'editor.status.selectionPreviewReady':
+    'Anteprima {action} pronta ({mode}). Scegli Applica o Scarta.',
+  'editor.status.selectionRequired': 'Seleziona prima del testo nel capitolo.',
   'export.status.manuscriptDocxCancelled': 'Esportazione DOCX documento completo annullata',
   'export.status.manuscriptDocxError': 'Errore export DOCX documento completo',
   'export.status.manuscriptDocxExported': 'Documento completo DOCX esportato: {filePath}',
@@ -458,7 +519,8 @@ export const it: TranslationDictionary = {
   'plot.status.structureCreated': 'Struttura trama creata: {count} blocchi',
   'plot.status.structureCreateError': 'Errore creazione struttura trama',
   'plot.status.structureCreating': 'AI sta creando la struttura della trama...',
-  'plot.status.structureFallback': 'Struttura trama non disponibile: il provider AI e andato in fallback.',
+  'plot.status.structureFallback':
+    'Struttura trama non disponibile: il provider AI e andato in fallback.',
   'plot.status.structureProviderUnavailable':
     'Struttura trama non disponibile: provider AI non raggiungibile.',
   'plot.status.structureRefining': 'AI sta raffinando la struttura della trama...',
@@ -512,6 +574,12 @@ export const it: TranslationDictionary = {
   'project.targets.title': 'Obiettivi progetto',
   'reading.close': 'Chiudi',
   'reading.emptyChapter': 'Capitolo vuoto.',
+  'reading.fullDocumentTitle': '{name} - Documento completo',
+  'reading.status.chapterOpenError': 'Errore apertura vista lettura',
+  'reading.status.chapterOpened': 'Vista lettura aperta: {title}',
+  'reading.status.fullDocumentOpenError': 'Errore apertura documento completo',
+  'reading.status.fullDocumentOpened': 'Vista lettura documento completo aperta',
+  'reading.status.fullDocumentUnavailable': 'Documento completo non disponibile',
   'revision.actions.refresh': 'Aggiorna Revisioni',
   'revision.confirmRestore':
     'Ripristinare questa versione? Lo stato attuale sara salvato come revisione automatica.',
@@ -574,6 +642,10 @@ export const it: TranslationDictionary = {
   'settings.secrets.removedOnSave': 'La chiave salvata verrà rimossa al prossimo salvataggio.',
   'settings.secrets.save': 'Salva Segreti',
   'settings.secrets.title': 'Segreti',
+  'settings.status.aiSettingsSaveError': 'Errore salvataggio impostazioni AI',
+  'settings.status.aiSettingsSaved': 'Impostazioni AI salvate',
+  'settings.status.userPreferencesSaveError': 'Errore salvataggio preferenze utente',
+  'settings.status.userPreferencesSaved': 'Preferenze utente salvate',
   'settings.title': 'Impostazioni',
   'settings.userPreferences': 'Preferenze Utente',
   'scene.chapter': 'Capitolo:',

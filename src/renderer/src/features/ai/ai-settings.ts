@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { AppLanguage } from '../../i18n';
+import type { AppLanguage, Translate } from '../../i18n';
 import type { ProjectRecord } from '../project/project-session';
 
 export type CodexSettings = Awaited<ReturnType<(typeof window.novelistApi)['codexGetSettings']>>;
@@ -138,10 +138,12 @@ export function useAiSettingsState({
   currentProject,
   setError,
   setStatus,
+  t,
 }: {
   currentProject: ProjectRecord;
   setError: (message: string | null) => void;
   setStatus: (message: string) => void;
+  t: Translate;
 }) {
   const [aiSettings, setAiSettings] = useState<CodexSettings | null>(null);
   const [aiSettingsBusy, setAiSettingsBusy] = useState<boolean>(false);
@@ -187,11 +189,11 @@ export function useAiSettingsState({
         ollamaModel: normalizeCodexSettings(aiSettings).ollamaModel,
       });
       loadAiSettings(saved);
-      setStatus('Impostazioni AI salvate');
+      setStatus(t('settings.status.aiSettingsSaved'));
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Errore sconosciuto';
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore salvataggio impostazioni AI');
+      setStatus(t('settings.status.aiSettingsSaveError'));
     } finally {
       setAiSettingsBusy(false);
     }
@@ -203,6 +205,7 @@ export function useAiSettingsState({
     loadAiSettings,
     setError,
     setStatus,
+    t,
   ]);
 
   return {

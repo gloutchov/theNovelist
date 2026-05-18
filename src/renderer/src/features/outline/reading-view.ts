@@ -62,12 +62,12 @@ export function useReadingViewState({
             },
           ],
         });
-        setStatus(`Vista lettura aperta: ${chapter.node.title}`);
+        setStatus(t('reading.status.chapterOpened', { title: chapter.node.title }));
       } catch (caughtError) {
         const message =
           caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
-        setStatus('Errore apertura vista lettura');
+        setStatus(t('reading.status.chapterOpenError'));
       } finally {
         setReadingViewLoading(false);
       }
@@ -89,7 +89,7 @@ export function useReadingViewState({
       const { orderedChapters } = buildOutlineChapterOrder(state.nodes, state.edges);
       if (orderedChapters.length === 0) {
         setError(t('outline.empty'));
-        setStatus('Documento completo non disponibile');
+        setStatus(t('reading.status.fullDocumentUnavailable'));
         return;
       }
 
@@ -107,7 +107,7 @@ export function useReadingViewState({
       );
 
       setReadingView({
-        title: `${currentProject.name} - Documento completo`,
+        title: t('reading.fullDocumentTitle', { name: currentProject.name }),
         subtitle: `${orderedChapters.length} ${t('outline.summary.chapters')}`,
         chapters: orderedChapters.map((chapter) => {
           const document = documentsByNodeId.get(chapter.id);
@@ -119,11 +119,11 @@ export function useReadingViewState({
           };
         }),
       });
-      setStatus('Vista lettura documento completo aperta');
+      setStatus(t('reading.status.fullDocumentOpened'));
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
-      setStatus('Errore apertura documento completo');
+      setStatus(t('reading.status.fullDocumentOpenError'));
     } finally {
       setReadingViewLoading(false);
     }

@@ -351,7 +351,7 @@ export default function App() {
     handleSaveAiSettings,
     loadAiSettings,
     resetAiSettings,
-  } = useAiSettingsState({ currentProject, setError, setStatus });
+  } = useAiSettingsState({ currentProject, setError, setStatus, t });
   const {
     memoryStorySummary,
     memoryStorySummaryBusy,

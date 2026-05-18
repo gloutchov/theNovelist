@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createTranslator,
   dictionaries,
   interpolateTranslation,
   type AppLanguage,
@@ -27,6 +28,20 @@ describe('renderer i18n dictionaries', () => {
   it('interpolates named translation parameters', () => {
     expect(interpolateTranslation('Lingua effettiva: {language}.', { language: 'Italiano' })).toBe(
       'Lingua effettiva: Italiano.',
+    );
+  });
+
+  it('translates status messages used by settings and editor workflows', () => {
+    const t = createTranslator('en');
+
+    expect(t('settings.status.userPreferencesSaved')).toBe('User preferences saved');
+    expect(t('settings.status.aiSettingsSaved')).toBe('AI settings saved');
+    expect(t('reading.status.fullDocumentOpened')).toBe('Full document reading view opened');
+    expect(t('editor.status.chapterSavedWithWords', { count: 120 })).toBe(
+      'Chapter saved (120 words)',
+    );
+    expect(t('editor.status.selectionPreviewReady', { action: 'Rewrite', mode: 'api' })).toBe(
+      'Rewrite preview ready (api). Choose Apply or Discard.',
     );
   });
 });
