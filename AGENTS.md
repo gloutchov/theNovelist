@@ -145,10 +145,18 @@ npm run dist:mac
 
 Le build non sono firmate. Su Windows `signAndEditExecutable` e disabilitato.
 
+## Rilascio
+
+- Quando un branch validato viene mergiato su `main` per una nuova versione, chiedi esplicitamente se creare e pushare il tag Git corrispondente, per esempio `v5.0.0`.
+- Crea il tag solo dopo test e merge completati, preferibilmente sul commit validato che deve diventare release.
+- Il push di un tag `v*` avvia il workflow GitHub Actions `Release`, che builda gli artifact macOS/Windows e pubblica la GitHub Release.
+- Prima di creare un tag, verifica che non esista gia in locale o su remoto.
+
 ## Checklist prima di chiudere un task
 
 - `npm run typecheck`
 - Test mirati legati alla modifica.
 - `npm run test:e2e` se tocchi renderer, layout, editor, canvas o workflow browser.
 - `npm run test:e2e:electron` se tocchi IPC, main process, persistenza, packaging runtime, native modules o wrapper Electron.
+- Se il task chiude una versione, chiedi se creare/pushare il tag di release prima della chiusura.
 - Riporta sempre eventuali test non eseguiti e il motivo.
