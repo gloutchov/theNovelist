@@ -48,6 +48,21 @@ export function getLanguageModeLabel(
   return language === 'en' ? 'Automatic' : 'Automatico';
 }
 
+export function getThemeModeLabel(
+  themeMode: AppPreferences['themeMode'],
+  language: AppLanguage = 'it',
+): string {
+  if (themeMode === 'light') {
+    return language === 'en' ? 'Light' : 'Chiaro';
+  }
+
+  if (themeMode === 'dark') {
+    return language === 'en' ? 'Dark' : 'Scuro';
+  }
+
+  return language === 'en' ? 'System' : 'Sistema';
+}
+
 export function useAppPreferencesState({ setError, setStatus }: AppPreferencesStateOptions) {
   const [appPreferences, setAppPreferences] = useState<AppPreferences | null>(null);
   const [appPreferencesBusy, setAppPreferencesBusy] = useState<boolean>(false);
@@ -70,6 +85,7 @@ export function useAppPreferencesState({ setError, setStatus }: AppPreferencesSt
         autosaveMode: appPreferences.autosaveMode,
         autosaveIntervalMinutes: normalizeIntervalMinutes(appPreferences.autosaveIntervalMinutes),
         languageMode: appPreferences.languageMode,
+        themeMode: appPreferences.themeMode,
       });
       setAppPreferences(saved);
       const t = createTranslator(resolveRendererLanguage(saved));

@@ -4,6 +4,7 @@ export const APP_CONFIG = {
     defaultAutosaveMode: 'auto',
     defaultAutosaveIntervalMinutes: 5,
     defaultLanguageMode: 'auto',
+    defaultThemeMode: 'system',
     minAutosaveIntervalMinutes: 1,
     maxAutosaveIntervalMinutes: 120,
   },

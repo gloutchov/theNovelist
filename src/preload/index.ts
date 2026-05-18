@@ -42,6 +42,7 @@ const novelistApi = {
     autosaveMode?: 'manual' | 'interval' | 'auto';
     autosaveIntervalMinutes?: number;
     languageMode?: 'auto' | 'it' | 'en';
+    themeMode?: 'system' | 'light' | 'dark';
   }): Promise<AppPreferencesResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.appUpdatePreferences, payload),
   createProject: (payload: {

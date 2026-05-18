@@ -8,6 +8,7 @@ export interface AppPreferencesRecord {
   autosaveIntervalMinutes: number;
   languageMode: 'auto' | 'it' | 'en';
   effectiveLanguage: 'it' | 'en';
+  themeMode: 'system' | 'light' | 'dark';
   updatedAt: string;
 }
 
@@ -16,6 +17,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferencesRecord = {
   autosaveIntervalMinutes: APP_CONFIG.appPreferences.defaultAutosaveIntervalMinutes,
   languageMode: APP_CONFIG.appPreferences.defaultLanguageMode,
   effectiveLanguage: 'en',
+  themeMode: APP_CONFIG.appPreferences.defaultThemeMode,
   updatedAt: new Date().toISOString(),
 };
 
@@ -59,12 +61,17 @@ function normalizePreferences(
       ? input.languageMode
       : DEFAULT_APP_PREFERENCES.languageMode;
   const effectiveLanguage = resolveEffectiveLanguage(languageMode, app.getLocale());
+  const themeMode =
+    input?.themeMode === 'light' || input?.themeMode === 'dark' || input?.themeMode === 'system'
+      ? input.themeMode
+      : DEFAULT_APP_PREFERENCES.themeMode;
 
   return {
     autosaveMode,
     autosaveIntervalMinutes,
     languageMode,
     effectiveLanguage,
+    themeMode,
     updatedAt:
       typeof input?.updatedAt === 'string' && input.updatedAt.trim()
         ? input.updatedAt
@@ -83,7 +90,10 @@ export async function getAppPreferences(): Promise<AppPreferencesRecord> {
 
 export async function updateAppPreferences(
   input: Partial<
-    Pick<AppPreferencesRecord, 'autosaveMode' | 'autosaveIntervalMinutes' | 'languageMode'>
+    Pick<
+      AppPreferencesRecord,
+      'autosaveMode' | 'autosaveIntervalMinutes' | 'languageMode' | 'themeMode'
+    >
   >,
 ): Promise<AppPreferencesRecord> {
   const current = await getAppPreferences();

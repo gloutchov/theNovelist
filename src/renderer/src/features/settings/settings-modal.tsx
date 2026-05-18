@@ -13,6 +13,7 @@ import {
 } from '../ai/ai-settings';
 import {
   getLanguageModeLabel,
+  getThemeModeLabel,
   normalizeIntervalMinutes,
   type AppPreferences,
 } from './app-preferences';
@@ -143,6 +144,32 @@ export function SettingsModal({
                 appPreferences?.effectiveLanguage === 'it'
                   ? t('settings.language.italian')
                   : t('settings.language.english'),
+            })}
+          </p>
+          <label>
+            {t('settings.theme.label')}
+            <select
+              value={appPreferences?.themeMode ?? 'system'}
+              onChange={(event) =>
+                setAppPreferences((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        themeMode: event.target.value as AppPreferences['themeMode'],
+                      }
+                    : prev,
+                )
+              }
+              disabled={!appPreferences}
+            >
+              <option value="system">{t('settings.theme.system')}</option>
+              <option value="light">{t('settings.theme.light')}</option>
+              <option value="dark">{t('settings.theme.dark')}</option>
+            </select>
+          </label>
+          <p className="muted">
+            {t('settings.theme.selected', {
+              theme: getThemeModeLabel(appPreferences?.themeMode ?? 'system', language),
             })}
           </p>
           <div className="row-buttons">

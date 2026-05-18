@@ -250,6 +250,15 @@ export default function App() {
   const [nodes, setNodes] = useState<ChapterCanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
+  useEffect(() => {
+    const themeMode = appPreferences?.themeMode ?? 'system';
+    if (themeMode === 'light' || themeMode === 'dark') {
+      document.documentElement.dataset.theme = themeMode;
+    } else {
+      delete document.documentElement.dataset.theme;
+    }
+  }, [appPreferences?.themeMode]);
+
   const [newNodeTitle, setNewNodeTitle] = useState<string>('Nuovo capitolo');
   const [newNodeDescription, setNewNodeDescription] = useState<string>('');
   const [newNodePlotNumber, setNewNodePlotNumber] = useState<number>(1);
@@ -2021,6 +2030,7 @@ export default function App() {
           autosaveIntervalMinutes: 5,
           languageMode: 'auto',
           effectiveLanguage: navigator.language.toLowerCase().startsWith('it') ? 'it' : 'en',
+          themeMode: 'system',
           updatedAt: new Date().toISOString(),
         });
       }

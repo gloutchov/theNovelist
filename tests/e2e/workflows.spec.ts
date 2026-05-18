@@ -298,6 +298,16 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   await expect(preferencesSection.locator('summary')).toHaveText('Preferenze Utente');
   await expect(preferencesSection.getByLabel('Lingua interfaccia')).toHaveValue('auto');
   await expect(preferencesSection.getByText('Lingua effettiva: Italiano.')).toBeVisible();
+  await expect(preferencesSection.getByLabel('Tema interfaccia')).toHaveValue('system');
+  await expect(preferencesSection.getByText('Tema selezionato: Sistema.')).toBeVisible();
+  await preferencesSection.getByLabel('Tema interfaccia').selectOption('dark');
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe('dark');
+  await preferencesSection.getByLabel('Tema interfaccia').selectOption('system');
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.dataset.theme))
+    .toBe(undefined);
 
   const aiSection = settingsModal.locator('details.settings-section').nth(1);
   await expect(aiSection.locator('option[value="openai_api"]').first()).toHaveText('OpenAI API');
@@ -331,6 +341,7 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   await preferencesSection.getByLabel('Lingua interfaccia').selectOption('en');
   await expect(settingsModal.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await expect(preferencesSection.locator('summary')).toHaveText('User Preferences');
+  await expect(preferencesSection.getByLabel('Interface theme')).toHaveValue('system');
   await expect(aiSection.locator('summary')).toHaveText('AI Settings');
   await expect(page.getByRole('button', { name: 'Dashboard', exact: true })).toBeVisible();
   await settingsModal.getByRole('button', { name: 'Close' }).click();

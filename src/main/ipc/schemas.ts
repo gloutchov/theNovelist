@@ -15,6 +15,7 @@ export const appPreferencesResponseSchema = z.object({
   autosaveIntervalMinutes: z.number().int().min(1).max(120),
   languageMode: z.enum(['auto', 'it', 'en']),
   effectiveLanguage: z.enum(['it', 'en']),
+  themeMode: z.enum(['system', 'light', 'dark']),
   updatedAt: z.string(),
 });
 
@@ -22,6 +23,7 @@ export const appPreferencesUpdateRequestSchema = z.object({
   autosaveMode: z.enum(['manual', 'interval', 'auto']).optional(),
   autosaveIntervalMinutes: z.number().int().min(1).max(120).optional(),
   languageMode: z.enum(['auto', 'it', 'en']).optional(),
+  themeMode: z.enum(['system', 'light', 'dark']).optional(),
 });
 
 export const projectCreateRequestSchema = z.object({
