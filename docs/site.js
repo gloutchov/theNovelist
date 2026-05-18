@@ -142,9 +142,28 @@ const translatable = document.querySelectorAll('[data-i18n]');
 const localizedImages = document.querySelectorAll('[data-src-it][data-src-en]');
 const localizedBackgrounds = document.querySelectorAll('[data-background-it][data-background-en]');
 const localizedLinks = document.querySelectorAll('[data-href-it][data-href-en]');
+let currentLanguage = 'it';
+
+function getImageSource(image, language) {
+  const sourceKey =
+    image.dataset.lightPreview === 'true' ? `data-light-src-${language}` : `data-src-${language}`;
+  return image.getAttribute(sourceKey) || image.getAttribute(`data-src-${language}`);
+}
+
+function updateImageSource(image) {
+  const source = getImageSource(image, currentLanguage);
+  const alt = image.getAttribute(`data-alt-${currentLanguage}`);
+  if (source) {
+    image.setAttribute('src', source);
+  }
+  if (alt) {
+    image.setAttribute('alt', alt);
+  }
+}
 
 function setLanguage(language) {
   const dictionary = translations[language] ?? translations.it;
+  currentLanguage = translations[language] ? language : 'it';
   document.documentElement.lang = language;
   translatable.forEach((element) => {
     const key = element.getAttribute('data-i18n');
@@ -153,14 +172,7 @@ function setLanguage(language) {
     }
   });
   localizedImages.forEach((image) => {
-    const source = image.getAttribute(`data-src-${language}`);
-    const alt = image.getAttribute(`data-alt-${language}`);
-    if (source) {
-      image.setAttribute('src', source);
-    }
-    if (alt) {
-      image.setAttribute('alt', alt);
-    }
+    updateImageSource(image);
   });
   localizedBackgrounds.forEach((element) => {
     const source = element.getAttribute(`data-background-${language}`);
@@ -181,6 +193,25 @@ function setLanguage(language) {
   });
   window.localStorage.setItem('the-novelist-site-language', language);
 }
+
+localizedImages.forEach((image) => {
+  image.addEventListener('mouseenter', () => {
+    image.dataset.lightPreview = 'true';
+    updateImageSource(image);
+  });
+  image.addEventListener('mouseleave', () => {
+    delete image.dataset.lightPreview;
+    updateImageSource(image);
+  });
+  image.addEventListener('focus', () => {
+    image.dataset.lightPreview = 'true';
+    updateImageSource(image);
+  });
+  image.addEventListener('blur', () => {
+    delete image.dataset.lightPreview;
+    updateImageSource(image);
+  });
+});
 
 buttons.forEach((button) => {
   button.addEventListener('click', () => {
