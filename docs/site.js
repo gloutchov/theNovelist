@@ -1,3 +1,5 @@
+/* global document, navigator, window */
+
 const translations = {
   it: {
     'nav.features': 'Funzionalità',
