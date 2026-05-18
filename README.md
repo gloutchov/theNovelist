@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 5.0.0<br />
+  <strong>Versione sorgente / Source version:</strong> 5.1.0<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://gloutchov.github.io/theNovelist/">gloutchov.github.io/theNovelist</a>
@@ -114,15 +114,14 @@ Note sui moduli nativi:
 - `better-sqlite3` viene rebuildato per Electron prima di sviluppo/packaging.
 - Dopo test Electron o packaging, i moduli vengono riportati al target Node per test e tool locali.
 
-### Release 5.0.0
+### Release 5.1.0
 
-La versione 5.0.0 introduce:
+La versione 5.1.0 introduce:
 
-- interfaccia bilingue italiano/inglese;
-- selezione lingua automatica o manuale;
-- prompt AI e fallback localizzati;
-- dialoghi, stati operativi ed export coerenti con la lingua effettiva;
-- test di completezza dizionari e copertura smoke in inglese.
+- selezione del tema interfaccia: sistema, chiaro o scuro;
+- persistenza globale della preferenza tema insieme ad autosave e lingua;
+- mini sito GitHub Pages con anteprime scure/chiare al passaggio del mouse;
+- documentazione utente aggiornata per impostazioni e preferenze.
 
 Le note sintetiche della release corrente sono mantenute qui nel README per evitare duplicazione con un file separato.
 
@@ -225,15 +224,14 @@ Native module notes:
 - `better-sqlite3` is rebuilt for Electron before development/packaging.
 - After Electron tests or packaging, modules are restored to the Node target for local tests and tools.
 
-### Release 5.0.0
+### Release 5.1.0
 
-Version 5.0.0 introduces:
+Version 5.1.0 introduces:
 
-- bilingual Italian/English interface;
-- automatic or manual language selection;
-- localized AI prompts and fallbacks;
-- dialogs, operational statuses, and exports aligned with the effective language;
-- dictionary completeness tests and English smoke coverage.
+- interface theme selection: system, light, or dark;
+- global persistence for the theme preference alongside autosave and language;
+- GitHub Pages mini site with dark/light screenshot previews on hover;
+- updated user documentation for settings and preferences.
 
 Short notes for the current release are kept here in the README to avoid duplicating them in a separate file.
 
