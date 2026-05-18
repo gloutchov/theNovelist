@@ -14,7 +14,7 @@
       content="Desktop app for narrative planning, rich text writing, visual canvases, local project memory, exports, and optional AI assistance."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="./assets/preview-dashboard.svg" />
+    <meta property="og:image" content="./assets/dashboard_en.png" />
     <link rel="icon" href="./assets/icon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -37,7 +37,12 @@
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-backdrop" aria-hidden="true"></div>
+        <div
+          class="hero-backdrop"
+          data-background-it="./assets/dashboard_it.png"
+          data-background-en="./assets/dashboard_en.png"
+          aria-hidden="true"
+        ></div>
         <div class="hero-content">
           <img class="hero-icon" src="./assets/icon.png" alt="" width="96" height="96" />
           <p class="eyebrow" data-i18n="hero.eyebrow">Desktop app open source</p>
@@ -154,23 +159,106 @@
         <div class="gallery-grid">
           <figure>
             <img
-              src="./assets/preview-dashboard.svg"
+              src="./assets/dashboard_it.png"
+              data-src-it="./assets/dashboard_it.png"
+              data-src-en="./assets/dashboard_en.png"
               alt="Dashboard di The Novelist con metriche e controlli"
+              data-alt-it="Cruscotto di The Novelist con metriche e controlli"
+              data-alt-en="The Novelist dashboard with metrics and project checks"
             />
             <figcaption data-i18n="gallery.dashboard">
               Cruscotto con avanzamento, controlli e stato del progetto.
             </figcaption>
           </figure>
           <figure>
-            <img src="./assets/preview-canvas.svg" alt="Canvas narrativo con nodi collegati" />
+            <img
+              src="./assets/canvas_it.png"
+              data-src-it="./assets/canvas_it.png"
+              data-src-en="./assets/canvas_en.png"
+              alt="Canvas narrativo con nodi collegati"
+              data-alt-it="Canvas narrativo con nodi collegati"
+              data-alt-en="Narrative canvas with connected nodes"
+            />
             <figcaption data-i18n="gallery.canvas">
               Canvas per visualizzare trame, capitoli e relazioni narrative.
             </figcaption>
           </figure>
           <figure>
-            <img src="./assets/preview-editor.svg" alt="Editor capitolo di The Novelist" />
+            <img
+              src="./assets/editor_it.png"
+              data-src-it="./assets/editor_it.png"
+              data-src-en="./assets/editor_en.png"
+              alt="Editor capitolo di The Novelist"
+              data-alt-it="Editor capitolo di The Novelist"
+              data-alt-en="The Novelist chapter editor"
+            />
             <figcaption data-i18n="gallery.editor">
               Editor rich text con riferimenti, note e strumenti AI.
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./assets/outline_it.png"
+              data-src-it="./assets/outline_it.png"
+              data-src-en="./assets/outline_en.png"
+              alt="Scaletta del manoscritto"
+              data-alt-it="Scaletta del manoscritto"
+              data-alt-en="Manuscript outline"
+            />
+            <figcaption data-i18n="gallery.outline">
+              Scaletta drag and drop per organizzare l'ordine di lettura.
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./assets/timeline_it.png"
+              data-src-it="./assets/timeline_it.png"
+              data-src-en="./assets/timeline_en.png"
+              alt="Timeline cronologica"
+              data-alt-it="Timeline cronologica"
+              data-alt-en="Chronological timeline"
+            />
+            <figcaption data-i18n="gallery.timeline">
+              Timeline per separare cronologia interna e ordine del manoscritto.
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./assets/characters_it.png"
+              data-src-it="./assets/characters_it.png"
+              data-src-en="./assets/characters_en.png"
+              alt="Schede personaggio"
+              data-alt-it="Schede personaggio"
+              data-alt-en="Character cards"
+            />
+            <figcaption data-i18n="gallery.characters">
+              Schede personaggio con relazioni, immagini e collegamenti narrativi.
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./assets/revisions_it.png"
+              data-src-it="./assets/revisions_it.png"
+              data-src-en="./assets/revisions_en.png"
+              alt="Revisioni del progetto"
+              data-alt-it="Revisioni del progetto"
+              data-alt-en="Project revisions"
+            />
+            <figcaption data-i18n="gallery.revisions">
+              Storico revisioni per confrontare e recuperare versioni precedenti.
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./assets/analysis_it.png"
+              data-src-it="./assets/analysis_it.png"
+              data-src-en="./assets/analysis_en.png"
+              alt="Analisi AI del progetto"
+              data-alt-it="Analisi AI del progetto"
+              data-alt-en="AI project analysis"
+            />
+            <figcaption data-i18n="gallery.analysis">
+              Analisi di coerenza, ritmo, stile, eventi aperti e convenzioni.
             </figcaption>
           </figure>
         </div>

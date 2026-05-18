@@ -132,7 +132,7 @@ img {
       rgba(17, 28, 36, 0.72) 44%,
       rgba(17, 28, 36, 0.24)
     ),
-    url('./assets/preview-dashboard.svg') center right / cover no-repeat;
+    var(--hero-image, url('./assets/dashboard_it.png')) center right / cover no-repeat;
 }
 
 .hero-content {
@@ -307,7 +307,7 @@ main > section:not(.hero) {
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
   margin-top: 42px;
 }
@@ -323,9 +323,9 @@ main > section:not(.hero) {
 
 .gallery-grid img {
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  background: var(--soft);
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #07101f;
 }
 
 .gallery-grid figcaption {
@@ -408,7 +408,7 @@ main > section:not(.hero) {
   .hero-backdrop {
     background:
       linear-gradient(180deg, rgba(17, 28, 36, 0.96), rgba(17, 28, 36, 0.78)),
-      url('./assets/preview-dashboard.svg') center / cover no-repeat;
+      var(--hero-image, url('./assets/dashboard_it.png')) center / cover no-repeat;
   }
 
   .hero-content {

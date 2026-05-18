@@ -40,6 +40,11 @@ const translations = {
     'gallery.dashboard': 'Cruscotto con avanzamento, controlli e stato del progetto.',
     'gallery.canvas': 'Canvas per visualizzare trame, capitoli e relazioni narrative.',
     'gallery.editor': 'Editor rich text con riferimenti, note e strumenti AI.',
+    'gallery.outline': "Scaletta drag and drop per organizzare l'ordine di lettura.",
+    'gallery.timeline': 'Timeline per separare cronologia interna e ordine del manoscritto.',
+    'gallery.characters': 'Schede personaggio con relazioni, immagini e collegamenti narrativi.',
+    'gallery.revisions': 'Storico revisioni per confrontare e recuperare versioni precedenti.',
+    'gallery.analysis': 'Analisi di coerenza, ritmo, stile, eventi aperti e convenzioni.',
     'privacy.eyebrow': 'AI e privacy',
     'privacy.title': 'Controllo esplicito sulle chiamate esterne.',
     'privacy.body':
@@ -96,6 +101,11 @@ const translations = {
     'gallery.dashboard': 'Dashboard with progress, checks, and project status.',
     'gallery.canvas': 'Canvas view for plots, chapters, and narrative relationships.',
     'gallery.editor': 'Rich text editor with references, notes, and AI tools.',
+    'gallery.outline': 'Drag-and-drop outline for organizing the reading order.',
+    'gallery.timeline': 'Timeline view to separate internal chronology from manuscript order.',
+    'gallery.characters': 'Character cards with relationships, images, and narrative links.',
+    'gallery.revisions': 'Revision history for comparing and restoring earlier versions.',
+    'gallery.analysis': 'Analysis for coherence, rhythm, style, open events, and conventions.',
     'privacy.eyebrow': 'AI and privacy',
     'privacy.title': 'Explicit control over external calls.',
     'privacy.body':
@@ -115,6 +125,8 @@ const translations = {
 
 const buttons = document.querySelectorAll('[data-language]');
 const translatable = document.querySelectorAll('[data-i18n]');
+const localizedImages = document.querySelectorAll('[data-src-it][data-src-en]');
+const localizedBackgrounds = document.querySelectorAll('[data-background-it][data-background-en]');
 
 function setLanguage(language) {
   const dictionary = translations[language] ?? translations.it;
@@ -123,6 +135,22 @@ function setLanguage(language) {
     const key = element.getAttribute('data-i18n');
     if (key && dictionary[key]) {
       element.textContent = dictionary[key];
+    }
+  });
+  localizedImages.forEach((image) => {
+    const source = image.getAttribute(`data-src-${language}`);
+    const alt = image.getAttribute(`data-alt-${language}`);
+    if (source) {
+      image.setAttribute('src', source);
+    }
+    if (alt) {
+      image.setAttribute('alt', alt);
+    }
+  });
+  localizedBackgrounds.forEach((element) => {
+    const source = element.getAttribute(`data-background-${language}`);
+    if (source) {
+      element.style.setProperty('--hero-image', `url("${source}")`);
     }
   });
   buttons.forEach((button) => {
