@@ -5,50 +5,56 @@ const translations = {
     'nav.download': 'Download',
     'hero.eyebrow': 'Desktop app open source',
     'hero.copy':
-      'Progetta, scrivi, revisiona ed esporta romanzi con canvas narrativi, editor rich text, memoria locale del progetto e assistenza AI opzionale.',
+      'Progetta, scrivi, revisiona ed esporta romanzi con canvas narrativi, editor semplificato, memoria locale del progetto e assistenza AI opzionale.',
     'hero.download': 'Scarica la release',
     'hero.repo': 'Repository GitHub',
     'facts.versionLabel': 'Versione',
     'facts.platformsLabel': 'Piattaforme',
     'facts.licenseLabel': 'Licenza',
-    'intro.eyebrow': 'Per scrittori e progettisti narrativi',
-    'intro.title': 'Un ambiente locale per governare romanzi complessi.',
+    'intro.eyebrow': 'Per scrittori affermati e non',
+    'intro.title': 'Un ambiente pensato per scrivere romanzi dalla A alla Z.',
     'intro.body':
-      "The Novelist unisce struttura, scrittura e revisione in una singola app desktop. I progetti restano sul computer dell'utente; le funzioni AI sono opzionali e controllate da impostazioni di consenso.",
+      "The Novelist offre una scrivania adatta allo sviluppo delle trame, alla gestione della timeline, all'organizzazione di personaggi e locations. Ogni storia ha la sua memoria, così che l'autore possa avere sempre consapevolezza di ciò che scrive, ed essere aiutato dalla AI quando e se è necessario, con analisi approfondite del testo.",
     'features.eyebrow': 'Funzionalita principali',
-    'features.title': 'Dalla mappa narrativa al manoscritto esportato.',
+    'features.title': 'Dalla mappa narrativa al manoscritto completo.',
     'features.dashboard.title': 'Cruscotto progetto',
     'features.dashboard.body':
-      "Metriche, obiettivi, snapshot, stato autosave, memoria Wiki e controlli editoriali in un'unica vista.",
+      'A che punto è il romanzo? Quante pagine sono state scritte? I tempi stabiliti sono rispettati? I personaggi, le location, sono veramente presenti nella storia? Tutti i dettagli del romanzo sono disponibili e sempre aggiornati, per non perdere mai il filo.',
     'features.canvas.title': 'Canvas narrativi',
     'features.canvas.body':
-      'Nodi e connessioni per capitoli, trame, scene, personaggi e location, con trame parallele colorate.',
-    'features.editor.title': 'Editor rich text',
+      'Scrivi una scena. Decidi in quale capitolo va inclusa. Ordina i capitoli nel modo più incisivo. Organizza la trama principale e quelle secondarie. In ogni momento è possibile riorganizzare tutto quanto, per rendere la scrittura molto più snella.',
+    'features.editor.title': 'Editor semplificato',
     'features.editor.body':
-      'Scrittura per capitoli e scene, formattazione, ricerca, riferimenti a schede e vista lettura.',
+      'Un ambiente essenziale per scrivere senza distrazioni, con le funzioni basilari, la possibilità di descrivere e definire i personaggi, le location, e le scene. Dotato di un consulente AI per ricerche su quanto già scritto, per non perdere mai il punto della situazione.',
     'features.memory.title': 'Memoria locale',
     'features.memory.body':
-      "Wiki Markdown interrogabile, timeline cronologica e revisioni per seguire l'evoluzione del progetto.",
-    'features.ai.title': 'AI opzionale',
+      "Ogni progetto ha la sua memoria. Il programma si segna ogni parola scritta, ogni idea condivisa con la AI, ogni cambiamento. Tutto quanto è sempre disponibile all'autore.",
+    'features.ai.title': 'AI (opzionale)',
     'features.ai.body':
-      'Analisi di coerenza, eventi aperti, stile e ritmo con OpenAI API o Ollama, solo quando abilitate.',
+      "Quando abilitata, l'intelligenza artificiale può eseguire analisi di coerenza, eventi aperti, stile e ritmo del testo. Si può optare tra OpenAI API o un modello locale tramite Ollama.",
     'features.export.title': 'Export',
     'features.export.body':
-      'Esporta capitoli e manoscritti in DOCX, ePUB o stampa, con release pubblicate su GitHub.',
+      "Il testo può essere esportato nei formati principali: ePub, Word, e stampato su carta o in PDF. Ciò vale sia per il singolo capitolo, sia per l'intero romanzo.",
     'gallery.eyebrow': "Immagini dell'app",
     'gallery.title': "Anteprime dell'interfaccia.",
-    'gallery.dashboard': 'Cruscotto con avanzamento, controlli e stato del progetto.',
-    'gallery.canvas': 'Canvas per visualizzare trame, capitoli e relazioni narrative.',
-    'gallery.editor': 'Editor rich text con riferimenti, note e strumenti AI.',
-    'gallery.outline': "Scaletta drag and drop per organizzare l'ordine di lettura.",
-    'gallery.timeline': 'Timeline per separare cronologia interna e ordine del manoscritto.',
-    'gallery.characters': 'Schede personaggio con relazioni, immagini e collegamenti narrativi.',
-    'gallery.revisions': 'Storico revisioni per confrontare e recuperare versioni precedenti.',
-    'gallery.analysis': 'Analisi di coerenza, ritmo, stile, eventi aperti e convenzioni.',
+    'gallery.dashboard': 'Il Cruscotto offre controlli e stato di avanzamento del progetto.',
+    'gallery.canvas': 'I Canvas sono utili per visualizzare trame, capitoli e relazioni narrative.',
+    'gallery.editor':
+      "L'Editor semplificato riduce le distrazioni e snellisce le attività di scrittura.",
+    'gallery.outline':
+      "La Scaletta offre uno strumento drag and drop per organizzare l'ordine di lettura.",
+    'gallery.timeline':
+      'La Timeline è utile a gestire la cronologia degli eventi, e sfruttare al meglio i flashback.',
+    'gallery.characters':
+      'Le Schede personaggio/location mostrano relazioni, immagini e collegamenti narrativi.',
+    'gallery.revisions':
+      'Lo Storico revisioni è importante per confrontare e recuperare versioni precedenti.',
+    'gallery.analysis':
+      'Usa la AI per svolgere Analisi di coerenza, ritmo, stile, eventi aperti e convenzioni.',
     'privacy.eyebrow': 'AI e privacy',
-    'privacy.title': 'Controllo esplicito sulle chiamate esterne.',
+    'privacy.title': "Il controllo è nelle mani dell'autore.",
     'privacy.body':
-      "Le funzioni AI sono disattivate per default nei nuovi progetti. L'utente decide se abilitare il provider, consentire chiamate API esterne e condividere la memoria locale del progetto con servizi remoti.",
+      "L'intelligenza artificiale è uno strumento dalle potenzialità incredibili, ma l'autore deve sempre essere consapevole di quali informazioni andrà a gestire. Per questo motivo le funzioni AI sono disattivate per default nei nuovi progetti. L'autore decide, progetto per progetto, se abilitare il provider, consentire chiamate API esterne e condividere la memoria locale del progetto con servizi remoti. In alternativa può essere implementato un modello locale tramite Ollama.",
     'privacy.item1': 'Supporto OpenAI API e Ollama.',
     'privacy.item2': 'Persistenza locale con database SQLite.',
     'privacy.item3': 'Documentazione tecnica del modello di sicurezza.',
@@ -66,50 +72,56 @@ const translations = {
     'nav.download': 'Download',
     'hero.eyebrow': 'Open source desktop app',
     'hero.copy':
-      'Plan, write, revise, and export novels with narrative canvases, a rich text editor, local project memory, and optional AI assistance.',
+      'Plan, write, revise, and export novels with narrative canvases, a streamlined editor, local project memory, and optional AI assistance.',
     'hero.download': 'Download release',
     'hero.repo': 'GitHub repository',
     'facts.versionLabel': 'Version',
     'facts.platformsLabel': 'Platforms',
     'facts.licenseLabel': 'License',
-    'intro.eyebrow': 'For writers and narrative planners',
-    'intro.title': 'A local workspace for complex novels.',
+    'intro.eyebrow': 'For established and emerging writers',
+    'intro.title': 'A workspace designed to write novels from A to Z.',
     'intro.body':
-      'The Novelist brings structure, writing, and revision into one desktop app. Projects stay on the user computer; AI features are optional and controlled by explicit consent settings.',
+      'The Novelist offers a writing desk for developing plots, managing the timeline, and organizing characters and locations. Every story has its own memory, so the author can always stay aware of what has been written and receive AI help when, and only when, it is needed, with in-depth text analysis.',
     'features.eyebrow': 'Main features',
-    'features.title': 'From narrative map to exported manuscript.',
+    'features.title': 'From narrative map to complete manuscript.',
     'features.dashboard.title': 'Project dashboard',
     'features.dashboard.body':
-      'Metrics, targets, snapshots, autosave state, Wiki memory, and editorial checks in one view.',
+      'How far along is the novel? How many pages have been written? Are the planned deadlines being met? Are the characters and locations truly present in the story? Every detail of the novel is available and always up to date, so you never lose the thread.',
     'features.canvas.title': 'Narrative canvases',
     'features.canvas.body':
-      'Nodes and connections for chapters, plots, scenes, characters, and locations, with color-coded parallel plots.',
-    'features.editor.title': 'Rich text editor',
+      'Write a scene. Decide which chapter it belongs in. Arrange chapters in the most effective order. Organize the main plot and subplots. Everything can be reorganized at any time, making the writing process much leaner.',
+    'features.editor.title': 'Streamlined editor',
     'features.editor.body':
-      'Chapter and scene writing, formatting, search, card references, and reading view.',
+      'An essential writing environment without distractions, with basic tools and the ability to describe and define characters, locations, and scenes. It includes an AI consultant for searching what has already been written, so you never lose track of the situation.',
     'features.memory.title': 'Local memory',
     'features.memory.body':
-      'Searchable Markdown Wiki, chronological timeline, and revisions to track the project evolution.',
-    'features.ai.title': 'Optional AI',
+      'Every project has its own memory. The program records every written word, every idea shared with the AI, and every change. Everything remains available to the author.',
+    'features.ai.title': 'AI (optional)',
     'features.ai.body':
-      'Checks for coherence, open events, style, and rhythm with OpenAI API or Ollama, only when enabled.',
+      'When enabled, artificial intelligence can analyze coherence, open events, style, and text rhythm. You can choose between the OpenAI API or a local model through Ollama.',
     'features.export.title': 'Export',
     'features.export.body':
-      'Export chapters and manuscripts to DOCX, ePUB, or print, with releases published on GitHub.',
+      'Text can be exported to the main formats: ePub, Word, and print on paper or to PDF. This applies to both a single chapter and the entire novel.',
     'gallery.eyebrow': 'App images',
     'gallery.title': 'Interface previews.',
-    'gallery.dashboard': 'Dashboard with progress, checks, and project status.',
-    'gallery.canvas': 'Canvas view for plots, chapters, and narrative relationships.',
-    'gallery.editor': 'Rich text editor with references, notes, and AI tools.',
-    'gallery.outline': 'Drag-and-drop outline for organizing the reading order.',
-    'gallery.timeline': 'Timeline view to separate internal chronology from manuscript order.',
-    'gallery.characters': 'Character cards with relationships, images, and narrative links.',
-    'gallery.revisions': 'Revision history for comparing and restoring earlier versions.',
-    'gallery.analysis': 'Analysis for coherence, rhythm, style, open events, and conventions.',
+    'gallery.dashboard': 'The Dashboard provides checks and project progress status.',
+    'gallery.canvas': 'Canvases help visualize plots, chapters, and narrative relationships.',
+    'gallery.editor':
+      'The streamlined editor reduces distractions and makes writing tasks smoother.',
+    'gallery.outline':
+      'The Outline provides a drag-and-drop tool for organizing the reading order.',
+    'gallery.timeline':
+      'The Timeline helps manage event chronology and make the most of flashbacks.',
+    'gallery.characters':
+      'Character/location cards show relationships, images, and narrative links.',
+    'gallery.revisions':
+      'Revision history is important for comparing and recovering previous versions.',
+    'gallery.analysis':
+      'Use AI to run analyses of coherence, rhythm, style, open events, and conventions.',
     'privacy.eyebrow': 'AI and privacy',
-    'privacy.title': 'Explicit control over external calls.',
+    'privacy.title': 'Control stays in the author hands.',
     'privacy.body':
-      'AI features are disabled by default in new projects. Users decide whether to enable a provider, allow external API calls, and share local project memory with remote services.',
+      'Artificial intelligence is a tool with incredible potential, but the author must always know which information it will handle. For this reason, AI features are disabled by default in new projects. The author decides, project by project, whether to enable the provider, allow external API calls, and share local project memory with remote services. Alternatively, a local model can be implemented through Ollama.',
     'privacy.item1': 'OpenAI API and Ollama support.',
     'privacy.item2': 'Local persistence with SQLite.',
     'privacy.item3': 'Technical security model documentation.',
