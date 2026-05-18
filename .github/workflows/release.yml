@@ -131,7 +131,10 @@ jobs:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
         shell: bash
         run: |
-          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.id' 2>/dev/null || true)"
+          if ! release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.id' 2>/dev/null)"; then
+            echo "No existing release found for ${RELEASE_TAG}"
+            exit 0
+          fi
           if [ -z "$release_id" ]; then
             echo "No existing release found for ${RELEASE_TAG}"
             exit 0
