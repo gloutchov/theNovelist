@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Novelist - App desktop per scrittura narrativa</title>
+    <meta
+      name="description"
+      content="The Novelist is a bilingual desktop app for planning, writing, revising, and exporting novels with local storage and optional AI assistance."
+    />
+    <meta property="og:title" content="The Novelist" />
+    <meta
+      property="og:description"
+      content="Desktop app for narrative planning, rich text writing, visual canvases, local project memory, exports, and optional AI assistance."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./assets/preview-dashboard.svg" />
+    <link rel="icon" href="./assets/icon.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header" aria-label="Site navigation">
+      <a class="brand" href="#top" aria-label="The Novelist home">
+        <img src="./assets/icon.png" alt="" width="36" height="36" />
+        <span>The Novelist</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#features" data-i18n="nav.features">Funzionalita</a>
+        <a href="#gallery" data-i18n="nav.gallery">Immagini</a>
+        <a href="#download" data-i18n="nav.download">Download</a>
+      </nav>
+      <div class="language-switcher" aria-label="Language">
+        <button type="button" class="language-button is-active" data-language="it">IT</button>
+        <button type="button" class="language-button" data-language="en">EN</button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-backdrop" aria-hidden="true"></div>
+        <div class="hero-content">
+          <img class="hero-icon" src="./assets/icon.png" alt="" width="96" height="96" />
+          <p class="eyebrow" data-i18n="hero.eyebrow">Desktop app open source</p>
+          <h1 id="hero-title">The Novelist</h1>
+          <p class="hero-copy" data-i18n="hero.copy">
+            Progetta, scrivi, revisiona ed esporta romanzi con canvas narrativi, editor rich text,
+            memoria locale del progetto e assistenza AI opzionale.
+          </p>
+          <div class="hero-actions">
+            <a
+              class="button primary"
+              href="https://github.com/gloutchov/theNovelist/releases"
+              data-i18n="hero.download"
+            >
+              Scarica la release
+            </a>
+            <a
+              class="button secondary"
+              href="https://github.com/gloutchov/theNovelist"
+              data-i18n="hero.repo"
+            >
+              Repository GitHub
+            </a>
+          </div>
+          <dl class="release-strip" aria-label="Release facts">
+            <div>
+              <dt data-i18n="facts.versionLabel">Versione</dt>
+              <dd>5.0.0</dd>
+            </div>
+            <div>
+              <dt data-i18n="facts.platformsLabel">Piattaforme</dt>
+              <dd>macOS / Windows</dd>
+            </div>
+            <div>
+              <dt data-i18n="facts.licenseLabel">Licenza</dt>
+              <dd>Apache 2.0</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="intro-section" aria-labelledby="intro-title">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="intro.eyebrow">Per scrittori e progettisti narrativi</p>
+          <h2 id="intro-title" data-i18n="intro.title">
+            Un ambiente locale per governare romanzi complessi.
+          </h2>
+        </div>
+        <p data-i18n="intro.body">
+          The Novelist unisce struttura, scrittura e revisione in una singola app desktop. I
+          progetti restano sul computer dell'utente; le funzioni AI sono opzionali e controllate da
+          impostazioni di consenso.
+        </p>
+      </section>
+
+      <section id="features" class="feature-section" aria-labelledby="features-title">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="features.eyebrow">Funzionalita principali</p>
+          <h2 id="features-title" data-i18n="features.title">
+            Dalla mappa narrativa al manoscritto esportato.
+          </h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <h3 data-i18n="features.dashboard.title">Cruscotto progetto</h3>
+            <p data-i18n="features.dashboard.body">
+              Metriche, obiettivi, snapshot, stato autosave, memoria Wiki e controlli editoriali in
+              un'unica vista.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3 data-i18n="features.canvas.title">Canvas narrativi</h3>
+            <p data-i18n="features.canvas.body">
+              Nodi e connessioni per capitoli, trame, scene, personaggi e location, con trame
+              parallele colorate.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3 data-i18n="features.editor.title">Editor rich text</h3>
+            <p data-i18n="features.editor.body">
+              Scrittura per capitoli e scene, formattazione, ricerca, riferimenti a schede e vista
+              lettura.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3 data-i18n="features.memory.title">Memoria locale</h3>
+            <p data-i18n="features.memory.body">
+              Wiki Markdown interrogabile, timeline cronologica e revisioni per seguire l'evoluzione
+              del progetto.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3 data-i18n="features.ai.title">AI opzionale</h3>
+            <p data-i18n="features.ai.body">
+              Analisi di coerenza, eventi aperti, stile e ritmo con OpenAI API o Ollama, solo quando
+              abilitate.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3 data-i18n="features.export.title">Export</h3>
+            <p data-i18n="features.export.body">
+              Esporta capitoli e manoscritti in DOCX, ePUB o stampa, con release pubblicate su
+              GitHub.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="gallery" class="gallery-section" aria-labelledby="gallery-title">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="gallery.eyebrow">Immagini dell'app</p>
+          <h2 id="gallery-title" data-i18n="gallery.title">Anteprime dell'interfaccia.</h2>
+        </div>
+        <div class="gallery-grid">
+          <figure>
+            <img
+              src="./assets/preview-dashboard.svg"
+              alt="Dashboard di The Novelist con metriche e controlli"
+            />
+            <figcaption data-i18n="gallery.dashboard">
+              Cruscotto con avanzamento, controlli e stato del progetto.
+            </figcaption>
+          </figure>
+          <figure>
+            <img src="./assets/preview-canvas.svg" alt="Canvas narrativo con nodi collegati" />
+            <figcaption data-i18n="gallery.canvas">
+              Canvas per visualizzare trame, capitoli e relazioni narrative.
+            </figcaption>
+          </figure>
+          <figure>
+            <img src="./assets/preview-editor.svg" alt="Editor capitolo di The Novelist" />
+            <figcaption data-i18n="gallery.editor">
+              Editor rich text con riferimenti, note e strumenti AI.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="privacy-section" aria-labelledby="privacy-title">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="privacy.eyebrow">AI e privacy</p>
+          <h2 id="privacy-title" data-i18n="privacy.title">
+            Controllo esplicito sulle chiamate esterne.
+          </h2>
+        </div>
+        <div class="privacy-grid">
+          <p data-i18n="privacy.body">
+            Le funzioni AI sono disattivate per default nei nuovi progetti. L'utente decide se
+            abilitare il provider, consentire chiamate API esterne e condividere la memoria locale
+            del progetto con servizi remoti.
+          </p>
+          <ul>
+            <li data-i18n="privacy.item1">Supporto OpenAI API e Ollama.</li>
+            <li data-i18n="privacy.item2">Persistenza locale con database SQLite.</li>
+            <li data-i18n="privacy.item3">Documentazione tecnica del modello di sicurezza.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="download" class="download-section" aria-labelledby="download-title">
+        <div class="download-panel">
+          <div>
+            <p class="eyebrow" data-i18n="download.eyebrow">Download e codice</p>
+            <h2 id="download-title" data-i18n="download.title">
+              Scarica la build o esplora il repository.
+            </h2>
+            <p data-i18n="download.body">
+              Le build pubbliche sono disponibili nelle GitHub Releases. Il codice sorgente, la
+              documentazione utente e il modello di sicurezza sono nel repository.
+            </p>
+          </div>
+          <div class="download-actions">
+            <a
+              class="button primary"
+              href="https://github.com/gloutchov/theNovelist/releases"
+              data-i18n="download.releases"
+            >
+              Releases
+            </a>
+            <a
+              class="button secondary"
+              href="https://github.com/gloutchov/theNovelist"
+              data-i18n="download.source"
+            >
+              Codice sorgente
+            </a>
+            <a
+              class="button secondary"
+              href="https://github.com/gloutchov/theNovelist/blob/main/INSTRUCTIONS.md"
+              data-i18n="download.docs"
+            >
+              Manuale
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Apache-2.0</span>
+      <a href="https://github.com/gloutchov/theNovelist">github.com/gloutchov/theNovelist</a>
+    </footer>
+
+    <script src="./site.js"></script>
+  </body>
+</html>

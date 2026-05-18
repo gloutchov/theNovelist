@@ -11,7 +11,8 @@
 <p align="center">
   <strong>Versione sorgente / Source version:</strong> 5.0.0<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
-  <strong>Licenza / License:</strong> Apache 2.0
+  <strong>Licenza / License:</strong> Apache 2.0<br />
+  <strong>Sito / Website:</strong> <a href="https://gloutchov.github.io/theNovelist/">gloutchov.github.io/theNovelist</a>
 </p>
 
 ---

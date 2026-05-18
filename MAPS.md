@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata al ramo `i18n-v5-roadmap`, dopo la separazione dei manuali `ISTRUZIONI.md` e `INSTRUCTIONS.md` e la rimozione di `RELEASE_NOTES.md`.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata a `main`, dopo la separazione dei manuali `ISTRUZIONI.md` e `INSTRUCTIONS.md`, la rimozione di `RELEASE_NOTES.md` e l'aggiunta del mini sito GitHub Pages.
 
 ### Vista generale
 
@@ -17,12 +17,18 @@ theNovelist/
 |-- .github/
 |   `-- workflows/
 |       |-- ci.yml
+|       |-- pages.yml
 |       `-- release.yml
 |-- build/
 |   |-- icon.ico
 |   `-- icon.png
 |-- checksums/
 |   `-- SHA256SUMS-*.txt
+|-- docs/
+|   |-- assets/
+|   |-- index.html
+|   |-- site.js
+|   `-- styles.css
 |-- scripts/
 |-- src/
 |   |-- main/
@@ -55,6 +61,7 @@ theNovelist/
 ```text
 .github/workflows/
 |-- ci.yml          # CI automatica.
+|-- pages.yml       # Pubblicazione GitHub Pages del mini sito statico.
 `-- release.yml     # Build e pubblicazione release GitHub.
 
 build/
@@ -63,6 +70,12 @@ build/
 
 checksums/
 `-- *.txt           # Checksum storici o di supporto alle release.
+
+docs/
+|-- assets/         # Icona e anteprime visuali del mini sito.
+|-- index.html      # Landing page bilingue pubblicabile via GitHub Pages.
+|-- site.js         # Switch lingua italiano/inglese.
+`-- styles.css      # Stili responsive del sito statico.
 
 scripts/
 |-- electron-builder-after-pack.cjs # Hook post-packaging Electron.
@@ -262,7 +275,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for the `i18n-v5-roadmap` branch, after splitting the user manuals into `ISTRUZIONI.md` and `INSTRUCTIONS.md` and removing `RELEASE_NOTES.md`.
+This map describes the main file layout and module responsibilities. It is updated for `main`, after splitting the user manuals into `ISTRUZIONI.md` and `INSTRUCTIONS.md`, removing `RELEASE_NOTES.md`, and adding the GitHub Pages mini site.
 
 ### Overview
 
@@ -271,12 +284,18 @@ theNovelist/
 |-- .github/
 |   `-- workflows/
 |       |-- ci.yml
+|       |-- pages.yml
 |       `-- release.yml
 |-- build/
 |   |-- icon.ico
 |   `-- icon.png
 |-- checksums/
 |   `-- SHA256SUMS-*.txt
+|-- docs/
+|   |-- assets/
+|   |-- index.html
+|   |-- site.js
+|   `-- styles.css
 |-- scripts/
 |-- src/
 |   |-- main/
@@ -309,6 +328,7 @@ theNovelist/
 ```text
 .github/workflows/
 |-- ci.yml          # Automated CI.
+|-- pages.yml       # GitHub Pages publishing workflow for the static mini site.
 `-- release.yml     # GitHub release build and publishing workflow.
 
 build/
@@ -317,6 +337,12 @@ build/
 
 checksums/
 `-- *.txt           # Historical or release-support checksums.
+
+docs/
+|-- assets/         # Icon and visual previews for the mini site.
+|-- index.html      # Bilingual landing page publishable through GitHub Pages.
+|-- site.js         # Italian/English language switcher.
+`-- styles.css      # Responsive styles for the static site.
 
 scripts/
 |-- electron-builder-after-pack.cjs # Electron post-packaging hook.
