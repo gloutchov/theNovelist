@@ -220,6 +220,10 @@ export class NovelistRepository {
     return this.codexRepository.listCodexChatMessages(projectId, chapterNodeId, limit);
   }
 
+  deleteCodexChatMessages(projectId: string, chapterNodeId: string): number {
+    return this.codexRepository.deleteCodexChatMessages(projectId, chapterNodeId);
+  }
+
   listProjectCodexChatMessages(projectId: string): CodexChatMessageRecord[] {
     return this.codexRepository.listProjectCodexChatMessages(projectId);
   }

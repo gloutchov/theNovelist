@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 5.1.0<br />
+  <strong>Versione sorgente / Source version:</strong> 5.5.0<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://gloutchov.github.io/theNovelist/">gloutchov.github.io/theNovelist</a>
@@ -37,13 +37,13 @@ Nota: la cartella locale `release/` puo contenere build precedenti o artefatti g
 
 ### Funzionalita principali
 
-- Cruscotto progetto con metriche, obiettivi, snapshot, stato AI/autosave e controlli editoriali.
+- Cruscotto progetto con metriche, obiettivi, snapshot, semafori memoria/AI/fallback, stato AI/autosave e controlli editoriali.
 - Interfaccia bilingue italiano/inglese con rilevamento automatico della lingua di sistema, override manuale e tema chiaro/scuro/sistema.
 - Canvas capitoli con nodi, connessioni e trame parallele colorate.
 - Canvas dedicati per trame, scene, personaggi e location.
 - Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`.
 - Creazione rapida di schede da testo selezionato.
-- Timeline cronologica separata dall'ordine di lettura.
+- Timeline cronologica separata dall'ordine di lettura, con viste distinte per capitoli e scene.
 - Scaletta drag and drop per ordinare il manoscritto.
 - Vista lettura per capitolo singolo o documento completo.
 - Revisioni di capitoli, scene, personaggi e location.
@@ -114,14 +114,18 @@ Note sui moduli nativi:
 - `better-sqlite3` viene rebuildato per Electron prima di sviluppo/packaging.
 - Dopo test Electron o packaging, i moduli vengono riportati al target Node per test e tool locali.
 
-### Release 5.1.0
+### Release 5.5.0
 
-La versione 5.1.0 introduce:
+La versione 5.5.0 introduce:
 
-- selezione del tema interfaccia: sistema, chiaro o scuro;
-- persistenza globale della preferenza tema insieme ad autosave e lingua;
-- mini sito GitHub Pages con anteprime scure/chiare al passaggio del mouse;
-- documentazione utente aggiornata per impostazioni e preferenze.
+- palette semaforo per lo stato di consegna nel Cruscotto;
+- indicatore verde quando la stesura e in linea con la data prevista;
+- indicatore rosso leggibile nei temi chiaro e scuro quando la stima supera la data prevista;
+- box operativo nel Cruscotto con stato memoria, AI e fallback AI;
+- canvas con apertura editor/schede su doppio click, multi-selezione `CTRL` e selezione rettangolare;
+- diff locale nella vista Revisioni;
+- undo/redo e modifica titolo negli editor Capitoli e Scene;
+- Timeline separata in viste Capitoli e Scene.
 
 Le note sintetiche della release corrente sono mantenute qui nel README per evitare duplicazione con un file separato.
 
@@ -147,13 +151,13 @@ Note: the local `release/` folder may contain older builds or artifacts produced
 
 ### Main Features
 
-- Project dashboard with metrics, goals, snapshots, AI/autosave status, and editorial checks.
+- Project dashboard with metrics, goals, snapshots, memory/AI/fallback traffic lights, AI/autosave status, and editorial checks.
 - Bilingual Italian/English interface with automatic system-language detection, manual override, and light/dark/system theme selection.
 - Chapter canvas with nodes, connections, and color-coded parallel plots.
 - Dedicated canvases for plots, scenes, characters, and locations.
 - Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`.
 - Quick card creation from selected text.
-- Chronological timeline independent from reading order.
+- Chronological timeline independent from reading order, with separate chapter and scene views.
 - Drag-and-drop outline for manuscript ordering.
 - Reading view for a single chapter or the full document.
 - Revisions for chapters, scenes, characters, and locations.
@@ -224,14 +228,18 @@ Native module notes:
 - `better-sqlite3` is rebuilt for Electron before development/packaging.
 - After Electron tests or packaging, modules are restored to the Node target for local tests and tools.
 
-### Release 5.1.0
+### Release 5.5.0
 
-Version 5.1.0 introduces:
+Version 5.5.0 introduces:
 
-- interface theme selection: system, light, or dark;
-- global persistence for the theme preference alongside autosave and language;
-- GitHub Pages mini site with dark/light screenshot previews on hover;
-- updated user documentation for settings and preferences.
+- a traffic-light palette for the Dashboard delivery status;
+- a green indicator when the draft is on track for the planned date;
+- a readable red indicator in light and dark themes when the estimate exceeds the planned date;
+- a Dashboard operations box with memory, AI, and AI fallback status;
+- canvases that open editors/cards on double click, plus `CTRL` multi-select and rectangle selection;
+- local diff in the Revisions view;
+- undo/redo and title editing in the Chapter and Scene editors;
+- Timeline split into Chapter and Scene views.
 
 Short notes for the current release are kept here in the README to avoid duplicating them in a separate file.
 

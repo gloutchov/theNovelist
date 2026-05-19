@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata a `main`, dopo la separazione dei manuali `ISTRUZIONI.md` e `INSTRUCTIONS.md`, la rimozione di `RELEASE_NOTES.md` e l'aggiunta del mini sito GitHub Pages.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 5.5.0, dopo la separazione dei manuali `ISTRUZIONI.md` e `INSTRUCTIONS.md`, la rimozione di `RELEASE_NOTES.md`, l'aggiunta del mini sito GitHub Pages e l'estrazione di moduli renderer per dashboard, selezione canvas e diff revisioni.
 
 ### Vista generale
 
@@ -166,6 +166,11 @@ src/renderer/
     |-- RevisionBoard.tsx    # Revisioni.
     |-- SceneBoard.tsx       # Canvas scene.
     |-- TimelineBoard.tsx    # Timeline narrativa.
+    |-- canvas-position.ts   # Calcolo posizioni iniziali sui canvas.
+    |-- flow-minimap.ts      # Colori e rendering sintetico minimap React Flow.
+    |-- flow-selection.ts    # Multi-selezione e drag rectangle sui canvas.
+    |-- status-tone.ts       # Mapping stato testuale -> tono UI.
+    |-- image-path.ts        # Risoluzione sorgenti immagine renderer.
     |-- *FlowNode.tsx        # Nodi React Flow.
     |-- features/            # Moduli UI per area funzionale.
     |-- i18n/                # Dizionari e helper italiano/inglese.
@@ -186,6 +191,7 @@ features/
 |-- outline/     # Scaletta, vista lettura e parsing documento.
 |-- plot/        # Flusso, modali e struttura trama.
 |-- project/     # Sessione e modali progetto.
+|-- revisions/   # Diff locale e helper per confronto revisioni.
 |-- settings/    # Preferenze utente e modale impostazioni.
 `-- story/       # Modali nodi capitolo.
 ```
@@ -239,6 +245,7 @@ tests/unit/
 |-- production-security.test.ts
 |-- project-*.test.ts
 |-- repository.test.ts
+|-- revision-diff.test.ts
 |-- rich-text.test.ts
 |-- session.test.ts
 |-- snapshots.test.ts
@@ -275,7 +282,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for `main`, after splitting the user manuals into `ISTRUZIONI.md` and `INSTRUCTIONS.md`, removing `RELEASE_NOTES.md`, and adding the GitHub Pages mini site.
+This map describes the main file layout and module responsibilities. It is updated for source version 5.5.0, after splitting the user manuals into `ISTRUZIONI.md` and `INSTRUCTIONS.md`, removing `RELEASE_NOTES.md`, adding the GitHub Pages mini site, and extracting renderer modules for the dashboard, canvas selection, and revision diffs.
 
 ### Overview
 
@@ -433,6 +440,11 @@ src/renderer/
     |-- RevisionBoard.tsx    # Revisions.
     |-- SceneBoard.tsx       # Scene canvas.
     |-- TimelineBoard.tsx    # Narrative timeline.
+    |-- canvas-position.ts   # Initial canvas position calculation.
+    |-- flow-minimap.ts      # React Flow minimap colors and simplified rendering.
+    |-- flow-selection.ts    # Multi-select and drag rectangle behavior on canvases.
+    |-- status-tone.ts       # Text status -> UI tone mapping.
+    |-- image-path.ts        # Renderer image source resolution.
     |-- *FlowNode.tsx        # React Flow nodes.
     |-- features/            # UI modules by functional area.
     |-- i18n/                # Italian/English dictionaries and helpers.
@@ -453,6 +465,7 @@ features/
 |-- outline/     # Outline, reading view, and document parsing.
 |-- plot/        # Plot flow, modals, and structure generation.
 |-- project/     # Project session and modals.
+|-- revisions/   # Local diff and helpers for revision comparison.
 |-- settings/    # User preferences and settings modal.
 `-- story/       # Chapter node modals.
 ```
@@ -506,6 +519,7 @@ tests/unit/
 |-- production-security.test.ts
 |-- project-*.test.ts
 |-- repository.test.ts
+|-- revision-diff.test.ts
 |-- rich-text.test.ts
 |-- session.test.ts
 |-- snapshots.test.ts

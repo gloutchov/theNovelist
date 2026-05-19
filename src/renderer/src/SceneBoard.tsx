@@ -12,8 +12,10 @@ import {
   type Edge,
   type Node,
   type NodeMouseHandler,
+  type OnNodeDrag,
   type OnEdgesChange,
   type OnNodesChange,
+  type OnNodesDelete,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import { getNearbyCanvasPosition } from './canvas-position';
@@ -23,6 +25,8 @@ import {
   getFlowMiniMapNodeColor,
   getFlowMiniMapNodeStrokeColor,
 } from './flow-minimap';
+import { canvasMultiSelectProps } from './flow-selection';
+import { normalizePlotLabel } from './features/plot/plot-flow';
 import SceneFlowNode, { type SceneFlowNodeData } from './SceneFlowNode';
 import type { Translate } from './i18n';
 import { getStatusTone } from './status-tone';
@@ -52,7 +56,7 @@ function formatPlotLabel(
   plotNumber: number,
   t: Translate,
 ): string {
-  return plot?.label?.trim() || `${t('common.plot')} ${plotNumber}`;
+  return normalizePlotLabel(plotNumber, plot?.label ?? '', t('common.plot'));
 }
 
 function colorFromPlotNumber(plotNumber: number): string {
@@ -315,37 +319,96 @@ export default function SceneBoard({
     [onStatus, t],
   );
 
-  const onNodeClick: NodeMouseHandler<SceneCanvasNode> = useCallback((_event, node) => {
-    setSelectedSceneId(node.id);
-  }, []);
-
   const onSelectionChange = useCallback((params: OnSelectionChangeParams) => {
     const selectedNode = params.nodes[0];
     setSelectedSceneId(selectedNode?.id ?? null);
   }, []);
 
-  async function handleNodeDragStop(_event: unknown, node: SceneCanvasNode): Promise<void> {
-    const scene = scenesById.get(node.id);
-    if (!scene) {
+  const handleNodeDragStop: OnNodeDrag<SceneCanvasNode> = useCallback(
+    async (_event, node, draggedNodes): Promise<void> => {
+      const nodesToPersist = draggedNodes.length > 0 ? draggedNodes : [node];
+      const scenesToPersist = nodesToPersist
+        .map((draggedNode) => ({ node: draggedNode, scene: scenesById.get(draggedNode.id) }))
+        .filter((item): item is { node: SceneCanvasNode; scene: SceneCard } =>
+          Boolean(item.scene),
+        );
+
+      if (scenesToPersist.length === 0) {
+        return;
+      }
+
+      try {
+        await Promise.all(
+          scenesToPersist.map(({ node: draggedNode, scene }) =>
+            window.novelistApi.updateSceneCard({
+              id: scene.id,
+              chapterNodeId: scene.chapterNodeId,
+              name: scene.name,
+              text: scene.text,
+              contentJson: scene.contentJson,
+              notes: scene.notes,
+              plotNumber: scene.plotNumber,
+              positionX: draggedNode.position.x,
+              positionY: draggedNode.position.y,
+            }),
+          ),
+        );
+        await refreshScenes();
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+        setError(message);
+      }
+    },
+    [refreshScenes, scenesById, t],
+  );
+
+  const deleteScenes = useCallback(
+    async (sceneIds: string[]): Promise<void> => {
+      if (sceneIds.length === 0) {
+        return;
+      }
+
+      setBusy(true);
+      setError(null);
+      try {
+        await Promise.all(sceneIds.map((id) => window.novelistApi.deleteSceneCard({ id })));
+        setSelectedSceneId(null);
+        await refreshScenes();
+        void onWikiSync?.();
+        onStatus(
+          sceneIds.length === 1
+            ? t('scene.status.deleted')
+            : t('scene.status.deletedMultiple', { count: sceneIds.length }),
+        );
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+        setError(message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onStatus, onWikiSync, refreshScenes, t],
+  );
+
+  const onNodesDelete: OnNodesDelete<SceneCanvasNode> = useCallback(
+    (deletedNodes) => {
+      void deleteScenes(deletedNodes.map((node) => node.id));
+    },
+    [deleteScenes],
+  );
+
+  async function handleDeleteSelectedScene(): Promise<void> {
+    const selectedSceneIds = nodes.filter((node) => node.selected).map((node) => node.id);
+    const sceneIdsToDelete =
+      selectedSceneIds.length > 0 ? selectedSceneIds : selectedSceneId ? [selectedSceneId] : [];
+
+    if (sceneIdsToDelete.length === 0) {
       return;
     }
-    try {
-      await window.novelistApi.updateSceneCard({
-        id: scene.id,
-        chapterNodeId: scene.chapterNodeId,
-        name: scene.name,
-        text: scene.text,
-        contentJson: scene.contentJson,
-        notes: scene.notes,
-        plotNumber: scene.plotNumber,
-        positionX: node.position.x,
-        positionY: node.position.y,
-      });
-      await refreshScenes();
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
-      setError(message);
-    }
+
+    await deleteScenes(sceneIdsToDelete);
   }
 
   function openEditScene(scene: SceneCard): void {
@@ -416,26 +479,6 @@ export default function SceneBoard({
     }
   }
 
-  async function handleDeleteSelectedScene(): Promise<void> {
-    if (!selectedSceneId) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await window.novelistApi.deleteSceneCard({ id: selectedSceneId });
-      setSelectedSceneId(null);
-      await refreshScenes();
-      void onWikiSync?.();
-      onStatus(t('scene.status.deleted'));
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
-      setError(message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <section className="workspace">
       <aside className="sidebar">
@@ -453,7 +496,7 @@ export default function SceneBoard({
         <div className="panel">
           <h2>{t('story.selection')}</h2>
           <p>
-            {t('scene.selection')} <strong>{selectedScene ? `#${selectedScene.name}` : '-'}</strong>
+            {t('scene.selection')} <strong>{selectedScene ? selectedScene.name : '-'}</strong>
           </p>
           <p>
             {t('scene.chapter')} <strong>{selectedChapter?.title ?? '-'}</strong>
@@ -497,8 +540,8 @@ export default function SceneBoard({
           onEdgesChange={onEdgesChange}
           onEdgesDelete={onEdgesDelete}
           onConnect={(connection) => void handleConnect(connection)}
-          onNodeClick={onNodeClick}
-          onNodeDragStop={(event, node) => void handleNodeDragStop(event, node)}
+          onNodesDelete={onNodesDelete}
+          onNodeDragStop={handleNodeDragStop}
           onNodeDoubleClick={(_event, node) => {
             const scene = scenesById.get(node.id);
             if (scene) {
@@ -508,8 +551,9 @@ export default function SceneBoard({
           onSelectionChange={onSelectionChange}
           connectionMode={ConnectionMode.Loose}
           elevateNodesOnSelect
+          {...canvasMultiSelectProps}
           fitView
-          deleteKeyCode={null}
+          deleteKeyCode={['Backspace', 'Delete']}
         >
           <MiniMap
             zoomable
@@ -592,6 +636,7 @@ export default function SceneBoard({
           onClose={handleCloseSceneEditor}
           onStatus={onStatus}
           onSceneSaved={async () => {
+            await refreshScenes();
             await onWikiSync?.();
           }}
           onDirtyChange={handleSceneEditorDirtyChange}

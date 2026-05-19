@@ -163,6 +163,8 @@ describe('NovelistRepository', () => {
       expect(history).toHaveLength(2);
       expect(history[0]?.role).toBe('user');
       expect(history[1]?.role).toBe('assistant');
+      expect(repo.deleteCodexChatMessages(project.id, chapterNode.id)).toBe(2);
+      expect(repo.listCodexChatMessages(project.id, chapterNode.id)).toHaveLength(0);
 
       const character = repo.createCharacterCard(project.id, {
         firstName: 'Anna',

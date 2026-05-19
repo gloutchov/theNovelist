@@ -1,8 +1,8 @@
 # Sicurezza / Security - The Novelist
 
-Stato documentato al **18 maggio 2026**.
+Stato documentato al **19 maggio 2026**.
 
-Documented status as of **May 18, 2026**.
+Documented status as of **May 19, 2026**.
 
 ---
 
@@ -129,6 +129,7 @@ Riferimenti:
   - e, se provider o fallback possono uscire dal computer, `allowExternalMemorySharing` e attivo.
 - Se `allowExternalMemorySharing` e disattivato, la chat puo continuare a funzionare, ma senza allegare la wiki a provider esterni.
 - Le impostazioni AI sono salvate per progetto. Le preferenze autosave, lingua e tema interfaccia sono preferenze utente globali.
+- I semafori del Cruscotto per memoria, AI e fallback leggono solo stato locale gia disponibile nel renderer (`wikiStatus` e impostazioni AI) e non introducono nuove sonde di rete o nuovi invii di contenuto.
 
 Riferimenti:
 
@@ -401,6 +402,7 @@ References:
   - and, when provider or fallback may leave the computer, `allowExternalMemorySharing` is enabled.
 - If `allowExternalMemorySharing` is disabled, chat can continue to work, but without attaching the wiki to external providers.
 - AI settings are saved per project. Autosave, language, and interface theme preferences are global user preferences.
+- The Dashboard traffic lights for memory, AI, and fallback only read local state already available in the renderer (`wikiStatus` and AI settings) and do not introduce new network probes or new content sharing.
 
 References:
 

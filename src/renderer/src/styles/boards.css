@@ -101,12 +101,20 @@
   gap: 0.25rem;
 }
 
-.scene-flow-node-meta,
 .scene-flow-node-subtitle,
 .scene-flow-node-excerpt {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.82rem;
+}
+
+.scene-flow-node-meta {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .scene-flow-node-title {
@@ -197,15 +205,6 @@
 
 .plot-flow-node {
   min-height: 126px;
-}
-
-.plot-flow-node-meta {
-  margin: 0 0 0.2rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-soft);
 }
 
 .plot-flow-node-title {

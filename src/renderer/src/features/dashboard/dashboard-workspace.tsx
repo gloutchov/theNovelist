@@ -73,6 +73,9 @@ export function DashboardWorkspace({
 }: DashboardWorkspaceProps) {
   const language = resolveRendererLanguage(appPreferences);
   const t = createTranslator(language);
+  const memoryUpdated = Boolean(wikiStatus && !wikiStatus.derivedPending);
+  const aiActive = Boolean(aiSettings?.enabled && aiSettings.allowApiCalls);
+  const fallbackActive = Boolean(aiSettings?.enabled && aiSettings.fallbackProvider !== 'none');
 
   return (
     <section className="dashboard-workspace">
@@ -149,6 +152,88 @@ export function DashboardWorkspace({
         </div>
       </section>
 
+      {currentProject ? (
+        <section className="panel dashboard-operations-panel">
+          <div className="dashboard-operations-actions">
+            {dashboardGoalMetrics ? (
+              <button
+                type="button"
+                className={`dashboard-delivery-status ${dashboardGoalMetrics.deliveryTone}`}
+                onClick={onOpenProjectTargets}
+                disabled={!currentProject || busy}
+              >
+                {dashboardGoalMetrics.deliveryStatus}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={onRefreshDashboard}
+              disabled={dashboard.loading || busy}
+            >
+              {dashboard.loading
+                ? t('dashboard.actions.refreshDashboardBusy')
+                : t('dashboard.actions.refreshDashboard')}
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={onWikiSync}
+              disabled={!wikiStatus?.derivedPending || wikiBusy || busy}
+            >
+              {wikiBusy
+                ? t('dashboard.actions.refreshMemoryBusy')
+                : t('dashboard.actions.refreshMemory')}
+            </button>
+          </div>
+
+          <div className="dashboard-status-lights" aria-label={t('dashboard.statusLights.title')}>
+            <div className="dashboard-status-light">
+              <span
+                className={`dashboard-status-dot ${memoryUpdated ? 'success' : 'danger'}`}
+                aria-hidden="true"
+              />
+              <span>
+                <strong>{t('dashboard.statusLights.memory')}</strong>
+                <small>
+                  {memoryUpdated
+                    ? t('dashboard.statusLights.memoryUpdated')
+                    : t('dashboard.statusLights.memoryPending')}
+                </small>
+              </span>
+            </div>
+            <div className="dashboard-status-light">
+              <span
+                className={`dashboard-status-dot ${aiActive ? 'success' : 'danger'}`}
+                aria-hidden="true"
+              />
+              <span>
+                <strong>{t('dashboard.statusLights.ai')}</strong>
+                <small>
+                  {aiActive
+                    ? t('dashboard.statusLights.aiActive')
+                    : t('dashboard.statusLights.aiFallback')}
+                </small>
+              </span>
+            </div>
+            <div className="dashboard-status-light">
+              <span
+                className={`dashboard-status-dot ${fallbackActive ? 'success' : 'danger'}`}
+                aria-hidden="true"
+              />
+              <span>
+                <strong>{t('dashboard.statusLights.fallback')}</strong>
+                <small>
+                  {fallbackActive
+                    ? t('dashboard.statusLights.fallbackActive')
+                    : t('dashboard.statusLights.fallbackNoAi')}
+                </small>
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {!currentProject ? (
         <section className="panel dashboard-empty-panel">
           <h2>{t('dashboard.empty.title')}</h2>
@@ -211,36 +296,6 @@ export function DashboardWorkspace({
                 <div>
                   <h2>{t('dashboard.goals.title')}</h2>
                   <p className="muted">{t('dashboard.goals.subtitle')}</p>
-                </div>
-                <div className="dashboard-goals-actions">
-                  <button
-                    type="button"
-                    className={`dashboard-delivery-status ${dashboardGoalMetrics.deliveryTone}`}
-                    onClick={onOpenProjectTargets}
-                    disabled={!currentProject || busy}
-                  >
-                    {dashboardGoalMetrics.deliveryStatus}
-                  </button>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={onRefreshDashboard}
-                    disabled={dashboard.loading || busy}
-                  >
-                    {dashboard.loading
-                      ? t('dashboard.actions.refreshDashboardBusy')
-                      : t('dashboard.actions.refreshDashboard')}
-                  </button>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={onWikiSync}
-                    disabled={!wikiStatus?.derivedPending || wikiBusy || busy}
-                  >
-                    {wikiBusy
-                      ? t('dashboard.actions.refreshMemoryBusy')
-                      : t('dashboard.actions.refreshMemory')}
-                  </button>
                 </div>
               </header>
 

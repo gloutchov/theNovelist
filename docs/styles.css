@@ -410,11 +410,20 @@ main > section:not(.hero) {
 
 .gallery-grid img {
   width: 100%;
+  aspect-ratio: 1.63 / 1;
   height: auto;
   border: 1px solid rgba(47, 111, 115, 0.28);
   border-radius: 6px;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: top left;
   background: #fbfcfb;
+  opacity: 1;
+  transition: opacity 180ms ease;
+  will-change: opacity;
+}
+
+.gallery-grid img.is-swapping {
+  opacity: 0;
 }
 
 .gallery-grid figcaption {
@@ -576,5 +585,11 @@ main > section:not(.hero) {
 
   .site-footer {
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-grid img {
+    transition: none;
   }
 }

@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 export interface LocationFlowNodeData extends Record<string, unknown> {
   label: string;
   plotNumber: number;
+  plotLabel?: string;
   subtitle: string;
   imageSrc: string | null;
 }
@@ -11,6 +12,7 @@ export default function LocationFlowNode({ data }: NodeProps) {
   const typedData = data as LocationFlowNodeData & { isBoard?: boolean };
   const name = typedData.label?.trim() ? typedData.label : 'Location';
   const subtitle = typedData.subtitle?.trim() ? typedData.subtitle : 'Scheda location';
+  const plotLabel = typedData.plotLabel?.trim() ?? '';
 
   return (
     <div className="location-flow-node">
@@ -35,7 +37,7 @@ export default function LocationFlowNode({ data }: NodeProps) {
         )}
       </div>
       <div className="location-flow-node-content">
-        <p className="location-flow-node-meta">Trama {typedData.plotNumber}</p>
+        {plotLabel ? <p className="location-flow-node-meta">{plotLabel}</p> : null}
         <h4 className="location-flow-node-title">{name}</h4>
         <p className="location-flow-node-subtitle">{subtitle}</p>
       </div>

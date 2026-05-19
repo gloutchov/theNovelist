@@ -371,6 +371,8 @@ const novelistApi = {
     limit?: number;
   }): Promise<CodexChatMessageResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexGetChatHistory, payload),
+  codexClearChatHistory: (payload: { chapterNodeId: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.codexClearChatHistory, payload),
   codexCancelActiveRequest: (): Promise<{ ok: true; cancelled: boolean }> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexCancelActiveRequest),
 };

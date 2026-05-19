@@ -29,7 +29,7 @@ test('performance: story canvas restores 500 nodes and stays interactive', async
 
   const selectionStartedAt = Date.now();
   await page.locator('.canvas-wrap .react-flow__node').first().click();
-  await expect(page.getByRole('button', { name: 'Apri Editor Capitolo' })).toBeEnabled();
+  await expect(page.locator('.canvas-wrap .react-flow__node.selected')).toHaveCount(1);
   const selectionMs = Date.now() - selectionStartedAt;
 
   testInfo.annotations.push({
@@ -54,11 +54,8 @@ test('performance: long chapter editor open and save', async ({ page }, testInfo
   await page.goto('/');
   await expect(page.getByText('Sessione ripristinata: Perf Long Chapter')).toBeVisible();
 
-  await page.locator('.canvas-wrap .react-flow__node').first().click();
-  await expect(page.getByRole('button', { name: 'Apri Editor Capitolo' })).toBeEnabled();
-
   const openStartedAt = Date.now();
-  await page.getByRole('button', { name: 'Apri Editor Capitolo' }).click();
+  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
   await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
   await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
   const openMs = Date.now() - openStartedAt;

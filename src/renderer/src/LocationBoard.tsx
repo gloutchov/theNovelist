@@ -12,8 +12,10 @@ import {
   type Edge,
   type Node,
   type NodeMouseHandler,
+  type OnNodeDrag,
   type OnEdgesChange,
   type OnNodesChange,
+  type OnNodesDelete,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import { getNearbyCanvasPosition } from './canvas-position';
@@ -22,6 +24,7 @@ import {
   getFlowMiniMapNodeColor,
   getFlowMiniMapNodeStrokeColor,
 } from './flow-minimap';
+import { canvasMultiSelectProps } from './flow-selection';
 import LocationFlowNode, { type LocationFlowNodeData } from './LocationFlowNode';
 import { getStatusTone } from './status-tone';
 import { toImageSource } from './image-path';
@@ -31,6 +34,7 @@ import {
   LinkedChaptersPanel,
   type EntityImageSize,
 } from './features/entities/entity-panels';
+import { normalizePlotLabel } from './features/plot/plot-flow';
 import { resolveRendererLanguage, type AppLanguage, type Translate } from './i18n';
 
 type LocationCard = Awaited<ReturnType<(typeof window.novelistApi)['listLocationCards']>>[number];
@@ -167,6 +171,7 @@ function areLocationDraftsEqual(left: LocationDraft, right: LocationDraft): bool
 function mapCardToNode(
   card: LocationCard,
   t: Translate,
+  plot: StoryPlot | null | undefined,
   imageSrc: string | null = null,
   options?: { selected?: boolean },
 ): LocationCanvasNode {
@@ -183,6 +188,7 @@ function mapCardToNode(
     data: {
       label: card.name || t('entity.location.untitled'),
       plotNumber: card.plotNumber,
+      plotLabel: plot ? formatPlotLabel(plot, t) : `${t('common.plot')} ${card.plotNumber}`,
       subtitle: card.locationType || t('entity.location.untitledCard'),
       imageSrc,
       isBoard: true,
@@ -203,7 +209,7 @@ function formatChapterLabel(node: StoryChapterNode): string {
 }
 
 function formatPlotLabel(plot: StoryPlot, t: Translate): string {
-  return plot.label?.trim() || `${t('common.plot')} ${plot.number}`;
+  return normalizePlotLabel(plot.number, plot.label, t('common.plot'));
 }
 
 export default function LocationBoard({
@@ -326,6 +332,7 @@ export default function LocationBoard({
     );
 
     const primaryImageByCardId = new Map<string, string | null>();
+    const plotsByNumber = new Map(state.plots.map((plot) => [plot.number, plot]));
 
     await Promise.all(
       nextCards.map(async (card) => {
@@ -355,7 +362,7 @@ export default function LocationBoard({
     );
     setNodes(
       nextCards.map((card) =>
-        mapCardToNode(card, t, primaryImageByCardId.get(card.id) ?? null, {
+        mapCardToNode(card, t, plotsByNumber.get(card.plotNumber), primaryImageByCardId.get(card.id) ?? null, {
           selected: card.id === selectedCardId,
         }),
       ),
@@ -556,32 +563,51 @@ export default function LocationBoard({
     [cardsById, loadCardLinks, loadImages, refreshCodexSettings],
   );
 
-  const onNodeDragStop: NodeMouseHandler<LocationCanvasNode> = useCallback(
-    async (_event, node) => {
-      const card = cardsById.get(node.id);
-      if (!card) {
+  const onNodeDragStop: OnNodeDrag<LocationCanvasNode> = useCallback(
+    async (_event, node, draggedNodes) => {
+      const nodesToPersist = draggedNodes.length > 0 ? draggedNodes : [node];
+      const cardsToPersist = nodesToPersist
+        .map((draggedNode) => ({ card: cardsById.get(draggedNode.id), node: draggedNode }))
+        .filter(
+          (item): item is { card: LocationCard; node: LocationCanvasNode } =>
+            Boolean(item.card),
+        );
+
+      if (cardsToPersist.length === 0) {
         return;
       }
 
       try {
-        const updated = await window.novelistApi.updateLocationCard({
-          id: card.id,
-          name: card.name,
-          locationType: card.locationType,
-          description: card.description,
-          notes: card.notes,
-          plotNumber: card.plotNumber,
-          positionX: node.position.x,
-          positionY: node.position.y,
-        });
-
-        setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-        setNodes((prev) =>
-          prev.map((item) =>
-            item.id === updated.id
-              ? mapCardToNode(updated, t, item.data.imageSrc ?? null, { selected: item.selected })
-              : item,
+        const updatedCards = await Promise.all(
+          cardsToPersist.map(({ card, node: draggedNode }) =>
+            window.novelistApi.updateLocationCard({
+              id: card.id,
+              name: card.name,
+              locationType: card.locationType,
+              description: card.description,
+              notes: card.notes,
+              plotNumber: card.plotNumber,
+              positionX: draggedNode.position.x,
+              positionY: draggedNode.position.y,
+            }),
           ),
+        );
+        const updatedById = new Map(updatedCards.map((updated) => [updated.id, updated]));
+
+        setCards((prev) => prev.map((item) => updatedById.get(item.id) ?? item));
+        setNodes((prev) =>
+          prev.map((item) => {
+            const updated = updatedById.get(item.id);
+            return updated
+              ? mapCardToNode(
+                  updated,
+                  t,
+                  plotOptions.find((plot) => plot.number === updated.plotNumber),
+                  item.data.imageSrc ?? null,
+                  { selected: item.selected },
+                )
+              : item;
+          }),
         );
       } catch (caughtError) {
         const message =
@@ -589,7 +615,7 @@ export default function LocationBoard({
         setError(message);
       }
     },
-    [cardsById, t],
+    [cardsById, plotOptions, t],
   );
 
   async function handleCreateCard(): Promise<void> {
@@ -621,7 +647,15 @@ export default function LocationBoard({
       });
 
       setCards((prev) => [...prev, created]);
-      setNodes((prev) => [...prev, mapCardToNode(created, t, null)]);
+      setNodes((prev) => [
+        ...prev,
+        mapCardToNode(
+          created,
+          t,
+          plotOptions.find((plot) => plot.number === created.plotNumber),
+          null,
+        ),
+      ]);
       setCreateDraft(emptyLocationDraft(createDraft.plotNumber));
       setSelectedCardId(created.id);
       setIsCreateCardModalOpen(false);
@@ -634,25 +668,53 @@ export default function LocationBoard({
     }
   }
 
+  const deleteLocationCards = useCallback(
+    async (cardIds: string[]): Promise<void> => {
+      if (cardIds.length === 0) {
+        return;
+      }
+
+      const cardIdSet = new Set(cardIds);
+      setBusy(true);
+      setError(null);
+      try {
+        await Promise.all(cardIds.map((id) => window.novelistApi.deleteLocationCard({ id })));
+        setCards((prev) => prev.filter((card) => !cardIdSet.has(card.id)));
+        setNodes((prev) => prev.filter((node) => !cardIdSet.has(node.id)));
+        setSelectedCardId(null);
+        onStatus(
+          cardIds.length === 1
+            ? t('entity.status.locationDeleted')
+            : t('entity.status.locationsDeleted', { count: cardIds.length }),
+        );
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+        setError(message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onStatus, t],
+  );
+
+  const onNodesDelete: OnNodesDelete<LocationCanvasNode> = useCallback(
+    (deletedNodes) => {
+      void deleteLocationCards(deletedNodes.map((node) => node.id));
+    },
+    [deleteLocationCards],
+  );
+
   async function handleDeleteSelectedCard(): Promise<void> {
-    if (!selectedCardId) {
+    const selectedCardIds = nodes.filter((node) => node.selected).map((node) => node.id);
+    const cardIdsToDelete =
+      selectedCardIds.length > 0 ? selectedCardIds : selectedCardId ? [selectedCardId] : [];
+
+    if (cardIdsToDelete.length === 0) {
       return;
     }
 
-    setBusy(true);
-    setError(null);
-    try {
-      await window.novelistApi.deleteLocationCard({ id: selectedCardId });
-      setCards((prev) => prev.filter((card) => card.id !== selectedCardId));
-      setNodes((prev) => prev.filter((node) => node.id !== selectedCardId));
-      setSelectedCardId(null);
-      onStatus(t('entity.status.locationDeleted'));
-    } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
-      setError(message);
-    } finally {
-      setBusy(false);
-    }
+    await deleteLocationCards(cardIdsToDelete);
   }
 
   const persistEdit = useCallback(
@@ -694,7 +756,14 @@ export default function LocationBoard({
         setCards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
         setNodes((prev) =>
           prev.map((item) =>
-            item.id === updated.id ? mapCardToNode(updated, t, item.data.imageSrc ?? null) : item,
+            item.id === updated.id
+              ? mapCardToNode(
+                  updated,
+                  t,
+                  plotOptions.find((plot) => plot.number === updated.plotNumber),
+                  item.data.imageSrc ?? null,
+                )
+              : item,
           ),
         );
         setEditDraft(locationToDraft(updated));
@@ -1057,7 +1126,9 @@ export default function LocationBoard({
           onSelectionChange={onSelectionChange}
           onConnect={(params) => void handleConnect(params)}
           onEdgesDelete={onEdgesDelete}
+          onNodesDelete={onNodesDelete}
           elevateNodesOnSelect
+          {...canvasMultiSelectProps}
           fitView
           deleteKeyCode={['Backspace', 'Delete']}
         >

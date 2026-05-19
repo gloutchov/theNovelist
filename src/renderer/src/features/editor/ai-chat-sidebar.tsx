@@ -20,8 +20,10 @@ interface AiChatSidebarProps {
   codexBusy: boolean;
   codexEnabled: boolean;
   codexStatus: AiStatus | null;
+  canClearChat: boolean;
   onCancelRequest: () => void;
   onChatInputChange: (value: string) => void;
+  onClearChat: () => void;
   onSendChat: () => void;
   t: Translate;
 }
@@ -34,8 +36,10 @@ export function AiChatSidebar({
   codexBusy,
   codexEnabled,
   codexStatus,
+  canClearChat,
   onCancelRequest,
   onChatInputChange,
+  onClearChat,
   onSendChat,
   t,
 }: AiChatSidebarProps) {
@@ -83,7 +87,7 @@ export function AiChatSidebar({
             type="button"
             onClick={onSendChat}
             disabled={codexBusy || !chatInput.trim() || !codexEnabled}
-            className={codexBusy ? 'ai-working' : undefined}
+            className={`codex-send-button${codexBusy ? ' ai-working' : ''}`}
           >
             {t('common.send')}
           </button>
@@ -94,6 +98,14 @@ export function AiChatSidebar({
             disabled={!codexBusy}
           >
             {t('editor.ai.cancelRequest')}
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={onClearChat}
+            disabled={codexBusy || !canClearChat}
+          >
+            {t('editor.ai.clearChat')}
           </button>
         </div>
       </div>

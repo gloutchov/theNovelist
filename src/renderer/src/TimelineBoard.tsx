@@ -15,6 +15,7 @@ type StoryPlot = StoryState['plots'][number];
 type SceneCard = Awaited<ReturnType<(typeof window.novelistApi)['listSceneCards']>>[number];
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
 type TimelineItemType = 'chapter' | 'scene';
+type TimelineViewMode = TimelineItemType;
 
 interface TimelineSettingsRecord {
   projectId: string;
@@ -312,7 +313,6 @@ function buildTimelineBlocks(
       const saved = getSavedItem(savedItemsByKey, 'scene', scene.id);
       const chapter = chaptersById.get(scene.chapterNodeId);
       const plot = plotsByNumber.get(scene.plotNumber);
-      const defaultIndex = chapterBlocks.length + index;
       return {
         key: timelineKey('scene', scene.id),
         itemType: 'scene',
@@ -322,8 +322,8 @@ function buildTimelineBlocks(
         plotNumber: scene.plotNumber,
         plotLabel: normalizePlotLabel(plot, scene.plotNumber, t),
         plotColor: getPlotColor(plot, scene.plotNumber),
-        positionX: saved?.positionX ?? 72 + (defaultIndex % 4) * 280,
-        positionY: saved?.positionY ?? 250 + Math.floor(defaultIndex / 4) * 128,
+        positionX: saved?.positionX ?? 72 + (index % 4) * 280,
+        positionY: saved?.positionY ?? 250 + Math.floor(index / 4) * 128,
         dateLabel: saved?.dateLabel ?? '',
       };
     });
@@ -394,6 +394,7 @@ function snapTimelineItem(item: TimelineBlock, items: TimelineBlock[]): Timeline
 
 export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
   const [items, setItems] = useState<TimelineBlock[]>([]);
+  const [viewMode, setViewMode] = useState<TimelineViewMode>('chapter');
   const [settings, setSettings] = useState<TimelineSettingsRecord | null>(null);
   const [startLabel, setStartLabel] = useState<string>('');
   const [endLabel, setEndLabel] = useState<string>('');
@@ -422,9 +423,17 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
     itemsRef.current = items;
   }, [items]);
 
+  const visibleItems = useMemo(
+    () => items.filter((item) => item.itemType === viewMode),
+    [items, viewMode],
+  );
+
   const selectedItem = useMemo(
-    () => (selectedKey ? (items.find((item) => item.key === selectedKey) ?? null) : null),
-    [items, selectedKey],
+    () =>
+      selectedKey
+        ? (visibleItems.find((item) => item.key === selectedKey) ?? null)
+        : null,
+    [selectedKey, visibleItems],
   );
 
   const canvasWidth = useMemo(
@@ -432,14 +441,14 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
       Math.max(
         TIMELINE_CANVAS_MIN_WIDTH,
         timelineEndX + 220,
-        ...items.map((item) => item.positionX + TIMELINE_CARD_WIDTH + 96),
+        ...visibleItems.map((item) => item.positionX + TIMELINE_CARD_WIDTH + 96),
       ),
-    [items, timelineEndX],
+    [timelineEndX, visibleItems],
   );
 
   const canvasHeight = useMemo(
-    () => Math.max(TIMELINE_CANVAS_MIN_HEIGHT, ...items.map((item) => item.positionY + 160)),
-    [items],
+    () => Math.max(TIMELINE_CANVAS_MIN_HEIGHT, ...visibleItems.map((item) => item.positionY + 160)),
+    [visibleItems],
   );
 
   const minimapScale = useMemo(
@@ -514,6 +523,12 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
   useEffect(() => {
     void refreshTimeline();
   }, [refreshTimeline]);
+
+  useEffect(() => {
+    if (selectedKey && !visibleItems.some((item) => item.key === selectedKey)) {
+      setSelectedKey(null);
+    }
+  }, [selectedKey, visibleItems]);
 
   const persistSettings = useCallback(
     async (override?: { timelineEndX?: number }): Promise<void> => {
@@ -704,7 +719,8 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
     function handlePointerUp(): void {
       const current = itemsRef.current.find((item) => item.key === activeDrag.key);
       if (current) {
-        const snapped = snapTimelineItem(current, itemsRef.current);
+        const visibleDragItems = itemsRef.current.filter((item) => item.itemType === viewMode);
+        const snapped = snapTimelineItem(current, visibleDragItems);
         setItems((nextItems) =>
           nextItems.map((item) => (item.key === snapped.key ? snapped : item)),
         );
@@ -719,7 +735,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [canvasHeight, canvasWidth, dragging, persistItem, timelineZoom]);
+  }, [canvasHeight, canvasWidth, dragging, persistItem, timelineZoom, viewMode]);
 
   useEffect(() => {
     if (!axisDrag) {
@@ -906,7 +922,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
       return;
     }
 
-    const contentBounds = items.reduce(
+    const contentBounds = visibleItems.reduce(
       (bounds, item) => ({
         left: Math.min(bounds.left, item.positionX),
         top: Math.min(bounds.top, item.positionY),
@@ -935,7 +951,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
       shell.scrollTop = Math.max(0, (contentBounds.top - padding) * nextZoom);
       updateTimelineViewport();
     });
-  }, [items, timelineEndX, updateTimelineViewport]);
+  }, [timelineEndX, updateTimelineViewport, visibleItems]);
 
   function handleMinimapPointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) {
@@ -1028,26 +1044,52 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         <div className="sidebar-action-group">
           <button
             type="button"
-            className="sidebar-action-button"
-            onClick={() => void refreshTimeline()}
-            disabled={loading || saving}
+            className={[
+              'sidebar-action-button',
+              'timeline-view-button',
+              'timeline-view-button-chapters',
+              viewMode === 'chapter' ? 'is-active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => setViewMode('chapter')}
+            aria-pressed={viewMode === 'chapter'}
           >
-            {t('timeline.refresh')}
+            {t('timeline.viewChapters')}
+          </button>
+          <button
+            type="button"
+            className={[
+              'sidebar-action-button',
+              'timeline-view-button',
+              'timeline-view-button-scenes',
+              viewMode === 'scene' ? 'is-active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => setViewMode('scene')}
+            aria-pressed={viewMode === 'scene'}
+          >
+            {t('timeline.viewScenes')}
           </button>
         </div>
 
         <div className="panel">
           <h2>{t('timeline.title')}</h2>
           <p>
-            {t('timeline.blocks')} <strong>{items.length}</strong>
+            {t('timeline.blocks')} <strong>{visibleItems.length}</strong>
           </p>
           <p>
             {t('timeline.attached')}{' '}
-            <strong>{items.filter((item) => isAttachedToTimeline(item, items)).length}</strong>
+            <strong>
+              {visibleItems.filter((item) => isAttachedToTimeline(item, visibleItems)).length}
+            </strong>
           </p>
           <p>
             {t('timeline.unplaced')}{' '}
-            <strong>{items.filter((item) => !isAttachedToTimeline(item, items)).length}</strong>
+            <strong>
+              {visibleItems.filter((item) => !isAttachedToTimeline(item, visibleItems)).length}
+            </strong>
           </p>
         </div>
 
@@ -1144,8 +1186,8 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
                 />
               </label>
 
-              {items
-                .filter((item) => isAttachedToTimeline(item, items))
+              {visibleItems
+                .filter((item) => isAttachedToTimeline(item, visibleItems))
                 .map((item) => {
                   const connectorHeight = Math.max(28, item.positionY - TIMELINE_Y - 6);
                   return (
@@ -1179,7 +1221,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
                   );
                 })}
 
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const isSelected = item.key === selectedKey;
                 return (
                   <article
@@ -1209,7 +1251,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
                       </span>
                       <span className="timeline-block-plot">{item.plotLabel}</span>
                     </header>
-                    <h3>{item.itemType === 'scene' ? `#${item.title}` : item.title}</h3>
+                    <h3>{item.title}</h3>
                     <p>{item.subtitle || '-'}</p>
                     {isSelected ? (
                       <label className="timeline-date-field">
@@ -1280,7 +1322,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
               width: Math.max(20, (timelineEndX - TIMELINE_AXIS_START_X) * minimapScale),
             }}
           />
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <span
               key={`minimap-${item.key}`}
               className="timeline-minimap-item"

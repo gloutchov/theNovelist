@@ -7,7 +7,9 @@ interface EditorToolbarProps {
   activeFontFamily: string | null;
   activeFontSize: string | null;
   activeStyle: BlockStyle;
+  canRedo: boolean;
   canSearch: boolean;
+  canUndo: boolean;
   isBoldActive: boolean;
   isItalicActive: boolean;
   onBoldToggle: () => void;
@@ -16,8 +18,10 @@ interface EditorToolbarProps {
   onItalicToggle: () => void;
   onOpenFind: () => void;
   onOpenReplace: () => void;
+  onRedo: () => void;
   onStyleChange: (style: BlockStyle) => void;
   onTextAlignChange: (alignment: TextAlignment) => void;
+  onUndo: () => void;
   t: Translate;
 }
 
@@ -25,7 +29,9 @@ export function EditorToolbar({
   activeFontFamily,
   activeFontSize,
   activeStyle,
+  canRedo,
   canSearch,
+  canUndo,
   isBoldActive,
   isItalicActive,
   onBoldToggle,
@@ -34,12 +40,22 @@ export function EditorToolbar({
   onItalicToggle,
   onOpenFind,
   onOpenReplace,
+  onRedo,
   onStyleChange,
   onTextAlignChange,
+  onUndo,
   t,
 }: EditorToolbarProps) {
   return (
     <section className="editor-toolbar">
+      <button type="button" onClick={onUndo} disabled={!canUndo}>
+        {t('editor.toolbar.undo')}
+      </button>
+      <button type="button" onClick={onRedo} disabled={!canRedo}>
+        {t('editor.toolbar.redo')}
+      </button>
+      <span className="toolbar-divider" aria-hidden="true" />
+
       <select
         className="toolbar-select toolbar-select-style"
         value={activeStyle}
@@ -81,6 +97,7 @@ export function EditorToolbar({
         <option value="18">18</option>
         <option value="22">22</option>
       </select>
+      <span className="toolbar-divider" aria-hidden="true" />
 
       <button type="button" onClick={() => onTextAlignChange('left')}>
         {t('editor.toolbar.alignLeft')}
@@ -94,6 +111,7 @@ export function EditorToolbar({
       <button type="button" onClick={() => onTextAlignChange('justify')}>
         {t('editor.toolbar.alignJustify')}
       </button>
+      <span className="toolbar-divider" aria-hidden="true" />
       <button type="button" onClick={onOpenFind} disabled={!canSearch}>
         {t('editor.toolbar.find')}
       </button>

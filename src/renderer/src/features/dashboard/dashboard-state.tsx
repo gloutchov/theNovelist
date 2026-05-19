@@ -81,7 +81,7 @@ export interface DashboardGoalMetrics {
   plannedDaysRemaining: number | null;
   estimatedDaysRemaining: number | null;
   deliveryStatus: string;
-  deliveryTone: 'success' | 'warning' | 'neutral';
+  deliveryTone: 'success' | 'danger' | 'neutral';
 }
 
 export function createEmptyDashboardState(): DashboardState {
@@ -216,7 +216,7 @@ export function buildDashboardGoalMetrics(
             ? t('dashboard.deliveryStatus.day')
             : t('dashboard.deliveryStatus.days'),
       });
-      deliveryTone = 'warning';
+      deliveryTone = 'danger';
     }
   } else if (targetWordCount && plannedDate) {
     deliveryStatus =

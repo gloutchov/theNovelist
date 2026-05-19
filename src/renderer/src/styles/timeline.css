@@ -13,6 +13,28 @@
   display: grid;
 }
 
+.timeline-view-button {
+  font-weight: 800;
+  color: #ffffff;
+  border: 1px solid transparent;
+}
+
+.timeline-view-button-chapters {
+  background: #1d4ed8;
+}
+
+.timeline-view-button-scenes {
+  background: #0f766e;
+}
+
+.timeline-view-button.is-active {
+  opacity: 1;
+}
+
+.timeline-view-button:not(.is-active) {
+  opacity: 0.82;
+}
+
 .timeline-scroll-shell {
   min-width: 0;
   min-height: 0;

@@ -1192,6 +1192,7 @@ export default function ChapterEditor({
   const [availableLocations, setAvailableLocations] = useState<LocationCard[]>([]);
   const [availableScenes, setAvailableScenes] = useState<SceneCard[]>([]);
   const [chapterRecord, setChapterRecord] = useState<StoryChapterNode | null>(null);
+  const [documentTitleDraft, setDocumentTitleDraft] = useState<string>(chapterTitle);
   const [mentionedIds, setMentionedIds] = useState<MentionIds>({
     characterIds: [],
     locationIds: [],
@@ -1457,7 +1458,8 @@ export default function ChapterEditor({
 
   useEffect(() => {
     setSceneRecord(sceneCard ?? null);
-  }, [sceneCard]);
+    setDocumentTitleDraft(sceneCard?.name ?? chapterTitle);
+  }, [chapterTitle, sceneCard]);
 
   useEffect(() => {
     mentionMenuRef.current = mentionMenu;
@@ -1574,7 +1576,11 @@ export default function ChapterEditor({
           setSceneRecord(sceneCard);
           hydratingDocumentRef.current = true;
           editor.setEditable(true);
-          editor.commands.setContent(content);
+          editor
+            .chain()
+            .setMeta('addToHistory', false)
+            .setContent(content, { emitUpdate: false })
+            .run();
           editor.setEditable(true);
           editor.commands.focus('end');
           hydratingDocumentRef.current = false;
@@ -1619,9 +1625,10 @@ export default function ChapterEditor({
           setAvailableCharacters(allCharacters);
           setAvailableLocations(allLocations);
           setAvailableScenes([]);
-          setChapterRecord(
-            storyState.nodes.find((node) => node.id === sceneCard.chapterNodeId) ?? null,
-          );
+          const parentChapter =
+            storyState.nodes.find((node) => node.id === sceneCard.chapterNodeId) ?? null;
+          setChapterRecord(parentChapter);
+          setDocumentTitleDraft(sceneCard.name);
           return;
         }
 
@@ -1635,7 +1642,11 @@ export default function ChapterEditor({
         const content = JSON.parse(record.contentJson) as Record<string, unknown>;
         hydratingDocumentRef.current = true;
         editor.setEditable(true);
-        editor.commands.setContent(content);
+        editor
+          .chain()
+          .setMeta('addToHistory', false)
+          .setContent(content, { emitUpdate: false })
+          .run();
         editor.setEditable(true);
         editor.commands.focus('end');
         hydratingDocumentRef.current = false;
@@ -1685,7 +1696,9 @@ export default function ChapterEditor({
         setAvailableCharacters(allCharacters);
         setAvailableLocations(allLocations);
         setAvailableScenes(allScenes);
-        setChapterRecord(storyState.nodes.find((node) => node.id === chapterNodeId) ?? null);
+        const currentChapter = storyState.nodes.find((node) => node.id === chapterNodeId) ?? null;
+        setChapterRecord(currentChapter);
+        setDocumentTitleDraft(currentChapter?.title ?? chapterTitle);
       } catch (caughtError) {
         hydratingDocumentRef.current = false;
         const message =
@@ -1882,6 +1895,25 @@ export default function ChapterEditor({
       chapterNodeId: referenceChapterNodeId,
     });
     setChatMessages(history.map(mapHistoryMessageToChatMessage));
+  }
+
+  async function handleClearChat(): Promise<void> {
+    if (codexBusy) {
+      return;
+    }
+
+    try {
+      await window.novelistApi.codexClearChatHistory({
+        chapterNodeId: referenceChapterNodeId,
+      });
+      setChatMessages([]);
+      onMemorySources?.([]);
+      onStatus(t('editor.status.chatCleared'));
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+      setError(message);
+      onStatus(t('editor.status.chatClearError'));
+    }
   }
 
   function selectFindMatch(index: number): void {
@@ -2191,16 +2223,18 @@ export default function ChapterEditor({
 
         try {
           const contentJson = JSON.stringify(document);
+          const trimmedTitle = documentTitleDraft.trim();
           if (isSceneEditor) {
             const activeScene = sceneRecord ?? sceneCard;
             if (!activeScene) {
               throw new Error('Scene card not found');
             }
+            const nextSceneName = trimmedTitle || activeScene.name;
 
             const updated = await window.novelistApi.updateSceneCard({
               id: activeScene.id,
               chapterNodeId: activeScene.chapterNodeId,
-              name: activeScene.name,
+              name: nextSceneName,
               text: getPlainTextFromDocument(document).trim(),
               contentJson,
               notes: activeScene.notes,
@@ -2210,6 +2244,7 @@ export default function ChapterEditor({
             });
 
             setSceneRecord(updated);
+            setDocumentTitleDraft(updated.name);
             setDocumentRecord(null);
             if (documentVersionRef.current === savedDocumentVersion) {
               isDirtyRef.current = false;
@@ -2240,6 +2275,25 @@ export default function ChapterEditor({
               );
             }
             return true;
+          }
+
+          const activeChapter =
+            chapterRecord ??
+            (await window.novelistApi.getStoryState()).nodes.find((node) => node.id === chapterNodeId) ??
+            null;
+          if (activeChapter && trimmedTitle && trimmedTitle !== activeChapter.title) {
+            const updatedChapter = await window.novelistApi.updateStoryNode({
+              id: activeChapter.id,
+              title: trimmedTitle,
+              description: activeChapter.description,
+              plotNumber: activeChapter.plotNumber,
+              blockNumber: activeChapter.blockNumber,
+              positionX: activeChapter.positionX,
+              positionY: activeChapter.positionY,
+              richTextDocId: activeChapter.richTextDocId,
+            });
+            setChapterRecord(updatedChapter);
+            setDocumentTitleDraft(updatedChapter.title);
           }
 
           const saved = await window.novelistApi.saveChapterDocument({
@@ -2298,7 +2352,9 @@ export default function ChapterEditor({
       }
     },
     [
+      chapterRecord,
       chapterNodeId,
+      documentTitleDraft,
       editor,
       isSceneEditor,
       onChapterSaved,
@@ -3178,7 +3234,7 @@ export default function ChapterEditor({
 
   const activeSceneCard = sceneRecord ?? sceneCard ?? null;
   const editorHeading = isSceneEditor ? t('editor.heading.scene') : t('editor.heading.chapter');
-  const currentDocumentTitle = activeSceneCard?.name ?? chapterTitle;
+  const currentDocumentTitle = documentTitleDraft.trim() || activeSceneCard?.name || chapterTitle;
   const referencePanelTitle = isSceneEditor
     ? t('editor.references.sceneTitle')
     : t('editor.references.chapterTitle');
@@ -3201,9 +3257,23 @@ export default function ChapterEditor({
     <div className="editor-overlay">
       <div className="editor-shell">
         <header className="editor-header">
-          <div>
+          <div className="editor-title-fields">
             <h3>{editorHeading}</h3>
-            <p>{currentDocumentTitle}</p>
+            <label>
+              <span>{isSceneEditor ? t('editor.header.sceneTitle') : t('editor.header.chapterTitle')}</span>
+              <input
+                type="text"
+                value={documentTitleDraft}
+                onChange={(event) => {
+                  setDocumentTitleDraft(event.target.value);
+                  isDirtyRef.current = true;
+                  setIsDirty(true);
+                }}
+                aria-label={
+                  isSceneEditor ? t('editor.header.sceneTitle') : t('editor.header.chapterTitle')
+                }
+              />
+            </label>
           </div>
           <button type="button" onClick={() => void handleRequestClose()}>
             {t('common.close')}
@@ -3214,7 +3284,9 @@ export default function ChapterEditor({
           activeFontFamily={activeFontFamily ?? null}
           activeFontSize={activeFontSize ?? null}
           activeStyle={activeStyle}
+          canRedo={Boolean(editor?.can().chain().focus().redo().run())}
           canSearch={Boolean(editor)}
+          canUndo={Boolean(editor?.can().chain().focus().undo().run())}
           isBoldActive={Boolean(editor?.isActive('bold'))}
           isItalicActive={Boolean(editor?.isActive('italic'))}
           onBoldToggle={() => editor?.chain().focus().toggleBold().run()}
@@ -3241,8 +3313,10 @@ export default function ChapterEditor({
             setFindReplaceMode('replace');
             setFindPanelOpen(true);
           }}
+          onRedo={() => editor?.chain().focus().redo().run()}
           onStyleChange={applyBlockStyle}
           onTextAlignChange={(alignment) => editor?.chain().focus().setTextAlign(alignment).run()}
+          onUndo={() => editor?.chain().focus().undo().run()}
           t={t}
         />
 
@@ -3318,11 +3392,13 @@ export default function ChapterEditor({
             chatInput={chatInput}
             chatMessages={chatMessages}
             chatScrollRef={chatScrollRef}
+            canClearChat={chatMessages.length > 0}
             codexBusy={codexBusy}
             codexEnabled={codexEnabled}
             codexStatus={codexStatus}
             onCancelRequest={() => void handleCancelCodexRequest()}
             onChatInputChange={setChatInput}
+            onClearChat={() => void handleClearChat()}
             onSendChat={() => void handleSendChat()}
             t={t}
           />

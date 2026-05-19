@@ -72,6 +72,7 @@ export const IPC_CHANNELS = {
   codexTransformSelection: 'codex:transform-selection',
   codexChat: 'codex:chat',
   codexGetChatHistory: 'codex:get-chat-history',
+  codexClearChatHistory: 'codex:clear-chat-history',
   codexCancelActiveRequest: 'codex:cancel-active-request',
   wikiGetStatus: 'wiki:get-status',
   wikiSync: 'wiki:sync',

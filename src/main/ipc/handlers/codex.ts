@@ -14,6 +14,7 @@ import {
   codexStatusResponseSchema,
   codexTransformRequestSchema,
   codexUpdateSettingsRequestSchema,
+  successResponseSchema,
   wikiSearchResultResponseSchema,
 } from '../schemas';
 
@@ -65,6 +66,12 @@ export function registerCodexIpcHandlers(
     const request = codexChatHistoryRequestSchema.parse(payload);
     const messages = codexApplicationService.getChatHistory(request);
     return z.array(codexChatMessageResponseSchema).parse(messages);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.codexClearChatHistory, (_event, payload: unknown) => {
+    const request = codexChatHistoryRequestSchema.parse(payload);
+    codexApplicationService.clearChatHistory(request);
+    return successResponseSchema.parse({ ok: true });
   });
 
   ipcMain.handle(IPC_CHANNELS.codexCancelActiveRequest, () => {

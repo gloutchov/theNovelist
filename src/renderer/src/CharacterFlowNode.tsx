@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 export interface CharacterFlowNodeData extends Record<string, unknown> {
   label: string;
   plotNumber: number;
+  plotLabel?: string;
   subtitle: string;
   imageSrc: string | null;
 }
@@ -24,6 +25,7 @@ export default function CharacterFlowNode({ data }: NodeProps) {
   const subtitle = typedData.subtitle?.trim() ? typedData.subtitle : 'Scheda personaggio';
   const name = typedData.label?.trim() ? typedData.label : 'Personaggio';
   const initials = initialsFromName(name);
+  const plotLabel = typedData.plotLabel?.trim() ?? '';
 
   return (
     <div className="character-flow-node">
@@ -48,7 +50,7 @@ export default function CharacterFlowNode({ data }: NodeProps) {
         )}
       </div>
       <div className="character-flow-node-content">
-        <p className="character-flow-node-meta">Trama {typedData.plotNumber}</p>
+        {plotLabel ? <p className="character-flow-node-meta">{plotLabel}</p> : null}
         <h4 className="character-flow-node-title">{name}</h4>
         <p className="character-flow-node-subtitle">{subtitle}</p>
       </div>

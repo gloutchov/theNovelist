@@ -52,7 +52,7 @@ The project is currently maintained and distributed with packages locally verifi
 
 ### Interface language
 
-The Novelist 5.0 introduces a bilingual Italian/English interface. The language is selected automatically based on the system settings. If the computer is set to a language other than Italian, English is selected automatically. The setting can also be changed manually from the Settings window.
+The Novelist has a bilingual Italian/English interface. The language is selected automatically based on the system settings. If the computer is set to a language other than Italian, English is selected automatically. The setting can also be changed manually from the Settings window.
 
 _Note:_ Project content is not translated automatically: chapters, scenes, plots, cards, Wiki memory, and selected text remain in the language used by the author.
 
@@ -118,7 +118,7 @@ Define the plot number. The program can manage multiple parallel plots. For exam
 Define a plot name (Main Plot, Character Story, etc.).
 Write a draft, an idea, a structure, or a short summary of the plot you want to define.
 Click Create Plot.
-A box related to the plot will be created. The plot will be defined by title, number, and color. By clicking the box, you can review what was written and modify it if needed.
+A box related to the plot will be created. The plot will be defined by title, number, and color. By double-clicking the box, you can review what was written and modify it if needed.
 Alternatively, you can click Create Chapters. In this case, in addition to generating the plot box, the AI produces a number of chapters with an indication of the topic each should cover to complete the work. This generation is only a proposal, and the author can modify it at any time or delete it.
 
 ### Starting to write
@@ -140,7 +140,7 @@ The editor is simple but has everything needed, namely:
 
 ### Timeline
 
-The timeline is useful for placing narrated events in chronological order. It is built manually, but each time you enter the timeline view it will show elements already positioned and new elements still to be positioned.
+The timeline is useful for placing narrated events in chronological order. It is built manually, but each time you enter the timeline view it will show elements already positioned and new elements still to be positioned. From the sidebar, the author can choose between Chapter Timeline and Scene Timeline, so the two chronological views can be managed separately.
 The author can also specify precise start and end dates for the timeline, and define specific dates for each individual element connected to it.
 
 ### Outline
@@ -168,6 +168,10 @@ The main interface is divided into three distinct areas.
 
 Below the logo, there are several buttons that let you move between the various views.
 
+### Dashboard
+
+The Dashboard collects metrics, goals, delivery projections, and operational project status. Below the main commands there is a dedicated box with the estimated delay, the buttons to refresh the dashboard and memory, and three traffic lights showing whether memory is up to date, whether AI is active, and whether the AI fallback is available or set to No AI.
+
 ### Command area (left)
 
 The left side of the application usually contains a series of options useful for the selected view. These are usually buttons for creating new elements, getting information about selected elements, and possibly deleting them.
@@ -175,12 +179,13 @@ The left side of the application usually contains a series of options useful for
 ### Canvas (right)
 
 The right side is the workspace. It is a board on which to place blocks, where each block represents an element related to the selected view, and decide how to connect them to each other. In analysis pages, as well as in the dashboard and memory, the information specific to the selected view will be shown.
+Individual elements can be selected, moved using click-and-drag, or deleted. It is also possible to select multiple elements either by holding down the CTRL key and clicking on individual objects, or by holding down the left mouse button and creating a selection area containing the desired objects. Once a group of elements has been selected, they can be moved or deleted just like a single object.
 
 ## Chapters/Scenes Canvas: How the text editor works
 
 The text editor is very simple. Here too it is divided into two distinct areas:
 
-- On the left side there is the writing editor. You can choose style, font type, justification, and font size. Writing is lightweight. It recognizes `-` and the dialogue markers `<<` and `>>`. If you need a bulleted list (really?), just use an asterisk. The editor will also show the associated location and characters. If you select text, you can edit it directly through AI.
+- On the left side there is the writing editor. You can edit the chapter or scene title, choose style, font type, justification, and font size. Writing is lightweight. It recognizes `-` and the dialogue markers `<<` and `>>`. If you need a bulleted list (really?), just use an asterisk. The editor will also show the associated location and characters. If you select text, you can edit it directly through AI.
 - On the right side there is a chatbot-style interface for consulting AI when needed.
   The editor also lets you export the chapter to DOCX or print it.
   When leaving the editor, the AI will summarize what was written and place it in the block description.
@@ -217,13 +222,10 @@ The Plots canvas is not different from the other two, but it offers the features
 
 Note: If you use API keys, it will be possible to generate and attach the image directly with the Generate In-App button. Otherwise, you will need to create the prompt, copy it to a cloud chatbot, generate the image, download it, and attach it with the Attach button.
 
-## Memory
+## Revisions
+The program allows users to compare the current version of a text (Chapter, Scene, Character, Location) with its previous versions. The program highlights differences, additions, and deletions, so that the author has a clear understanding of what has changed between the various versions and the most recent one.
 
-Each writing project has been given a sort of Wiki page that is updated at every save and that the AI can access to have greater awareness of the novel and provide more coherent answers. The Wiki memory contains information from the Text Editor, Plots, Characters, and Locations. Data is updated automatically, but manual updates can also be performed. The memory also tracks conversations with the AI in the text editor, so that they enrich the AI's knowledge as well. The AI should be seen as a 360-degree assistant.
-
-###
-
-The memory can be queried at any time, both from the chatbot in the text editor and directly from the view called Memory. There is a Google-style search bar. In addition to answers related to the question asked or the keyword searched, the sources from which the answer was extracted will be available.
+If desired, the author can restore a previous draft by clicking the Restore button.
 
 ## Analysis
 
@@ -236,6 +238,12 @@ The program includes a series of AI-powered services capable of identifying pote
 - Names and conventions: proper names, terminology, conventions, and internal consistency.
 
 The report provided is only indicative, but useful to the author during the revision phase. If desired, the report can be printed to preserve the information and make corrections later.
+
+## Memory
+
+Each writing project has been given a sort of Wiki page that is updated at every save and that the AI can access to have greater awareness of the novel and provide more coherent answers. The Wiki memory contains information from the Text Editor, Plots, Characters, and Locations. Data is updated automatically, but manual updates can also be performed. The memory also tracks conversations with the AI in the text editor, so that they enrich the AI's knowledge as well. The AI should be seen as a 360-degree assistant.
+
+The memory can be queried at any time, both from the chatbot in the text editor and directly from the view called Memory. There is a Google-style search bar. In addition to answers related to the question asked or the keyword searched, the sources from which the answer was extracted will be available.
 
 ## Settings
 

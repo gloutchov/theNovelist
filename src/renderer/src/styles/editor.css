@@ -21,8 +21,8 @@
 
 .editor-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.85rem;
   padding: 0.8rem 0.9rem;
   border-bottom: 1px solid var(--border-primary);
 }
@@ -31,25 +31,75 @@
   margin: 0;
 }
 
-.editor-header p {
-  margin: 0.3rem 0 0;
+.editor-title-fields {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.editor-title-fields label {
+  display: flex;
+  flex: 1 1 480px;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
+  max-width: 680px;
+}
+
+.editor-title-fields span {
+  flex: 0 0 auto;
   color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.editor-title-fields input {
+  flex: 1 1 320px;
+  min-width: 180px;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.editor-header > button {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .editor-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.65rem 0.9rem;
+  flex-wrap: nowrap;
+  gap: 0.28rem;
+  overflow-x: auto;
+  padding: 0.45rem 0.65rem;
   border-bottom: 1px solid var(--border-primary);
   background: var(--surface-secondary);
+}
+
+.editor-toolbar button {
+  flex: 0 0 auto;
+  padding: 0.32rem 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .editor-toolbar select {
   border: 1px solid var(--border-strong);
   border-radius: 7px;
-  padding: 0.35rem 0.45rem;
+  padding: 0.3rem 0.4rem;
   background: var(--surface-primary);
+  font-size: 0.82rem;
+  line-height: 1.15;
   width: auto;
   margin-top: 0;
   min-width: 0;
@@ -60,15 +110,23 @@
 }
 
 .toolbar-select-style {
-  width: 170px;
+  width: 145px;
 }
 
 .toolbar-select-font {
-  width: 190px;
+  width: 155px;
 }
 
 .toolbar-select-size {
-  width: 120px;
+  width: 88px;
+}
+
+.toolbar-divider {
+  align-self: center;
+  flex: 0 0 1px;
+  height: 1.55rem;
+  margin: 0 0.16rem;
+  background: var(--border-strong);
 }
 
 .editor-toolbar .is-active {
@@ -240,10 +298,18 @@
 }
 
 .codex-chat-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
+  display: flex;
+  gap: 0.35rem;
   align-items: center;
+}
+
+.codex-chat-actions button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.34rem 0.42rem;
+  font-size: 0.8rem;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .novelist-editor-content {

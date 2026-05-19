@@ -108,6 +108,26 @@
   white-space: pre-wrap;
 }
 
+.revision-diff-added,
+.revision-diff-removed {
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05rem 0.12rem;
+}
+
+.revision-diff-added {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.revision-diff-removed {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 @media (max-width: 1080px) {
   .revision-workspace,
   .revision-compare-grid {

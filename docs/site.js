@@ -60,7 +60,8 @@ const translations = {
       "L'intelligenza artificiale è uno strumento dalle potenzialità incredibili, ma l'autore deve sempre essere consapevole di quali informazioni andrà a gestire. Per questo motivo le funzioni AI sono disattivate per default nei nuovi progetti. L'autore decide, progetto per progetto, se abilitare il provider, consentire chiamate API esterne e condividere la memoria locale del progetto con servizi remoti. In alternativa può essere implementato un modello locale tramite Ollama.",
     'privacy.item1': 'Supporto OpenAI API e Ollama.',
     'privacy.item2': 'Persistenza locale con database SQLite.',
-    'privacy.item3': 'Documentazione tecnica del modello di sicurezza.',
+    'privacy.item3': 'Memoria wiki locale del progetto.',
+    'privacy.item4': 'Documentazione tecnica del modello di sicurezza.',
     'download.eyebrow': 'Download e codice',
     'download.title': 'Scarica la build o esplora il repository.',
     'download.body':
@@ -128,7 +129,8 @@ const translations = {
       'Artificial intelligence is a tool with incredible potential, but the author must always know which information it will handle. For this reason, AI features are disabled by default in new projects. The author decides, project by project, whether to enable the provider, allow external API calls, and share local project memory with remote services. Alternatively, a local model can be implemented through Ollama.',
     'privacy.item1': 'OpenAI API and Ollama support.',
     'privacy.item2': 'Local persistence with SQLite.',
-    'privacy.item3': 'Technical security model documentation.',
+    'privacy.item3': 'Local project wiki memory.',
+    'privacy.item4': 'Technical security model documentation.',
     'download.eyebrow': 'Download and source',
     'download.title': 'Download a build or explore the repository.',
     'download.body':
@@ -144,29 +146,63 @@ const translatable = document.querySelectorAll('[data-i18n]');
 const localizedImages = document.querySelectorAll('[data-src-it][data-src-en]');
 const localizedBackgrounds = document.querySelectorAll('[data-background-it][data-background-en]');
 const localizedLinks = document.querySelectorAll('[data-href-it][data-href-en]');
+const animatedPreviewTimers = new WeakMap();
+const imageSwapTimers = new WeakMap();
+const animatedPreviewDelay = 2000;
+const imageSwapFadeDuration = 140;
 let currentLanguage = 'it';
 
 function getImageSource(image, language) {
-  const sourceKey =
-    image.dataset.lightPreview === 'true' ? `data-light-src-${language}` : `data-src-${language}`;
+  let sourceKey = `data-src-${language}`;
+  if (image.dataset.animatedPreview === 'true') {
+    sourceKey = `data-animated-src-${language}`;
+  } else if (image.dataset.lightPreview === 'true') {
+    sourceKey = `data-light-src-${language}`;
+  }
   return image.getAttribute(sourceKey) || image.getAttribute(`data-src-${language}`);
 }
 
-function updateImageSource(image) {
+function clearImageSwapTimer(image) {
+  const timer = imageSwapTimers.get(image);
+  if (timer) {
+    window.clearTimeout(timer);
+    imageSwapTimers.delete(image);
+  }
+}
+
+function updateImageSource(image, options = {}) {
   const source = getImageSource(image, currentLanguage);
   const alt = image.getAttribute(`data-alt-${currentLanguage}`);
-  if (source) {
-    image.setAttribute('src', source);
-  }
   if (alt) {
     image.setAttribute('alt', alt);
   }
+  clearImageSwapTimer(image);
+  if (!source || image.getAttribute('src') === source) {
+    image.classList.remove('is-swapping');
+    return;
+  }
+
+  if (!options.fade) {
+    image.classList.remove('is-swapping');
+    image.setAttribute('src', source);
+    return;
+  }
+
+  image.classList.add('is-swapping');
+  const timer = window.setTimeout(() => {
+    image.setAttribute('src', source);
+    window.requestAnimationFrame(() => {
+      image.classList.remove('is-swapping');
+    });
+    imageSwapTimers.delete(image);
+  }, imageSwapFadeDuration);
+  imageSwapTimers.set(image, timer);
 }
 
 function setLanguage(language) {
   const dictionary = translations[language] ?? translations.it;
   currentLanguage = translations[language] ? language : 'it';
-  document.documentElement.lang = language;
+  document.documentElement.lang = currentLanguage;
   translatable.forEach((element) => {
     const key = element.getAttribute('data-i18n');
     if (key && dictionary[key]) {
@@ -177,41 +213,77 @@ function setLanguage(language) {
     updateImageSource(image);
   });
   localizedBackgrounds.forEach((element) => {
-    const source = element.getAttribute(`data-background-${language}`);
+    const source = element.getAttribute(`data-background-${currentLanguage}`);
     if (source) {
       element.style.setProperty('--hero-image', `url("${source}")`);
     }
   });
   localizedLinks.forEach((element) => {
-    const href = element.getAttribute(`data-href-${language}`);
+    const href = element.getAttribute(`data-href-${currentLanguage}`);
     if (href) {
       element.setAttribute('href', href);
     }
   });
   buttons.forEach((button) => {
-    const isActive = button.getAttribute('data-language') === language;
+    const isActive = button.getAttribute('data-language') === currentLanguage;
     button.classList.toggle('is-active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
-  window.localStorage.setItem('the-novelist-site-language', language);
+  window.localStorage.setItem('the-novelist-site-language', currentLanguage);
+}
+
+function getSystemLanguage() {
+  const systemLanguages =
+    navigator.languages && navigator.languages.length > 0 ? navigator.languages : [navigator.language];
+  return systemLanguages.some((language) => language?.toLowerCase().startsWith('it')) ? 'it' : 'en';
+}
+
+function clearAnimatedPreviewTimer(image) {
+  const timer = animatedPreviewTimers.get(image);
+  if (timer) {
+    window.clearTimeout(timer);
+    animatedPreviewTimers.delete(image);
+  }
+}
+
+function startImagePreview(image) {
+  clearAnimatedPreviewTimer(image);
+  delete image.dataset.animatedPreview;
+  image.dataset.lightPreview = 'true';
+  updateImageSource(image, { fade: true });
+
+  const animatedSource = image.getAttribute(`data-animated-src-${currentLanguage}`);
+  if (!animatedSource) {
+    return;
+  }
+
+  const timer = window.setTimeout(() => {
+    image.dataset.animatedPreview = 'true';
+    updateImageSource(image, { fade: true });
+    animatedPreviewTimers.delete(image);
+  }, animatedPreviewDelay);
+  animatedPreviewTimers.set(image, timer);
+}
+
+function stopImagePreview(image) {
+  clearAnimatedPreviewTimer(image);
+  delete image.dataset.animatedPreview;
+  delete image.dataset.lightPreview;
+  updateImageSource(image, { fade: true });
 }
 
 localizedImages.forEach((image) => {
   image.addEventListener('mouseenter', () => {
-    image.dataset.lightPreview = 'true';
-    updateImageSource(image);
+    startImagePreview(image);
   });
   image.addEventListener('mouseleave', () => {
-    delete image.dataset.lightPreview;
-    updateImageSource(image);
+    stopImagePreview(image);
   });
   image.addEventListener('focus', () => {
-    image.dataset.lightPreview = 'true';
-    updateImageSource(image);
+    startImagePreview(image);
   });
   image.addEventListener('blur', () => {
-    delete image.dataset.lightPreview;
-    updateImageSource(image);
+    stopImagePreview(image);
   });
 });
 
@@ -222,5 +294,4 @@ buttons.forEach((button) => {
 });
 
 const savedLanguage = window.localStorage.getItem('the-novelist-site-language');
-const browserLanguage = navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'it';
-setLanguage(savedLanguage || browserLanguage);
+setLanguage(savedLanguage || getSystemLanguage());

@@ -133,6 +133,8 @@ describe('CodexApplicationService', () => {
         }),
       );
       expect(repository.listCodexChatMessages(project.id, chapter.id)).toHaveLength(2);
+      service.clearChatHistory({ chapterNodeId: chapter.id });
+      expect(repository.listCodexChatMessages(project.id, chapter.id)).toHaveLength(0);
     } finally {
       db.close();
     }

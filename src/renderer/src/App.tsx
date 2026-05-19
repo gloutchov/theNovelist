@@ -13,6 +13,7 @@ import {
   type Edge,
   type EdgeMouseHandler,
   type NodeMouseHandler,
+  type OnNodeDrag,
   type OnNodesDelete,
   type OnEdgesDelete,
   type OnEdgesChange,
@@ -31,6 +32,7 @@ import {
   getFlowMiniMapNodeColor,
   getFlowMiniMapNodeStrokeColor,
 } from './flow-minimap';
+import { canvasMultiSelectProps } from './flow-selection';
 import LocationBoard from './LocationBoard';
 import LocationFlowNode from './LocationFlowNode';
 import PlotFlowNode from './PlotFlowNode';
@@ -233,7 +235,6 @@ export default function App() {
   const t = useMemo(() => createTranslator(appLanguage), [appLanguage]);
   const chapterFlowLabels = useMemo(
     () => ({
-      blockLabel: t('story.flow.block'),
       noDescriptionLabel: t('story.flow.noDescription'),
       plotLabel: t('common.plot'),
     }),
@@ -514,8 +515,8 @@ export default function App() {
   }, [chapterEditorDirty, syncProjectWikiAfterWorkspaceChange]);
 
   useEffect(() => {
-    setPlotNodes((prev) => syncPlotFlowNodes(plots, prev, selectedPlotId));
-  }, [plots, selectedPlotId]);
+    setPlotNodes((prev) => syncPlotFlowNodes(plots, prev, selectedPlotId, t('common.plot')));
+  }, [plots, selectedPlotId, t]);
 
   useEffect(() => {
     return () => {
@@ -1678,33 +1679,47 @@ export default function App() {
     }
   }
 
-  const handleNodeDragStop: NodeMouseHandler<ChapterCanvasNode> = async (_event, node) => {
+  const handleNodeDragStop: OnNodeDrag<ChapterCanvasNode> = async (_event, node, draggedNodes) => {
     setError(null);
 
     try {
-      if (node.type === 'chapter') {
-        const data = node.data;
-        const updated = await window.novelistApi.updateStoryNode({
-          id: node.id,
-          title: data.title,
-          description: data.description,
-          plotNumber: data.plotNumber,
-          blockNumber: data.blockNumber,
-          positionX: node.position.x,
-          positionY: node.position.y,
-        });
+      const nodesToPersist = (draggedNodes.length > 0 ? draggedNodes : [node]).filter(
+        (draggedNode) => draggedNode.type === 'chapter',
+      );
+
+      if (nodesToPersist.length > 0) {
+        const updatedNodes = await Promise.all(
+          nodesToPersist.map((draggedNode) => {
+            const data = draggedNode.data;
+            return window.novelistApi.updateStoryNode({
+              id: draggedNode.id,
+              title: data.title,
+              description: data.description,
+              plotNumber: data.plotNumber,
+              blockNumber: data.blockNumber,
+              positionX: draggedNode.position.x,
+              positionY: draggedNode.position.y,
+            });
+          }),
+        );
+        const updatedById = new Map(updatedNodes.map((updated) => [updated.id, updated]));
 
         setNodes((prev) =>
-          prev.map((item) =>
-            item.id === node.id
+          prev.map((item) => {
+            const updated = updatedById.get(item.id);
+            return updated
               ? {
                   ...mapNodeRecordToFlowNode(updated, plots, chapterFlowLabels),
                   selected: item.selected,
                 }
-              : item,
-          ),
+              : item;
+          }),
         );
-        setStatus(t('story.status.blockPositionSaved', { title: updated.title }));
+
+        const firstUpdated = updatedNodes[0];
+        if (firstUpdated) {
+          setStatus(t('story.status.blockPositionSaved', { title: firstUpdated.title }));
+        }
       }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
@@ -1713,7 +1728,7 @@ export default function App() {
     }
   };
 
-  const handleNodeClick: NodeMouseHandler<ChapterCanvasNode> = (_event, node) => {
+  const handleNodeDoubleClick: NodeMouseHandler<ChapterCanvasNode> = (_event, node) => {
     openEditorForNode(node.id);
   };
 
@@ -1811,21 +1826,29 @@ export default function App() {
   }
 
   async function handleDeleteSelectedNode(): Promise<void> {
-    if (!selectedNodeId) {
+    const selectedNodeIds = nodes.filter((node) => node.selected).map((node) => node.id);
+    const nodeIdsToDelete = selectedNodeIds.length > 0 ? selectedNodeIds : selectedNodeId ? [selectedNodeId] : [];
+
+    if (nodeIdsToDelete.length === 0) {
       return;
     }
 
+    const nodeIdSet = new Set(nodeIdsToDelete);
     setBusy(true);
     setError(null);
 
     try {
-      await window.novelistApi.deleteStoryNode({ id: selectedNodeId });
-      setNodes((prev) => prev.filter((node) => node.id !== selectedNodeId));
+      await Promise.all(nodeIdsToDelete.map((id) => window.novelistApi.deleteStoryNode({ id })));
+      setNodes((prev) => prev.filter((node) => !nodeIdSet.has(node.id)));
       setEdges((prev) =>
-        prev.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId),
+        prev.filter((edge) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target)),
       );
       setSelectedNodeId(null);
-      setStatus(t('story.status.blockDeleted'));
+      setStatus(
+        nodeIdsToDelete.length === 1
+          ? t('story.status.blockDeleted')
+          : t('story.status.blocksDeleted', { count: nodeIdsToDelete.length }),
+      );
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
@@ -1836,18 +1859,26 @@ export default function App() {
   }
 
   async function handleDeleteSelectedEdge(): Promise<void> {
-    if (!selectedEdgeId) {
+    const selectedEdgeIds = edges.filter((edge) => edge.selected).map((edge) => edge.id);
+    const edgeIdsToDelete = selectedEdgeIds.length > 0 ? selectedEdgeIds : selectedEdgeId ? [selectedEdgeId] : [];
+
+    if (edgeIdsToDelete.length === 0) {
       return;
     }
 
+    const edgeIdSet = new Set(edgeIdsToDelete);
     setBusy(true);
     setError(null);
 
     try {
-      await window.novelistApi.deleteStoryEdge({ id: selectedEdgeId });
-      setEdges((prev) => prev.filter((edge) => edge.id !== selectedEdgeId));
+      await Promise.all(edgeIdsToDelete.map((id) => window.novelistApi.deleteStoryEdge({ id })));
+      setEdges((prev) => prev.filter((edge) => !edgeIdSet.has(edge.id)));
       setSelectedEdgeId(null);
-      setStatus(t('story.status.connectionDeleted'));
+      setStatus(
+        edgeIdsToDelete.length === 1
+          ? t('story.status.connectionDeleted')
+          : t('story.status.connectionsDeleted', { count: edgeIdsToDelete.length }),
+      );
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
       setError(message);
@@ -2624,10 +2655,11 @@ export default function App() {
               onNodesDelete={onNodesDelete}
               onEdgesDelete={onEdgesDelete}
               onNodeDragStop={handleNodeDragStop}
-              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onConnect={(connection) => void handleConnect(connection)}
               onSelectionChange={onSelectionChange}
               onEdgeClick={onEdgeClick}
+              {...canvasMultiSelectProps}
               fitView
               deleteKeyCode={['Backspace', 'Delete']}
             >

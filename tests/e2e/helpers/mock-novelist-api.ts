@@ -1630,6 +1630,13 @@ export async function installNovelistApiMock(
         return clone(filtered.slice(Math.max(filtered.length - max, 0)));
       },
 
+      codexClearChatHistory: async (payload: { chapterNodeId: string }) => {
+        state.codexMessages = state.codexMessages.filter(
+          (msg) => msg.chapterNodeId !== payload.chapterNodeId,
+        );
+        return { ok: true as const };
+      },
+
       codexCancelActiveRequest: async () => ({ ok: true as const, cancelled: false }),
     };
 

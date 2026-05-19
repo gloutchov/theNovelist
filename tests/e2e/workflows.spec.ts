@@ -45,7 +45,7 @@ async function openChapterEditorWithText(
 ): Promise<void> {
   await createProject(page, projectName);
   await createChapter(page, 'Capitolo Alpha', 'Scena iniziale');
-  await page.locator('.canvas-wrap .react-flow__node').first().click();
+  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
   await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
   await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
 
@@ -53,6 +53,105 @@ async function openChapterEditorWithText(
   await editorContent.click({ position: { x: 24, y: 18 } });
   await editorContent.pressSequentially(chapterText);
   await expect(editorContent).toContainText(chapterText);
+}
+
+test('dashboard groups projection actions and status lights in a separate panel', async ({ page }) => {
+  await createProject(page, 'E2E Dashboard Status Lights');
+
+  const operationsPanel = page.locator('.dashboard-operations-panel');
+  await expect(operationsPanel).toBeVisible();
+  await expect(operationsPanel.locator('.dashboard-delivery-status')).toBeVisible();
+  await expect(operationsPanel.getByRole('button', { name: /Aggiorna Cruscotto|Aggiorno/ })).toBeVisible();
+  await expect(operationsPanel.getByRole('button', { name: /Aggiorna Memoria|Aggiorno Memoria/ })).toBeVisible();
+  await expect(operationsPanel.locator('.dashboard-status-light')).toHaveCount(3);
+  await expect(operationsPanel).toContainText('Memoria');
+  await expect(operationsPanel).toContainText('AI');
+  await expect(operationsPanel).toContainText('Fallback AI');
+  await expect(page.locator('.dashboard-goals-panel header')).not.toContainText('Aggiorna Cruscotto');
+  await expect(page.locator('.dashboard-goals-panel header')).not.toContainText('Aggiorna Memoria');
+});
+
+async function seedFirstChapterDocument(page: Page, text: string): Promise<void> {
+  await page.evaluate(async (chapterText) => {
+    const state = await window.novelistApi.getStoryState();
+    const chapter = state.nodes[0];
+    if (!chapter) {
+      throw new Error('Capitolo test non trovato');
+    }
+
+    await window.novelistApi.saveChapterDocument({
+      chapterNodeId: chapter.id,
+      contentJson: JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: chapterText }],
+          },
+        ],
+      }),
+      wordCount: chapterText.split(/\s+/).filter(Boolean).length,
+    });
+  }, text);
+}
+
+async function openSeededChapterEditor(
+  page: Page,
+  projectName: string,
+  chapterText: string,
+): Promise<void> {
+  await createProject(page, projectName);
+  await createChapter(page, 'Capitolo Undo', 'Test comandi editor');
+  await seedFirstChapterDocument(page, chapterText);
+  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
+  await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
+  await expect(page.locator('.novelist-editor-content')).toContainText(chapterText);
+}
+
+async function openSceneEditorWithSeededText(
+  page: Page,
+  projectName: string,
+  sceneText: string,
+): Promise<void> {
+  await createProject(page, projectName);
+  await createChapter(page, 'Capitolo Scena Undo');
+  await page.evaluate(async (text) => {
+    const state = await window.novelistApi.getStoryState();
+    const chapter = state.nodes[0];
+    if (!chapter) {
+      throw new Error('Capitolo test non trovato');
+    }
+
+    await window.novelistApi.createSceneCard({
+      chapterNodeId: chapter.id,
+      name: 'Scena Undo',
+      text,
+      contentJson: JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text }],
+          },
+        ],
+      }),
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+  }, sceneText);
+
+  await page.getByRole('button', { name: 'Scene' }).click();
+  await page
+    .locator('.canvas-wrap .react-flow__node')
+    .filter({ hasText: 'Scena Undo' })
+    .first()
+    .dispatchEvent('dblclick');
+  await expect(page.getByRole('heading', { name: 'Editor Scena' })).toBeVisible();
+  await expect(page.getByText('Caricamento scena...')).toBeHidden();
+  await expect(page.locator('.novelist-editor-content')).toContainText(sceneText);
 }
 
 async function closeChapterEditorSavingIfPrompted(page: Page): Promise<void> {
@@ -141,6 +240,108 @@ test('chapter editor find and replace updates text', async ({ page }) => {
   await expect(editorContent).toContainText('La porta blu resta blu.');
 });
 
+test('chapter editor toolbar undo and redo text changes', async ({ page }) => {
+  await openSeededChapterEditor(page, 'E2E Chapter Undo Redo', 'Testo base.');
+  const editorShell = page.locator('.editor-shell');
+  const editorContent = page.locator('.novelist-editor-content');
+  const undoButton = editorShell.getByRole('button', { name: 'Annulla', exact: true });
+  const redoButton = editorShell.getByRole('button', { name: 'Ripeti', exact: true });
+
+  await expect(undoButton).toBeDisabled();
+  await expect(redoButton).toBeDisabled();
+
+  await editorContent.click();
+  await editorContent.press('End');
+  await editorContent.pressSequentially(' Aggiunta.');
+  await expect(editorContent).toContainText('Testo base. Aggiunta.');
+  await expect(undoButton).toBeEnabled();
+
+  await undoButton.click();
+  await expect(editorContent).toContainText('Testo base.');
+  await expect(editorContent).not.toContainText('Aggiunta.');
+  await expect(redoButton).toBeEnabled();
+
+  await redoButton.click();
+  await expect(editorContent).toContainText('Testo base. Aggiunta.');
+});
+
+test('scene editor toolbar undo and redo text changes', async ({ page }) => {
+  await openSceneEditorWithSeededText(page, 'E2E Scene Undo Redo', 'Scena base.');
+  const editorShell = page.locator('.editor-shell');
+  const editorContent = page.locator('.novelist-editor-content');
+  const undoButton = editorShell.getByRole('button', { name: 'Annulla', exact: true });
+  const redoButton = editorShell.getByRole('button', { name: 'Ripeti', exact: true });
+
+  await editorContent.click();
+  await editorContent.press('End');
+  await editorContent.pressSequentially(' Dettaglio.');
+  await expect(editorContent).toContainText('Scena base. Dettaglio.');
+  await expect(undoButton).toBeEnabled();
+
+  await undoButton.click();
+  await expect(editorContent).toContainText('Scena base.');
+  await expect(editorContent).not.toContainText('Dettaglio.');
+  await expect(redoButton).toBeEnabled();
+
+  await redoButton.click();
+  await expect(editorContent).toContainText('Scena base. Dettaglio.');
+});
+
+test('text editors can rename chapters and scenes', async ({ page }) => {
+  await openSeededChapterEditor(page, 'E2E Editor Rename', 'Testo titolo capitolo.');
+  const editorShell = page.locator('.editor-shell');
+
+  await editorShell.getByLabel('Titolo capitolo').fill('Capitolo Rinominato');
+  await editorShell.getByRole('button', { name: 'Salva', exact: true }).click();
+  await expect(page.getByText('Capitolo salvato')).toBeVisible();
+  await editorShell.getByRole('button', { name: 'Chiudi', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
+  await expect(page.locator('.canvas-wrap')).toContainText('Capitolo Rinominato');
+
+  await page.evaluate(async () => {
+    const state = await window.novelistApi.getStoryState();
+    const chapter = state.nodes[0];
+    if (!chapter) {
+      throw new Error('Capitolo test non trovato');
+    }
+
+    await window.novelistApi.createSceneCard({
+      chapterNodeId: chapter.id,
+      name: 'Scena Da Rinominare',
+      text: 'Testo titolo scena.',
+      contentJson: JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Testo titolo scena.' }],
+          },
+        ],
+      }),
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+  });
+  await page.getByRole('button', { name: 'Scene' }).click();
+  await page
+    .locator('.canvas-wrap .react-flow__node')
+    .filter({ hasText: 'Scena Da Rinominare' })
+    .first()
+    .dispatchEvent('dblclick');
+  await expect(page.getByRole('heading', { name: 'Editor Scena' })).toBeVisible();
+  await expect(page.getByText('Caricamento scena...')).toBeHidden();
+  const sceneEditorShell = page.locator('.editor-shell');
+
+  await sceneEditorShell.getByLabel('Titolo scena').fill('Scena Rinominata');
+  await sceneEditorShell.getByRole('button', { name: 'Salva', exact: true }).click();
+  await expect(page.getByText('Scena salvata')).toBeVisible();
+  await sceneEditorShell.getByRole('button', { name: 'Chiudi', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Scena' })).toBeHidden();
+  await expect(page.locator('.canvas-wrap')).toContainText('Scena Rinominata');
+});
+
 test('outline opens chapters and complete document in reading view', async ({ page }) => {
   await createProject(page, 'E2E Reading View');
   await createChapter(page, 'Capitolo Uno', 'Primo passaggio');
@@ -212,9 +413,47 @@ test('outline opens chapters and complete document in reading view', async ({ pa
 test('timeline keeps zoom controls and minimap inside the canvas', async ({ page }) => {
   await createProject(page, 'E2E Timeline Controls');
   await createChapter(page, 'Capitolo Timeline', 'Evento iniziale');
+  await page.evaluate(async () => {
+    const state = await window.novelistApi.getStoryState();
+    const chapter = state.nodes[0];
+    if (!chapter) {
+      throw new Error('Capitolo test non trovato');
+    }
+
+    await window.novelistApi.createSceneCard({
+      chapterNodeId: chapter.id,
+      name: 'Scena Timeline',
+      text: 'Evento di scena',
+      contentJson: null,
+      notes: '',
+      plotNumber: 1,
+      positionX: 160,
+      positionY: 160,
+    });
+  });
 
   await page.getByRole('button', { name: 'Timeline' }).click();
   await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Timeline Capitoli' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('.timeline-block')).toContainText('Capitolo Timeline');
+  await expect(page.locator('.timeline-block-chapter')).toHaveCount(1);
+  await expect(page.locator('.timeline-block-scene')).toHaveCount(0);
+  await expect(page.locator('.timeline-block')).not.toContainText('Scena Timeline');
+
+  await page.getByRole('button', { name: 'Timeline Scene' }).click();
+  await expect(page.locator('.timeline-block')).toContainText('Scena Timeline');
+  await expect(page.locator('.timeline-block-scene')).toHaveCount(1);
+  await expect(page.locator('.timeline-block-chapter')).toHaveCount(0);
+  await expect(page.locator('.timeline-block h3')).toHaveText('Scena Timeline');
+
+  await page.getByRole('button', { name: 'Timeline Capitoli' }).click();
+  await expect(page.locator('.timeline-block')).toContainText('Capitolo Timeline');
+  await expect(page.locator('.timeline-block-chapter')).toHaveCount(1);
+  await expect(page.locator('.timeline-block-scene')).toHaveCount(0);
+  await expect(page.locator('.timeline-block')).not.toContainText('Scena Timeline');
   await expect(page.locator('.timeline-canvas-controls')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zoom out' })).toBeVisible();
@@ -406,6 +645,55 @@ test('English interface smoke covers primary creation surfaces', async ({ page }
   await createChapterModal.getByLabel('Title').fill('Chapter Alpha');
   await createChapterModal.getByRole('button', { name: 'Create Block' }).click();
   await expect(page.getByText('Block created: Chapter Alpha')).toBeVisible();
+  await expect(page.locator('.chapter-flow-node-meta').first()).toHaveText('Plot 1');
+  await expect(page.locator('.canvas-wrap')).not.toContainText('Trama 1');
+
+  await page.evaluate(async () => {
+    const state = await window.novelistApi.getStoryState();
+    const chapter = state.nodes[0];
+    if (!chapter) {
+      throw new Error('Chapter test node not found');
+    }
+
+    await window.novelistApi.createSceneCard({
+      chapterNodeId: chapter.id,
+      name: 'Scene English',
+      text: 'Scene text',
+      contentJson: null,
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+    await window.novelistApi.createCharacterCard({
+      firstName: 'Ada',
+      lastName: 'English',
+      sex: '',
+      age: null,
+      sexualOrientation: '',
+      species: '',
+      hairColor: '',
+      eyeColor: '',
+      skinColor: '',
+      bald: false,
+      beard: '',
+      physique: '',
+      job: '',
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+    await window.novelistApi.createLocationCard({
+      name: 'Dock English',
+      locationType: '',
+      description: '',
+      notes: '',
+      plotNumber: 1,
+      positionX: 180,
+      positionY: 140,
+    });
+  });
 
   await page.getByRole('button', { name: 'Outline' }).click();
   const outlineChapter = page.locator('.outline-chapter-card').filter({ hasText: 'Chapter Alpha' });
@@ -420,13 +708,28 @@ test('English interface smoke covers primary creation surfaces', async ({ page }
   });
   await expect(createPlotModal.getByLabel('Plot number')).toBeVisible();
   await expect(createPlotModal.getByLabel('Plot draft / structure')).toBeVisible();
-  await createPlotModal.getByRole('button', { name: 'Cancel' }).click();
+  await createPlotModal.getByRole('button', { name: 'Create Plot' }).click();
+  await expect(page.locator('.plot-flow-node-title').first()).toHaveText('Plot 1');
+  await expect(page.locator('.canvas-wrap')).not.toContainText('Trama 1');
 
   await page.getByRole('button', { name: 'Characters' }).click();
   await expect(page.getByRole('button', { name: 'Create Character' })).toBeVisible();
+  await expect(page.locator('.character-flow-node-meta').first()).toHaveText('Plot 1');
+  await expect(page.locator('.canvas-wrap')).not.toContainText('Trama 1');
+  await page.getByRole('button', { name: 'Scenes' }).click();
+  await expect(page.locator('.scene-flow-node-meta').first()).toHaveText('Plot 1');
+  await expect(page.locator('.scene-flow-node-title').first()).toHaveText('Scene English');
+  await expect(page.locator('.canvas-wrap')).not.toContainText('#Scene English');
+  await page.locator('.canvas-wrap .react-flow__node').filter({ hasText: 'Scene English' }).click();
+  const sceneSelectionPanel = page.locator('.sidebar .panel').filter({ hasText: 'Selection' }).first();
+  await expect(sceneSelectionPanel).toContainText('Scene English');
+  await expect(sceneSelectionPanel).not.toContainText('#Scene English');
+  await expect(page.locator('.canvas-wrap')).not.toContainText('Trama 1');
   await page.getByRole('button', { name: 'Locations' }).click();
   await expect(page.getByRole('button', { name: 'Create Location' })).toBeVisible();
   await expect(page.getByText('Location canvas loaded')).toBeVisible();
+  await expect(page.locator('.location-flow-node-meta').first()).toHaveText('Plot 1');
+  await expect(page.locator('.canvas-wrap')).not.toContainText('Trama 1');
   await page.getByRole('button', { name: 'Plots' }).click();
   await expect(page.getByText('Plots canvas ready')).toBeVisible();
   await page.getByRole('button', { name: 'Memory' }).click();
@@ -645,7 +948,7 @@ test('memory tab shows sources from last AI response', async ({ page }) => {
   await createProject(page, 'E2E Memory Sources');
   await createChapter(page, 'Capitolo Fonti AI', 'La scena contiene il patto nel magazzino.');
 
-  await page.locator('.canvas-wrap .react-flow__node').first().click();
+  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
   await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
   await expect(page.getByText('Caricamento capitolo...')).toBeHidden();
 
@@ -665,6 +968,26 @@ test('memory tab shows sources from last AI response', async ({ page }) => {
   await expect(
     lastSourcesPanel.getByText('La scena contiene il patto nel magazzino.'),
   ).toBeVisible();
+});
+
+test('chapter editor clears persisted AI chat history', async ({ page }) => {
+  await openSeededChapterEditor(page, 'E2E Clear Chat', 'Testo per chat AI.');
+
+  await page.getByPlaceholder(/Chiedi a .*brainstorming/).fill('ripulisci');
+  await page.getByRole('button', { name: 'Invia' }).click();
+  await expect(page.getByText('Risposta mock: ripulisci')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Pulisci Chat' }).click();
+  await expect(page.getByText('Chat pulita')).toBeVisible();
+  await expect(page.getByText('Risposta mock: ripulisci')).toBeHidden();
+  await expect(page.getByText('Chat pronta. Chiedi brainstorming')).toBeVisible();
+
+  await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
+  await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
+  await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
+  await expect(page.getByText('Risposta mock: ripulisci')).toBeHidden();
+  await expect(page.getByText('Chat pronta. Chiedi brainstorming')).toBeVisible();
 });
 
 test('closing chapter editor does not wait for automatic memory sync', async ({ page }) => {

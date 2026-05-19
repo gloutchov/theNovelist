@@ -26,7 +26,7 @@ export default function SceneFlowNode({ data }: NodeProps) {
         style={{ background: 'var(--edge-color)', width: 8, height: 8 }}
       />
       <p className="scene-flow-node-meta">{typedData.plotLabel}</p>
-      <h4 className="scene-flow-node-title">#{name}</h4>
+      <h4 className="scene-flow-node-title">{name}</h4>
       <p className="scene-flow-node-subtitle">{typedData.chapterTitle}</p>
       {typedData.subtitle ? <p className="scene-flow-node-excerpt">{typedData.subtitle}</p> : null}
       <Handle

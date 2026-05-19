@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Translate } from './i18n';
+import { buildRevisionDiff, type RevisionDiffSegment } from './features/revisions/revision-diff';
 import { getStatusTone } from './status-tone';
 
 type ProjectRecord = Awaited<ReturnType<(typeof window.novelistApi)['getCurrentProject']>>;
@@ -42,6 +43,21 @@ function reasonLabel(reason: RevisionRecord['reason'], t: Translate): string {
     return t('revision.reasonRestore');
   }
   return t('revision.reasonAutomatic');
+}
+
+function RevisionDiffText({ segments }: { segments: RevisionDiffSegment[] }) {
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <span
+          className={segment.tone === 'equal' ? undefined : `revision-diff-${segment.tone}`}
+          key={`${segment.tone}-${index}`}
+        >
+          {segment.text}
+        </span>
+      ))}
+    </>
+  );
 }
 
 function buildEntityGroups(input: {
@@ -119,6 +135,13 @@ export default function RevisionBoard({
   const selectedRevision = useMemo(
     () => revisions.find((revision) => revision.id === selectedRevisionId) ?? null,
     [revisions, selectedRevisionId],
+  );
+  const selectedRevisionDiff = useMemo(
+    () =>
+      currentVersion && selectedRevision
+        ? buildRevisionDiff(selectedRevision.textContent, currentVersion.textContent)
+        : null,
+    [currentVersion, selectedRevision],
   );
 
   const loadEntities = useCallback(async (): Promise<void> => {
@@ -282,7 +305,13 @@ export default function RevisionBoard({
                 </p>
               </div>
             </header>
-            <pre>{currentVersion?.textContent || t('revision.selectEntity')}</pre>
+            <pre>
+              {selectedRevisionDiff ? (
+                <RevisionDiffText segments={selectedRevisionDiff.current} />
+              ) : (
+                currentVersion?.textContent || t('revision.selectEntity')
+              )}
+            </pre>
           </article>
 
           <article className="panel revision-pane">
@@ -324,7 +353,13 @@ export default function RevisionBoard({
                 ))}
               </select>
             ) : null}
-            <pre>{selectedRevision?.textContent ?? t('revision.emptyPrevious')}</pre>
+            <pre>
+              {selectedRevisionDiff ? (
+                <RevisionDiffText segments={selectedRevisionDiff.previous} />
+              ) : (
+                selectedRevision?.textContent ?? t('revision.emptyPrevious')
+              )}
+            </pre>
           </article>
         </div>
 

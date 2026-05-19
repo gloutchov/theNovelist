@@ -230,6 +230,19 @@ export class CodexRepository {
     return rows.reverse().map(toCodexChatMessageRecord);
   }
 
+  deleteCodexChatMessages(projectId: string, chapterNodeId: string): number {
+    const result = this.db
+      .prepare(
+        `
+        DELETE FROM codex_chat_messages
+        WHERE project_id = ? AND chapter_node_id = ?
+        `,
+      )
+      .run(projectId, chapterNodeId);
+
+    return result.changes;
+  }
+
   listProjectCodexChatMessages(projectId: string): CodexChatMessageRecord[] {
     const rows = this.db
       .prepare(

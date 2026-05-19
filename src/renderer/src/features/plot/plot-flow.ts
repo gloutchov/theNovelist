@@ -51,7 +51,12 @@ export function normalizePlotLabel(
   label: string,
   fallbackPrefix = 'Trama',
 ): string {
-  return label.trim() || `${fallbackPrefix} ${plotNumber}`;
+  const trimmed = label.trim();
+  const defaultLabelPattern = new RegExp(`^(Trama|Plot)\\s+${plotNumber}$`, 'i');
+  if (!trimmed || defaultLabelPattern.test(trimmed)) {
+    return `${fallbackPrefix} ${plotNumber}`;
+  }
+  return trimmed;
 }
 
 export function sortPlots<T extends { number: number }>(records: T[]): T[] {
@@ -62,12 +67,12 @@ export function mapNodeRecordToFlowNode(
   record: ChapterFlowRecord,
   plots: PlotFlowRecord[],
   labels?: {
-    blockLabel?: string;
     noDescriptionLabel?: string;
     plotLabel?: string;
   },
 ): ChapterCanvasNode {
   const color = getPlotColor(record.plotNumber, plots);
+  const plot = plots.find((item) => item.number === record.plotNumber);
 
   return {
     id: record.id,
@@ -81,9 +86,8 @@ export function mapNodeRecordToFlowNode(
       description: record.description,
       plotNumber: record.plotNumber,
       blockNumber: record.blockNumber,
-      blockLabel: labels?.blockLabel,
       noDescriptionLabel: labels?.noDescriptionLabel,
-      plotLabel: labels?.plotLabel,
+      plotLabel: normalizePlotLabel(record.plotNumber, plot?.label ?? '', labels?.plotLabel),
     },
     style: {
       border: `2px solid ${color}`,
@@ -123,6 +127,7 @@ function getSafePlotPosition(plot: Pick<PlotFlowRecord, 'number' | 'positionX' |
 
 function mapPlotRecordToFlowNode(
   record: PlotFlowRecord,
+  fallbackPrefix: string,
   options?: { selected?: boolean },
 ): PlotCanvasNode {
   const position = getSafePlotPosition(record);
@@ -136,7 +141,7 @@ function mapPlotRecordToFlowNode(
     selected: options?.selected,
     data: {
       number: record.number,
-      label: record.label,
+      label: normalizePlotLabel(record.number, record.label, fallbackPrefix),
       summary: record.summary,
       color: record.color,
     },
@@ -156,11 +161,14 @@ export function syncPlotFlowNodes(
   records: PlotFlowRecord[],
   previousNodes: PlotCanvasNode[],
   selectedPlotId: string | null,
+  fallbackPrefix = 'Trama',
 ): PlotCanvasNode[] {
   const previousById = new Map(previousNodes.map((node) => [node.id, node]));
 
   return sortPlots(records).map((record) => {
-    const nextNode = mapPlotRecordToFlowNode(record, { selected: record.id === selectedPlotId });
+    const nextNode = mapPlotRecordToFlowNode(record, fallbackPrefix, {
+      selected: record.id === selectedPlotId,
+    });
     const previousNode = previousById.get(record.id);
 
     if (!previousNode) {

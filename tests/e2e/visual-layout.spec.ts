@@ -200,7 +200,7 @@ test.describe('visual layout smoke', () => {
 
     await page.getByRole('button', { name: 'Capitoli' }).click();
     await checkScreen(page, testInfo, 'desktop-chapters', page.locator('.canvas-wrap'));
-    await page.locator('.canvas-wrap .react-flow__node').first().click();
+    await page.locator('.canvas-wrap .react-flow__node').first().dblclick();
     await checkScreen(page, testInfo, 'desktop-editor', page.locator('.editor-shell'));
     await page.locator('.editor-shell').getByRole('button', { name: 'Chiudi' }).click();
     await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeHidden();
@@ -238,6 +238,8 @@ test.describe('visual layout smoke', () => {
     await checkScreen(page, testInfo, 'desktop-revisions', page.locator('.revision-workspace'));
     const revisionPanes = page.locator('.revision-pane pre');
     await expect(revisionPanes).toHaveCount(2);
+    await expect.poll(() => page.locator('.revision-diff-added').count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator('.revision-diff-removed').count()).toBeGreaterThan(0);
     const currentPaneScroll = await revisionPanes.first().evaluate((pane) => ({
       clientHeight: pane.clientHeight,
       scrollHeight: pane.scrollHeight,

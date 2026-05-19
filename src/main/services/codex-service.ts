@@ -283,6 +283,16 @@ export class CodexApplicationService {
     return repository.listCodexChatMessages(projectId, input.chapterNodeId, input.limit ?? 100);
   }
 
+  clearChatHistory(input: CodexChatHistoryInput): void {
+    const { repository, projectId } = getStoryContext(this.sessionManager);
+    const node = repository.getChapterNodeById(input.chapterNodeId);
+    if (!node) {
+      throw new Error('Chapter node not found');
+    }
+
+    repository.deleteCodexChatMessages(projectId, input.chapterNodeId);
+  }
+
   cancelActiveRequest(): boolean {
     return this.codexService.cancelActiveRequest();
   }

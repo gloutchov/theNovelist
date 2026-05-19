@@ -51,7 +51,7 @@ Attualmente il progetto viene mantenuto e distribuito con pacchetti verificati l
 
 ### Lingua interfaccia
 
-The Novelist 5.0 introduce l'interfaccia bilingue italiano/inglese. La lingua viene scelta automaticamente in base alle  impostazioni di sistema (nel caso il computer sia impostato su una lingua differente dall'italiano, viene scelta automaticamente la lingua inglese). L'impostazione può essere svolta manualmente dalla finestra Impostazioni.
+L'interfaccia di The Novelist è bilingue italiano/inglese. La lingua viene scelta automaticamente in base alle  impostazioni di sistema (nel caso il computer sia impostato su una lingua differente dall'italiano, viene scelta automaticamente la lingua inglese). L'impostazione può essere svolta manualmente dalla finestra Impostazioni.
 
 _Nota:_ I contenuti dei progetti non vengono tradotti automaticamente: capitoli, scene, trame, schede, memoria Wiki e testi selezionati restano nella lingua scritta dall'autore.
 
@@ -117,7 +117,7 @@ Definire il numero di trama. Il programma può gestire più trame parallele. Ad 
 Definire un nome della trama (Trama Principale, Storia del personaggio, etc).
 Scrivere una bozza, un idea, una struttura, o un breve riassunto della trama che si vuole definire.
 Cliccare su Crea Trama.
-Verrà creato un 'box' relativo alla trama. La trama sarà definita per titolo, numero, e colore. Cliccando sul box è possibile rivedere quanto scritto, ed eventualmente modificarlo.
+Verrà creato un 'box' relativo alla trama. La trama sarà definita per titolo, numero, e colore. Facendo doppio click sul box è possibile rivedere quanto scritto, ed eventualmente modificarlo.
 In alternativa si può cliccare su Crea Capitoli. In questo caso, oltre alla generazione del box legato alla trama, vengono prodotti dalla AI un certo numero di capitoli, con una indicazione del tema di cui dovranno parlare, per completare l'opera. Questa generazione è solamente propositiva, e l'autore può modificarla in ogni momento, e anche cancellarla.
 
 ### Iniziare a scrivere
@@ -139,7 +139,7 @@ L'editor è semplice ma possiede tutto ciò che serve, ovvero:
 
 ### Timeline
 
-La timeline viene utile per dare ordine cronologico agli eventi raccontati. La sua costruzione è manuale, ma ogni volta che si entra nella vista timeline, questa mostrerà gli elementi già posizionati, e quelli nuovi ancora da posizionare.
+La timeline viene utile per dare ordine cronologico agli eventi raccontati. La sua costruzione è manuale, ma ogni volta che si entra nella vista timeline, questa mostrerà gli elementi già posizionati, e quelli nuovi ancora da posizionare. Dal menu laterale è possibile scegliere tra Timeline Capitoli e Timeline Scene, così da lavorare sulle due cronologie separatamente.
 L'autore può anche indicare date precise, sia di inizio, sia di fine, della timeline. E definire anche date specifiche per ogni singolo elemento connesso ad essa.
 
 ### Scaletta
@@ -149,7 +149,6 @@ La scaletta è uno strumento di drag and drop verticale in cui l'autore può dis
 ### Revisioni
 
 Il programma tiene memoria di ogni modifica fatta nei capitoli e nelle scene, così come nelle schede personaggio e location. Nel caso si voglia tornare indietro, è possibile andare sulla vista Revisioni, cercare quella desiderata, e ripristinarla.
-Attenzione però: una volta ripristinata una vecchia stesura, non sarà più possibile tornare all'ultima generata.
 
 ### Analisi
 
@@ -167,6 +166,10 @@ L'interfaccia principale è divisa in tre aree distinte.
 
 Sotto al logo, sono presenti diversi tasti che permettono di spostarsi tra le varie viste.
 
+### Cruscotto
+
+Il Cruscotto raccoglie metriche, obiettivi, proiezioni di consegna e stato operativo del progetto. Sotto ai comandi principali e presente un box dedicato con il ritardo stimato, i pulsanti per aggiornare cruscotto e memoria, e tre semafori per capire rapidamente se la memoria e aggiornata, se la AI e attiva, e se il fallback AI e disponibile oppure impostato su No AI.
+
 ### Area Comandi (sinistra)
 
 Il lato sinistro dell'applicazione, solitamente, ha una serie di opzioni utili per la vista scelta. Solitamente tasti per creare nuovi elementi, per avere informazioni su quelli selezionati, ed eventualmente cancellarli.
@@ -174,12 +177,13 @@ Il lato sinistro dell'applicazione, solitamente, ha una serie di opzioni utili p
 ### Canvas (destra)
 
 Il lato destro è il foglio di lavoro. Si tratta di una lavagna su cui appoggiare i blocchi (ogni blocco rappresenta un elemento relativo alla vista scelta), e decidere come connettere l'uno all'altro. Nelle pagine di analisi, così come nel cruscotto e nella memoria, saranno mostrate le informazioni relative alle specificità della vista scelta.
+I singoli elementi possono essere presi, spostati con click e trascina, o cancellati. E' inoltre possibile selezionare più elementi sia tenendo premuto il tasto CTRL e cliccando sui singoli oggetti, sia tenendo premuto il tasto sinistro del mouse e creando un'area di selezione che comprenda gli oggetti desiderati. Una volta selezionato un gruppo di elementi, come per un singolo oggetto, è possibile spostarli, o cancellarli.
 
 ## Canvas Capitoli/Scene: Come Funziona l'editor di testo
 
 L'editor di testo è molto semplice. Anche in questo caso è diviso in due aree distinte:
 
-- Sul lato sinistro è presente l'editor di scrittura. E' possibile scegliere lo stile, il tipo di font, la giustificazione e la dimensione del font. La scrittura è snella. Riconosce il '-' e i baffi '<<' '>>' per i dialoghi. Mentre se vi serve un elenco puntato (sul serio?) vi basta usare l'asterisco. L'editor mostrerà anche la location associata, e i personaggi. Se si seleziona un testo, è possibile ritoccarlo direttamente tramite la AI.
+- Sul lato sinistro è presente l'editor di scrittura. E' possibile modificare il titolo del capitolo o della scena, scegliere lo stile, il tipo di font, la giustificazione e la dimensione del font. La scrittura è snella. Riconosce il '-' e i baffi '<<' '>>' per i dialoghi. Mentre se vi serve un elenco puntato (sul serio?) vi basta usare l'asterisco. L'editor mostrerà anche la location associata, e i personaggi. Se si seleziona un testo, è possibile ritoccarlo direttamente tramite la AI.
 - Sul lato destro c'è una interfaccia in stile chatbot per consultare l'AI in caso di bisogno.
   L'editor consente inoltre di esportare il capitolo in formato DOCX, o di stamparlo.
   Quando si esce dall'editor, la AI farà un riassunto di quanto scritto e lo metterà in descrizione al blocco.
@@ -216,13 +220,10 @@ Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già d
 
 Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
 
-## Memoria
+## Revisioni
 
-Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, e dalle Location. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
-
-###
-
-La memoria può essere interrogata in ogni momento, sia dal chatbot presente nell'editor di testo, sia direttamente dalla vista chiamata memoria. Qui è presente una barra di ricerca in stile 'Google'. Oltre alle risposte relative alla domanda posta, o alla parola chiave cercata, saranno disponibili le fonti da cui è stata estrapolata la risposta.
+Il programma permette di confrontare la versione attuale di un testo (Capitolo, Scena, Personaggio, Location) con le sue precedenti versioni. Il programma evidenzia le differenze, aggiunte e cancellazioni, in modo che l'autore abbia una chiara idea di ciò che è cambiato tra le varie versioni e quella più recente. 
+Nel caso lo desideri, l'autore può recuperare una vecchia stesura cliccando sul tasto Ripristina.
 
 ## Analisi
 
@@ -235,6 +236,12 @@ Il programma è dotato di una serie di servizi, svolti tramite AI, capaci di ide
 - Nomi e convenzioni: Nomi propri, terminologie, convenzioni, e coerenza interna.
 
 Il report fornito è solamente indicativo, ma utile all'autore durante la fase di revisione del testo. Volendo, il report può essere stampato per poter conservare le informazioni e fare le correzioni in un secondo momento.
+
+## Memoria
+
+Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, e dalle Location. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
+
+La memoria può essere interrogata in ogni momento, sia dal chatbot presente nell'editor di testo, sia direttamente dalla vista chiamata memoria. Qui è presente una barra di ricerca in stile 'Google'. Oltre alle risposte relative alla domanda posta, o alla parola chiave cercata, saranno disponibili le fonti da cui è stata estrapolata la risposta.
 
 ## Impostazioni
 

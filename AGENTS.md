@@ -131,6 +131,7 @@ Non inviare contenuti esterni o introdurre nuove chiamate di rete senza passare 
 - `SECURITY_MODEL.md`: modello di sicurezza bilingue e limiti residui.
 - `MAPS.md`: mappa bilingue della struttura del repository.
 - `AGENTS.md`: queste istruzioni operative.
+- Mantieni sempre aggiornati questi file quando cambi comportamento utente, struttura del repository, sicurezza, release, packaging, i18n, test o workflow operativi.
 - Non ricreare `RELEASE_NOTES.md`: le note sintetiche della release corrente sono integrate nel README.
 
 ## Packaging
@@ -158,5 +159,6 @@ Le build non sono firmate. Su Windows `signAndEditExecutable` e disabilitato.
 - Test mirati legati alla modifica.
 - `npm run test:e2e` se tocchi renderer, layout, editor, canvas o workflow browser.
 - `npm run test:e2e:electron` se tocchi IPC, main process, persistenza, packaging runtime, native modules o wrapper Electron.
+- Verifica e aggiorna `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md` e `AGENTS.md` quando il task cambia contenuti che li riguardano.
 - Se il task chiude una versione, chiedi se creare/pushare il tag di release prima della chiusura.
 - Riporta sempre eventuali test non eseguiti e il motivo.

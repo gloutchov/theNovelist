@@ -99,6 +99,7 @@ export const IPC_CHANNEL_GROUPS = {
     IPC_CHANNELS.codexTransformSelection,
     IPC_CHANNELS.codexChat,
     IPC_CHANNELS.codexGetChatHistory,
+    IPC_CHANNELS.codexClearChatHistory,
     IPC_CHANNELS.codexCancelActiveRequest,
   ],
 } as const satisfies Record<string, readonly IpcChannelName[]>;
