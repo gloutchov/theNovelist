@@ -11,7 +11,6 @@ import {
   type Connection,
   type Edge,
   type Node,
-  type NodeMouseHandler,
   type OnNodeDrag,
   type OnEdgesChange,
   type OnNodesChange,
