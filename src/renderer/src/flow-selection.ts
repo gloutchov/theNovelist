@@ -6,7 +6,7 @@ type CanvasMultiSelectProps = Pick<
 >;
 
 export const canvasMultiSelectProps: CanvasMultiSelectProps = {
-  multiSelectionKeyCode: 'Control',
+  multiSelectionKeyCode: ['Control', 'Meta'],
   panOnDrag: [1, 2],
   selectionMode: SelectionMode.Partial,
   selectionOnDrag: true,

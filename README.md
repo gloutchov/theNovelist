@@ -236,7 +236,7 @@ Version 5.5.0 introduces:
 - a green indicator when the draft is on track for the planned date;
 - a readable red indicator in light and dark themes when the estimate exceeds the planned date;
 - a Dashboard operations box with memory, AI, and AI fallback status;
-- canvases that open editors/cards on double click, plus `CTRL` multi-select and rectangle selection;
+- canvases that open editors/cards on double click, plus `Ctrl`/`Cmd` multi-select and rectangle selection;
 - local diff in the Revisions view;
 - undo/redo and title editing in the Chapter and Scene editors;
 - Timeline split into Chapter and Scene views.
