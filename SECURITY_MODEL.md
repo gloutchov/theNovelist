@@ -8,7 +8,7 @@ Documented status as of **May 19, 2026**.
 
 ## Italiano
 
-Questo documento riepiloga le misure di sicurezza implementate in The Novelist e i limiti residui noti. L'applicazione e una app desktop locale: non ha un backend proprietario remoto, ma puo comunicare con provider AI esterni se l'utente li abilita.
+Questo documento riepiloga le misure di sicurezza implementate in The Novelist e i limiti residui noti. L'applicazione è una app desktop locale: non ha un backend proprietario remoto, ma può comunicare con provider AI esterni se l'utente li abilita.
 
 ### 1. Modello operativo
 
@@ -18,11 +18,11 @@ Questo documento riepiloga le misure di sicurezza implementate in The Novelist e
   - `assets/`: immagini, export e allegati;
   - `.snapshots/`: snapshot DB per recovery;
   - `wiki/`: memoria Markdown locale derivata dal database.
-- `project.db` resta la fonte di verita. La wiki e un artefatto derivato, app-managed e rigenerabile.
+- `project.db` resta la fonte di verità. La wiki è un artefatto derivato, app-managed e rigenerabile.
 - Provider AI supportati:
   - `OpenAI API`;
   - `Ollama`.
-- L'interfaccia e bilingue italiano/inglese; la localizzazione non traduce automaticamente i contenuti dell'autore.
+- L'interfaccia è bilingue italiano/inglese; la localizzazione non traduce automaticamente i contenuti dell'autore.
 
 ### 2. Isolamento Electron
 
@@ -44,13 +44,13 @@ Riferimenti:
 ### 3. Content Security Policy
 
 - Il renderer principale usa una CSP esplicita in `src/renderer/index.html`.
-- `script-src` e limitato a `self`.
-- `object-src` e bloccato.
-- `connect-src` e limitato a `self` e agli endpoint locali necessari in sviluppo (`localhost`/`127.0.0.1`).
+- `script-src` è limitato a `self`.
+- `object-src` è bloccato.
+- `connect-src` è limitato a `self` e agli endpoint locali necessari in sviluppo (`localhost`/`127.0.0.1`).
 - `img-src` permette solo sorgenti locali, `data:`, `blob:` e `file:`, coerentemente con la gestione asset locali.
 - Le viste di stampa non eseguono script e limitano le risorse a contenuto locale o data URL dove necessario.
 
-Limite noto: la CSP del renderer e impostata via `meta`; direttive come `frame-ancestors` richiederebbero header HTTP se in futuro si introducesse una delivery HTTP.
+Limite noto: la CSP del renderer è impostata via `meta`; direttive come `frame-ancestors` richiederebbero header HTTP se in futuro si introducesse una delivery HTTP.
 
 ### 4. IPC validato
 
@@ -73,7 +73,7 @@ Riferimenti:
 - Le operazioni su nodi, scene, timeline, revisioni, connessioni, personaggi, location, link e immagini verificano che gli ID appartengano al progetto aperto.
 - Questo evita collegamenti o manipolazioni tra progetti diversi.
 - Le immagini lette dal renderer devono appartenere agli asset del progetto aperto.
-- Il ripristino di una revisione accetta solo snapshot appartenenti al progetto aperto e crea una revisione dello stato corrente prima di sovrascrivere l'entita.
+- Il ripristino di una revisione accetta solo snapshot appartenenti al progetto aperto e crea una revisione dello stato corrente prima di sovrascrivere l'entità.
 
 Riferimenti:
 
@@ -84,7 +84,7 @@ Riferimenti:
 
 ### 6. Persistenza e database
 
-- SQLite e accessibile solo dal main process.
+- SQLite è accessibile solo dal main process.
 - Il repository usa statement preparati, evitando concatenazione SQL con input utente.
 - `foreign_keys = ON`.
 - Migrazioni versionate in `src/main/persistence/migrations.ts`.
@@ -104,9 +104,9 @@ Riferimenti:
 
 - La API key non viene mai restituita in chiaro al renderer: le risposte IPC espongono `apiKey: null`.
 - Quando disponibile, Electron `safeStorage` cifra la chiave in un file sotto `app.getPath('userData')`.
-- Se `safeStorage` non e disponibile, il salvataggio di nuove chiavi viene rifiutato con errore esplicito.
-- E supportato l'uso di `OPENAI_API_KEY` come variabile ambiente runtime.
-- E supportata la cancellazione della chiave salvata.
+- Se `safeStorage` non è disponibile, il salvataggio di nuove chiavi viene rifiutato con errore esplicito.
+- È supportato l'uso di `OPENAI_API_KEY` come variabile ambiente runtime.
+- È supportata la cancellazione della chiave salvata.
 - Le vecchie chiavi legacy nel database possono essere migrate verso storage sicuro quando disponibile.
 
 Riferimenti:
@@ -125,11 +125,11 @@ Riferimenti:
   - chiamate API esterne abilitate;
   - API key disponibile.
 - La memoria progetto viene allegata alla chat solo se:
-  - il consenso AI generale e attivo;
-  - e, se provider o fallback possono uscire dal computer, `allowExternalMemorySharing` e attivo.
-- Se `allowExternalMemorySharing` e disattivato, la chat puo continuare a funzionare, ma senza allegare la wiki a provider esterni.
+  - il consenso AI generale è attivo;
+  - e, se provider o fallback possono uscire dal computer, `allowExternalMemorySharing` è attivo.
+- Se `allowExternalMemorySharing` è disattivato, la chat può continuare a funzionare, ma senza allegare la wiki a provider esterni.
 - Le impostazioni AI sono salvate per progetto. Le preferenze autosave, lingua e tema interfaccia sono preferenze utente globali.
-- I semafori del Cruscotto per memoria, AI e fallback leggono solo stato locale gia disponibile nel renderer (`wikiStatus` e impostazioni AI) e non introducono nuove sonde di rete o nuovi invii di contenuto.
+- I semafori del Cruscotto per memoria, AI e fallback leggono solo stato locale già disponibile nel renderer (`wikiStatus` e impostazioni AI) e non introducono nuove sonde di rete o nuovi invii di contenuto.
 
 Riferimenti:
 
@@ -141,13 +141,13 @@ Riferimenti:
 
 ### 9. Memoria progetto e wiki locale
 
-- Ogni progetto puo avere una directory `wiki/` locale.
-- La wiki e derivata da `project.db`: non sostituisce il database e non diventa fonte autoritativa.
+- Ogni progetto può avere una directory `wiki/` locale.
+- La wiki è derivata da `project.db`: non sostituisce il database e non diventa fonte autoritativa.
 - Le fonti deterministic-first vengono esportate in `wiki/sources/`.
 - Le fonti includono capitoli, scene, timeline, trame, personaggi, location e chat AI.
 - La ricerca locale nella tab `Memoria` legge Markdown locali e non richiede provider esterni.
 - Le pagine app-managed (`AGENTS.md`, `index.md`, `log.md` e `sources/`) possono essere riscritte o aggiornate dal sync.
-- Le modifiche manuali alla wiki non sono considerate fonte di verita e possono essere sovrascritte.
+- Le modifiche manuali alla wiki non sono considerate fonte di verità e possono essere sovrascritte.
 - Le scritture generate sono atomiche: file temporaneo nella stessa directory e `rename` finale.
 - I file temporanei lasciati da sync interrotti vengono ripuliti al bootstrap della wiki.
 - I path wiki controllati devono restare dentro la directory `wiki/`; traversal, path assoluti e segmenti `..` sono rifiutati.
@@ -167,7 +167,7 @@ Riferimenti:
 
 - Le richieste AI passano dal main process.
 - Le chiamate OpenAI API e Ollama usano timeout configurabile tramite `NOVELIST_CODEX_TIMEOUT_MS`.
-- E disponibile cancellazione della richiesta AI attiva.
+- È disponibile cancellazione della richiesta AI attiva.
 - Provider fallback configurabile, incluso `none`.
 - I prompt di analisi e assistenza seguono la lingua effettiva dell'interfaccia.
 - I report di analisi rimuovono offerte finali di follow-up del modello, ad esempio frasi del tipo "If you want, I can..." o "Se vuoi, posso...".
@@ -185,8 +185,8 @@ Riferimenti:
 
 - Le immagini associate vengono copiate in `assets/img/...`.
 - Le immagini generate vengono salvate in `assets/generated-images/...`.
-- La lettura immagini verso renderer e limitata a raster interni ad `assets/` del progetto aperto.
-- L'import di immagini associate e validato lato main process prima della copia:
+- La lettura immagini verso renderer è limitata a raster interni ad `assets/` del progetto aperto.
+- L'import di immagini associate è validato lato main process prima della copia:
   - sono accettate solo estensioni raster previste (`png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`);
   - i primi byte del file devono corrispondere alla signature/magic number del formato dichiarato;
   - file con estensione non supportata, estensione falsa o contenuto non immagine vengono rifiutati con errore esplicito.
@@ -203,14 +203,14 @@ Riferimenti:
 ### 12. Menzioni, export e privacy editoriale
 
 - Le menzioni `@personaggio`, `@location` e `#scena` usano identificatori strutturati.
-- In lettura/salvataggio il main process normalizza riferimenti e label verso entita canoniche.
-- Menzioni malformate o riferite a entita non piu esistenti vengono scartate.
+- In lettura/salvataggio il main process normalizza riferimenti e label verso entità canoniche.
+- Menzioni malformate o riferite a entità non più esistenti vengono scartate.
 - Le menzioni non vengono incluse in:
   - conteggio parole;
   - export DOCX;
   - stampa HTML.
 - Questo evita leakage di metadati interni nel manoscritto esportato.
-- Le scene possono essere sincronizzate dal contenuto del capitolo, ma `project.db` resta la fonte autoritativa e le entita richiamate sono normalizzate dal main process.
+- Le scene possono essere sincronizzate dal contenuto del capitolo, ma `project.db` resta la fonte autoritativa e le entità richiamate sono normalizzate dal main process.
 
 Riferimenti:
 
@@ -256,11 +256,11 @@ Variabili ambiente rilevanti:
 ### 15. Limiti residui noti
 
 1. Le build locali non sono firmate o notarizzate.
-2. `project.db` non e cifrato a riposo.
-3. La wiki e leggibile su disco per scelta progettuale; privacy e demandata alla sicurezza del filesystem/profilo utente.
-4. L'app e single-user locale e non implementa autenticazione o ruoli.
+2. `project.db` non è cifrato a riposo.
+3. La wiki è leggibile su disco per scelta progettuale; la privacy è demandata alla sicurezza del filesystem/profilo utente.
+4. L'app è single-user locale e non implementa autenticazione o ruoli.
 5. Provider esterni possono ricevere testo del progetto solo con consenso, ma la garanzia finale dipende anche dalla configurazione utente e dal provider scelto.
-6. Ollama puo puntare a host non locali tramite `OLLAMA_HOST`; in quel caso il traffico non e necessariamente locale.
+6. Ollama può puntare a host non locali tramite `OLLAMA_HOST`; in quel caso il traffico non è necessariamente locale.
 7. Le release non firmate possono generare warning di sistema operativo e non offrono garanzia forte di provenienza.
 8. La CSP via `meta` non sostituisce header HTTP completi in eventuali scenari futuri serviti via rete.
 

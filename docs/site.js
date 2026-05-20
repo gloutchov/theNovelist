@@ -9,7 +9,7 @@ const translations = {
     'hero.eyebrow': 'Desktop app open source',
     'hero.copy':
       'Progetta, scrivi, revisiona ed esporta romanzi con canvas narrativi, editor semplificato, memoria locale del progetto e assistenza AI opzionale.',
-    'hero.download': 'Scarica la release',
+    'hero.download': 'Download',
     'hero.repo': 'Repository GitHub',
     'facts.versionLabel': 'Versione',
     'facts.platformsLabel': 'Piattaforme',
@@ -18,7 +18,7 @@ const translations = {
     'intro.title': 'Un ambiente pensato per scrivere romanzi dalla A alla Z.',
     'intro.body':
       "The Novelist offre una scrivania adatta allo sviluppo delle trame, alla gestione della timeline, all'organizzazione di personaggi e locations. Ogni storia ha la sua memoria, così che l'autore possa avere sempre consapevolezza di ciò che scrive, ed essere aiutato dalla AI quando e se è necessario, con analisi approfondite del testo.",
-    'features.eyebrow': 'Funzionalita principali',
+    'features.eyebrow': 'Funzionalità principali',
     'features.title': 'Dalla mappa narrativa al manoscritto completo.',
     'features.dashboard.title': 'Cruscotto progetto',
     'features.dashboard.body':
@@ -78,7 +78,7 @@ const translations = {
     'hero.eyebrow': 'Open source desktop app',
     'hero.copy':
       'Plan, write, revise, and export novels with narrative canvases, a streamlined editor, local project memory, and optional AI assistance.',
-    'hero.download': 'Download release',
+    'hero.download': 'Download',
     'hero.repo': 'GitHub repository',
     'facts.versionLabel': 'Version',
     'facts.platformsLabel': 'Platforms',
