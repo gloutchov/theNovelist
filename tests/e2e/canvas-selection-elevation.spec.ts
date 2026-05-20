@@ -206,8 +206,8 @@ test('chapters canvas opens the chapter editor only on double click', async ({ p
   await expect(page.getByRole('heading', { name: 'Editor Capitolo' })).toBeVisible();
 });
 
-test('chapters canvas supports ctrl multi-select and group dragging', async ({ page }) => {
-  await createProject(page, 'E2E Chapter Ctrl Multi Select');
+test('chapters canvas supports modifier multi-select and group dragging', async ({ page }) => {
+  await createProject(page, 'E2E Chapter Modifier Multi Select');
   await createChapter(page, 'Capitolo Alpha');
   await createChapter(page, 'Capitolo Beta');
 
@@ -220,9 +220,7 @@ test('chapters canvas supports ctrl multi-select and group dragging', async ({ p
   }
 
   await alphaNode.click({ position: { x: 20, y: 20 } });
-  await page.keyboard.down('Control');
-  await betaNode.click({ position: { x: 20, y: 20 } });
-  await page.keyboard.up('Control');
+  await betaNode.click({ position: { x: 20, y: 20 }, modifiers: ['ControlOrMeta'] });
   await expect.poll(() => getSelectedCanvasNodeCount(page)).toBe(2);
 
   await dragNode(page, alphaNode, 110, 30);
