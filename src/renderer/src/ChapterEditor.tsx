@@ -40,6 +40,7 @@ import {
   type AppLanguage,
   type Translate,
 } from './i18n';
+import { autoLinkEntityReferences } from '../../shared/reference-autolink';
 
 type ChapterDocumentRecord = Awaited<ReturnType<(typeof window.novelistApi)['getChapterDocument']>>;
 type CodexTransformAction = 'correggi' | 'riscrivi' | 'espandi' | 'riduci';
@@ -1151,6 +1152,7 @@ export default function ChapterEditor({
   onMemorySources,
 }: ChapterEditorProps) {
   const isSceneEditor = Boolean(sceneCard);
+  const sceneCardId = sceneCard?.id ?? null;
   const language = resolveRendererLanguage(autosaveSettings);
   const t = useMemo(() => createTranslator(language), [language]);
   const referenceChapterNodeId = sceneCard?.chapterNodeId ?? chapterNodeId;
@@ -1446,6 +1448,25 @@ export default function ChapterEditor({
       },
     },
   });
+  const applyDocumentToEditor = useCallback(
+    (document: RichTextDocumentJson): void => {
+      if (!editor) {
+        return;
+      }
+
+      hydratingDocumentRef.current = true;
+      editor
+        .chain()
+        .setMeta('addToHistory', false)
+        .setContent(document, { emitUpdate: false })
+        .run();
+      hydratingDocumentRef.current = false;
+      setMentionedIds(extractMentionIds(document));
+      setWordCount(getWordCountFromDocument(document));
+      setMentionMenu(null);
+    },
+    [editor],
+  );
   const findMatches = useMemo(() => {
     void documentVersion;
     return findTextMatchesInEditor(editor, findQuery);
@@ -1459,7 +1480,7 @@ export default function ChapterEditor({
   useEffect(() => {
     setSceneRecord(sceneCard ?? null);
     setDocumentTitleDraft(sceneCard?.name ?? chapterTitle);
-  }, [chapterTitle, sceneCard]);
+  }, [chapterTitle, sceneCardId]);
 
   useEffect(() => {
     mentionMenuRef.current = mentionMenu;
@@ -1716,7 +1737,7 @@ export default function ChapterEditor({
     return () => {
       isMounted = false;
     };
-  }, [chapterNodeId, chapterTitle, editor, onStatus, sceneCard, t]);
+  }, [chapterNodeId, chapterTitle, editor, onStatus, sceneCardId, t]);
 
   useEffect(() => {
     if (!editor) {
@@ -2213,7 +2234,16 @@ export default function ChapterEditor({
           wordCountTimeoutRef.current = null;
         }
 
-        const document = editor.getJSON() as RichTextDocumentJson;
+        let document = editor.getJSON() as RichTextDocumentJson;
+        const autoLinkedReferences = autoLinkEntityReferences(
+          document,
+          availableCharacters,
+          availableLocations,
+        );
+        if (autoLinkedReferences.changed) {
+          document = autoLinkedReferences.document as RichTextDocumentJson;
+          applyDocumentToEditor(document);
+        }
         const savedDocumentVersion = documentVersionRef.current;
         const currentWordCount = getWordCountFromDocument(document);
         setWordCount(currentWordCount);
@@ -2243,9 +2273,23 @@ export default function ChapterEditor({
               positionY: activeScene.positionY,
             });
 
+            const savedSceneDocument = parseStoredRichTextDocument(
+              updated.contentJson,
+              updated.text,
+            );
+            const savedSceneContentJson = JSON.stringify(savedSceneDocument);
+            const documentForReferenceSync =
+              savedSceneContentJson === contentJson ? document : savedSceneDocument;
+
             setSceneRecord(updated);
             setDocumentTitleDraft(updated.name);
             setDocumentRecord(null);
+            if (
+              savedSceneContentJson !== contentJson &&
+              documentVersionRef.current === savedDocumentVersion
+            ) {
+              applyDocumentToEditor(savedSceneDocument);
+            }
             if (documentVersionRef.current === savedDocumentVersion) {
               isDirtyRef.current = false;
               setIsDirty(false);
@@ -2253,8 +2297,11 @@ export default function ChapterEditor({
             let referenceSyncFailed = false;
             let chapterTextReplaced = true;
             try {
-              chapterTextReplaced = await syncSceneEditorContentToChapter(updated.id, document);
-              await syncSceneReferencesToParentChapter(document);
+              chapterTextReplaced = await syncSceneEditorContentToChapter(
+                updated.id,
+                documentForReferenceSync,
+              );
+              await syncSceneReferencesToParentChapter(documentForReferenceSync);
               await refreshChapterReferences();
             } catch (caughtReferenceError) {
               referenceSyncFailed = true;
@@ -2302,15 +2349,22 @@ export default function ChapterEditor({
             wordCount: currentWordCount,
           });
 
+          const savedDocument = JSON.parse(saved.contentJson) as RichTextDocumentJson;
           setDocumentRecord(saved);
+          if (
+            saved.contentJson !== contentJson &&
+            documentVersionRef.current === savedDocumentVersion
+          ) {
+            applyDocumentToEditor(savedDocument);
+          }
           if (documentVersionRef.current === savedDocumentVersion) {
             isDirtyRef.current = false;
             setIsDirty(false);
           }
           let referenceSyncFailed = false;
           try {
-            await syncSceneCardsFromDocument(document);
-            await syncChapterReferences(document);
+            await syncSceneCardsFromDocument(savedDocument);
+            await syncChapterReferences(savedDocument);
             await refreshChapterReferences();
           } catch (caughtReferenceError) {
             referenceSyncFailed = true;
@@ -2352,6 +2406,9 @@ export default function ChapterEditor({
       }
     },
     [
+      applyDocumentToEditor,
+      availableCharacters,
+      availableLocations,
       chapterRecord,
       chapterNodeId,
       documentTitleDraft,

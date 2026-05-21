@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 5.5.0<br />
+  <strong>Versione sorgente / Source version:</strong> 5.6.0<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://gloutchov.github.io/theNovelist/">gloutchov.github.io/theNovelist</a>
@@ -41,7 +41,7 @@ Nota: la cartella locale `release/` puo contenere build precedenti o artefatti g
 - Interfaccia bilingue italiano/inglese con rilevamento automatico della lingua di sistema, override manuale e tema chiaro/scuro/sistema.
 - Canvas capitoli con nodi, connessioni e trame parallele colorate.
 - Canvas dedicati per trame, scene, personaggi e location.
-- Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`.
+- Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`, piu aggancio automatico dei riferimenti mancanti.
 - Creazione rapida di schede da testo selezionato.
 - Timeline cronologica separata dall'ordine di lettura, con viste distinte per capitoli e scene.
 - Scaletta drag and drop per ordinare il manoscritto.
@@ -114,18 +114,14 @@ Note sui moduli nativi:
 - `better-sqlite3` viene rebuildato per Electron prima di sviluppo/packaging.
 - Dopo test Electron o packaging, i moduli vengono riportati al target Node per test e tool locali.
 
-### Release 5.5.0
+### Release 5.6.0
 
-La versione 5.5.0 introduce:
+La versione 5.6.0 introduce:
 
-- palette semaforo per lo stato di consegna nel Cruscotto;
-- indicatore verde quando la stesura e in linea con la data prevista;
-- indicatore rosso leggibile nei temi chiaro e scuro quando la stima supera la data prevista;
-- box operativo nel Cruscotto con stato memoria, AI e fallback AI;
-- canvas con apertura editor/schede su doppio click, multi-selezione `CTRL` e selezione rettangolare;
-- diff locale nella vista Revisioni;
-- undo/redo e modifica titolo negli editor Capitoli e Scene;
-- Timeline separata in viste Capitoli e Scene.
+- controllo automatico dei nomi di personaggi e location citati nei capitoli e nelle scene;
+- inserimento automatico del badge `@` quando una citazione testuale non e ancora collegata alla scheda;
+- sincronizzazione dei collegamenti capitolo-personaggio e capitolo-location durante il salvataggio;
+- protezione dai casi ambigui: nomi o cognomi condivisi tra piu schede non vengono agganciati automaticamente.
 
 Le note sintetiche della release corrente sono mantenute qui nel README per evitare duplicazione con un file separato.
 
@@ -155,7 +151,7 @@ Note: the local `release/` folder may contain older builds or artifacts produced
 - Bilingual Italian/English interface with automatic system-language detection, manual override, and light/dark/system theme selection.
 - Chapter canvas with nodes, connections, and color-coded parallel plots.
 - Dedicated canvases for plots, scenes, characters, and locations.
-- Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`.
+- Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`, plus automatic linking for missing references.
 - Quick card creation from selected text.
 - Chronological timeline independent from reading order, with separate chapter and scene views.
 - Drag-and-drop outline for manuscript ordering.
@@ -228,18 +224,14 @@ Native module notes:
 - `better-sqlite3` is rebuilt for Electron before development/packaging.
 - After Electron tests or packaging, modules are restored to the Node target for local tests and tools.
 
-### Release 5.5.0
+### Release 5.6.0
 
-Version 5.5.0 introduces:
+Version 5.6.0 introduces:
 
-- a traffic-light palette for the Dashboard delivery status;
-- a green indicator when the draft is on track for the planned date;
-- a readable red indicator in light and dark themes when the estimate exceeds the planned date;
-- a Dashboard operations box with memory, AI, and AI fallback status;
-- canvases that open editors/cards on double click, plus `Ctrl`/`Cmd` multi-select and rectangle selection;
-- local diff in the Revisions view;
-- undo/redo and title editing in the Chapter and Scene editors;
-- Timeline split into Chapter and Scene views.
+- automatic checks for character and location names mentioned in chapters and scenes;
+- automatic `@` badge insertion when a textual mention is not yet linked to its card;
+- chapter-character and chapter-location link synchronization during save;
+- ambiguity protection: first names or last names shared by multiple cards are not linked automatically.
 
 Short notes for the current release are kept here in the README to avoid duplicating them in a separate file.
 

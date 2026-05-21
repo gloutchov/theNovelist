@@ -72,6 +72,7 @@ Riferimenti:
 
 - Le operazioni su nodi, scene, timeline, revisioni, connessioni, personaggi, location, link e immagini verificano che gli ID appartengano al progetto aperto.
 - Questo evita collegamenti o manipolazioni tra progetti diversi.
+- L'aggancio automatico dei riferimenti `@` usa solo schede del progetto aperto e salta nomi o location non univoci.
 - Le immagini lette dal renderer devono appartenere agli asset del progetto aperto.
 - Il ripristino di una revisione accetta solo snapshot appartenenti al progetto aperto e crea una revisione dello stato corrente prima di sovrascrivere l'entità.
 
@@ -345,6 +346,7 @@ References:
 
 - Operations on nodes, scenes, timeline, revisions, connections, characters, locations, links, and images verify that involved IDs belong to the open project.
 - This prevents cross-project links or manipulation.
+- Automatic `@` reference linking uses only cards from the open project and skips non-unique names or locations.
 - Images read by the renderer must belong to assets of the open project.
 - Revision restore accepts only snapshots belonging to the open project and creates a revision of the current state before overwriting the entity.
 

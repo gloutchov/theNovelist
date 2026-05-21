@@ -265,6 +265,28 @@ test('chapter editor toolbar undo and redo text changes', async ({ page }) => {
   await expect(editorContent).toContainText('Testo base. Aggiunta.');
 });
 
+test('chapter editor autosave refresh does not overwrite text typed during save', async ({
+  page,
+}) => {
+  await installNovelistApiMock(page, { chapterSaveDelayMs: 900 });
+  await page.goto('/');
+
+  await openSeededChapterEditor(page, 'E2E Chapter Autosave No Overwrite', 'Capitolo base.');
+  const editorContent = page.locator('.novelist-editor-content');
+
+  await editorContent.click();
+  await editorContent.press('End');
+  await editorContent.pressSequentially(' Prima aggiunta.');
+  await expect(editorContent).toContainText('Capitolo base. Prima aggiunta.');
+
+  await page.waitForTimeout(1300);
+  await editorContent.pressSequentially(' Seconda aggiunta.');
+  await expect(editorContent).toContainText('Capitolo base. Prima aggiunta. Seconda aggiunta.');
+
+  await expect(editorContent).toContainText('Seconda aggiunta.', { timeout: 2500 });
+  await expect(editorContent).toContainText('Capitolo base. Prima aggiunta. Seconda aggiunta.');
+});
+
 test('scene editor toolbar undo and redo text changes', async ({ page }) => {
   await openSceneEditorWithSeededText(page, 'E2E Scene Undo Redo', 'Scena base.');
   const editorShell = page.locator('.editor-shell');
@@ -285,6 +307,26 @@ test('scene editor toolbar undo and redo text changes', async ({ page }) => {
 
   await redoButton.click();
   await expect(editorContent).toContainText('Scena base. Dettaglio.');
+});
+
+test('scene editor autosave refresh does not overwrite text typed during save', async ({ page }) => {
+  await installNovelistApiMock(page, { sceneSaveDelayMs: 900 });
+  await page.goto('/');
+
+  await openSceneEditorWithSeededText(page, 'E2E Scene Autosave No Overwrite', 'Scena base.');
+  const editorContent = page.locator('.novelist-editor-content');
+
+  await editorContent.click();
+  await editorContent.press('End');
+  await editorContent.pressSequentially(' Prima aggiunta.');
+  await expect(editorContent).toContainText('Scena base. Prima aggiunta.');
+
+  await page.waitForTimeout(1300);
+  await editorContent.pressSequentially(' Seconda aggiunta.');
+  await expect(editorContent).toContainText('Scena base. Prima aggiunta. Seconda aggiunta.');
+
+  await expect(editorContent).toContainText('Seconda aggiunta.', { timeout: 2500 });
+  await expect(editorContent).toContainText('Scena base. Prima aggiunta. Seconda aggiunta.');
 });
 
 test('text editors can rename chapters and scenes', async ({ page }) => {

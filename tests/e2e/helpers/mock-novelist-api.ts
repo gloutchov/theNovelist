@@ -12,6 +12,7 @@ export interface NovelistApiMockOptions {
   autosaveMode?: 'manual' | 'interval' | 'auto';
   bootstrap?: NovelistApiMockBootstrap;
   chapterSaveDelayMs?: number;
+  sceneSaveDelayMs?: number;
   wikiSyncDelayMs?: number;
 }
 
@@ -1319,6 +1320,9 @@ export async function installNovelistApiMock(
         positionX: number;
         positionY: number;
       }) => {
+        if (inputOptions.sceneSaveDelayMs) {
+          await delay(inputOptions.sceneSaveDelayMs);
+        }
         const card = state.sceneCards.find((item) => item.id === payload.id);
         if (!card) {
           throw new Error('Scene card not found');

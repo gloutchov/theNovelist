@@ -17,6 +17,10 @@ import type {
 import type { ProjectSessionManager } from '../projects/session';
 import { getStoryContext, syncProjectWikiSourcesBestEffort } from './project-context';
 import { createAutomaticRevision } from './revision-content';
+import {
+  autoLinkEntityReferences,
+  extractEntityReferenceMentionIds,
+} from '../../shared/reference-autolink';
 
 type Repository = ReturnType<ProjectSessionManager['getRepository']>;
 type ChapterNodeRecord = ReturnType<Repository['listChapterNodes']>[number];
@@ -87,6 +91,63 @@ function normalizeRichTextDocumentMentions(
   return canonicalizeRichTextDocumentMentions(document, {
     getLabel: (type, id) => getReferenceLabel(repository, type, id),
   });
+}
+
+function autoLinkRichTextDocumentReferences(
+  repository: Repository,
+  projectId: string,
+  document: RichTextDocument,
+): RichTextDocument {
+  return autoLinkEntityReferences(
+    document,
+    repository.listCharacterCards(projectId),
+    repository.listLocationCards(projectId),
+  ).document as RichTextDocument;
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function syncChapterEntityLinks(
+  repository: Repository,
+  projectId: string,
+  chapterNodeId: string,
+  document: RichTextDocument,
+): void {
+  const references = extractEntityReferenceMentionIds(document);
+
+  for (const character of repository.listCharacterCards(projectId)) {
+    const currentLinks = repository
+      .listCharacterChapterLinks(character.id)
+      .map((link) => link.chapterNodeId);
+    const nextLinks = currentLinks.filter((id) => id !== chapterNodeId);
+    if (references.characterIds.has(character.id)) {
+      nextLinks.push(chapterNodeId);
+    }
+    if (!areStringArraysEqual(currentLinks, nextLinks)) {
+      repository.setCharacterChapterLinks({
+        characterCardId: character.id,
+        chapterNodeIds: nextLinks,
+      });
+    }
+  }
+
+  for (const location of repository.listLocationCards(projectId)) {
+    const currentLinks = repository
+      .listLocationChapterLinks(location.id)
+      .map((link) => link.chapterNodeId);
+    const nextLinks = currentLinks.filter((id) => id !== chapterNodeId);
+    if (references.locationIds.has(location.id)) {
+      nextLinks.push(chapterNodeId);
+    }
+    if (!areStringArraysEqual(currentLinks, nextLinks)) {
+      repository.setLocationChapterLinks({
+        locationCardId: location.id,
+        chapterNodeIds: nextLinks,
+      });
+    }
+  }
 }
 
 function buildSummaryPrompt(
@@ -338,10 +399,16 @@ export class ChapterService {
     }
 
     const parsedDocument = parseRichTextDocument(input.contentJson);
-    const normalizedDocument = normalizeRichTextDocumentMentions(repository, parsedDocument);
+    const autoLinkedDocument = autoLinkRichTextDocumentReferences(
+      repository,
+      projectId,
+      parsedDocument,
+    );
+    const normalizedDocument = normalizeRichTextDocumentMentions(repository, autoLinkedDocument);
     const wordCount = getWordCountFromDocument(normalizedDocument);
     const previousDocument = repository.getChapterDocumentByNodeId(input.chapterNodeId);
     createAutomaticRevision(repository, projectId, 'chapter', input.chapterNodeId);
+    syncChapterEntityLinks(repository, projectId, input.chapterNodeId, normalizedDocument);
 
     const saved = repository.upsertChapterDocument({
       chapterNodeId: input.chapterNodeId,

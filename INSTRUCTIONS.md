@@ -135,7 +135,7 @@ The editor is simple but has everything needed, namely:
 - AI chatbot for consultation/research.
   The editor recognizes `<<` and `>>` as dialogue "angle quotes" and converts them into the correct typographic symbols.
   Whether writing a scene or a chapter, it is possible to select text and define it as the description of a character or a location. With that definition, the app will automatically generate a character card (optionally including an image) or a location card (optionally including an image).
-  To correlate characters/landscapes with chapters/scenes, simply recall them with `@`. This lets the author always know where a character appears or which chapters take place in a given location.
+  To correlate characters/landscapes with chapters/scenes, simply recall them with `@`. During save, if the text contains the first name, last name, or full name of an existing character, or the name of an existing location, the program automatically adds the missing `@` badge and links the card to the chapter. Ambiguous names shared by multiple cards are not linked automatically. This lets the author always know where a character appears or which chapters take place in a given location.
   All information will be used to create a project "memory" and to populate both the dashboard and the timeline. The information will also be essential for the AI to know what is being worked on.
 
 ### Timeline
@@ -190,7 +190,7 @@ The text editor is very simple. Here too it is divided into two distinct areas:
   The editor also lets you export the chapter to DOCX or print it.
   When leaving the editor, the AI will summarize what was written and place it in the block description.
 
-To recall a character or a location, type `@` and choose from the list. The reference will not be visible during export, but it will create a correlation between elements, visible both in the editor and in character and landscape/location cards.
+To recall a character or a location, type `@` and choose from the list. The reference will not be visible during export, but it will create a correlation between elements, visible both in the editor and in character and landscape/location cards. On save, the editor also checks ordinary textual mentions: if it finds an existing character or location without a badge, it automatically inserts the related `@` reference and synchronizes the chapter link. To avoid incorrect links, automatic checking skips non-unique first names, last names, and locations.
 If you want to create a new character or a new location without going through the Characters/Locations canvases (see later chapters), write the description in the editor, select the text, and right-click it. A dedicated menu will open to generate what you want directly. Once confirmed, the program will create the card directly for the user, filling in the attributes through AI, which searches the highlighted text for data and places it in the correct fields. If APIs are enabled, an image will also be generated automatically, again based on the description.
 In the text editor, of course, the selected text will remain present, and the badge for the newly created character or location will appear.
 It is also possible to create a scene in the same way. In this case, the scene will be marked with `#`.

@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 5.5.0, dopo la separazione dei manuali `ISTRUZIONI.md` e `INSTRUCTIONS.md`, la rimozione di `RELEASE_NOTES.md`, l'aggiunta del mini sito GitHub Pages e l'estrazione di moduli renderer per dashboard, selezione canvas e diff revisioni.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 5.6.0, con il controllo automatico dei riferimenti `@` mancanti per personaggi e location in capitoli e scene.
 
 ### Vista generale
 
@@ -117,7 +117,8 @@ src/
 |   |-- index.html
 |   `-- src/
 `-- shared/
-    `-- ipc-channels.ts
+    |-- ipc-channels.ts
+    `-- reference-autolink.ts
 ```
 
 #### `src/main`
@@ -244,6 +245,7 @@ tests/unit/
 |-- network-http.test.ts
 |-- production-security.test.ts
 |-- project-*.test.ts
+|-- reference-autolink.test.ts
 |-- repository.test.ts
 |-- revision-diff.test.ts
 |-- rich-text.test.ts
@@ -282,7 +284,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 5.5.0, after splitting the user manuals into `ISTRUZIONI.md` and `INSTRUCTIONS.md`, removing `RELEASE_NOTES.md`, adding the GitHub Pages mini site, and extracting renderer modules for the dashboard, canvas selection, and revision diffs.
+This map describes the main file layout and module responsibilities. It is updated for source version 5.6.0, with automatic checking for missing `@` references to characters and locations in chapters and scenes.
 
 ### Overview
 
@@ -391,7 +393,8 @@ src/
 |   |-- index.html
 |   `-- src/
 `-- shared/
-    `-- ipc-channels.ts
+    |-- ipc-channels.ts
+    `-- reference-autolink.ts
 ```
 
 #### `src/main`
@@ -518,6 +521,7 @@ tests/unit/
 |-- network-http.test.ts
 |-- production-security.test.ts
 |-- project-*.test.ts
+|-- reference-autolink.test.ts
 |-- repository.test.ts
 |-- revision-diff.test.ts
 |-- rich-text.test.ts
