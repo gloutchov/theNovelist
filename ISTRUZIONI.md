@@ -91,7 +91,7 @@ Questo significa che:
 
 E' quindi possibile che all'avvio il Sistema Operativo vi chieda il permesso a procedere nell'apertura dell'app.
 
-Nota: In caso abbiate dubbi, nel repository trovate i checksum dei programmi. Nell'area Tech di questo documento trovate le istruzioni per verificare che i files non siano stati compromessi.
+_Nota:_ In caso abbiate dubbi, nel repository trovate i checksum dei programmi. Nell'area Tech di questo documento trovate le istruzioni per verificare che i files non siano stati compromessi.
 
 ### Avvio di The Novelist
 
@@ -218,7 +218,7 @@ Le due aree non sono molto differenti da quelle già viste. Sia il blocco person
 Sia i blocchi personaggio, sia i blocchi location, sono dotati di 'maniglie', esattamente come avviene nel Canvas dells Struttura Progetto. Ciò permette di collegare tra loro personaggi che hanno un legame, o location legate tra loro.
 Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già descritte nell'interfaccia principale, tramite il tab `Trame` e il tasto `Nuova Trama`.
 
-Nota: Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
+_Nota:_ Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
 
 ## Revisioni
 

@@ -92,7 +92,7 @@ This means that:
 
 It is therefore possible that, on launch, the operating system will ask for permission before opening the app.
 
-Note: If you have doubts, the repository includes checksums for the programs. The Tech area of this document contains instructions for verifying that the files have not been compromised.
+_Note:_ If you have doubts, the repository includes checksums for the programs. The Tech area of this document contains instructions for verifying that the files have not been compromised.
 
 ### Launching The Novelist
 
@@ -220,7 +220,7 @@ The two areas are not very different from those already described. Both the char
 Both character blocks and location blocks have handles, exactly as in the Project Structure canvas. This makes it possible to connect characters who have a relationship, or locations linked to each other.
 The Plots canvas is not different from the other two, but it offers the features already described in the main interface, through the `Plots` tab and the `New Plot` button.
 
-Note: If you use API keys, it will be possible to generate and attach the image directly with the Generate In-App button. Otherwise, you will need to create the prompt, copy it to a cloud chatbot, generate the image, download it, and attach it with the Attach button.
+_Note:_ If you use API keys, it will be possible to generate and attach the image directly with the Generate In-App button. Otherwise, you will need to create the prompt, copy it to a cloud chatbot, generate the image, download it, and attach it with the Attach button.
 
 ## Revisions
 The program allows users to compare the current version of a text (Chapter, Scene, Character, Location) with its previous versions. The program highlights differences, additions, and deletions, so that the author has a clear understanding of what has changed between the various versions and the most recent one.
