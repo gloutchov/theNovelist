@@ -25,8 +25,8 @@ function escapeHtml(value: string): string {
 
 async function resolveAppLogoDataUrl(): Promise<string> {
   const iconCandidates = [
-    path.join(__dirname, '../../build/icon.png'),
     path.join(process.resourcesPath, 'icon.png'),
+    path.join(__dirname, '../../build/icon.png'),
     path.join(process.resourcesPath, 'icon.icns'),
     path.join(process.resourcesPath, 'build/icon.png'),
   ];
@@ -38,7 +38,11 @@ async function resolveAppLogoDataUrl(): Promise<string> {
     }
   }
 
-  return nativeImage.createEmpty().toDataURL();
+  const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="52" fill="#4f46e5"/>
+  <text x="128" y="153" text-anchor="middle" font-family="Arial, sans-serif" font-size="86" font-weight="700" fill="#ffffff">N</text>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackSvg)}`;
 }
 
 async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {

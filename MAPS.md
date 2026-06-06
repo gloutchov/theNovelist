@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.0.1, con il canvas Appunti per fonti esterne importate, indicizzate localmente e AI opzionale per PDF/Excel.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.0.2, con il canvas Appunti per fonti esterne importate, indicizzate localmente e AI opzionale per PDF/Excel.
 
 ### Vista generale
 
@@ -286,7 +286,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 6.0.1, with the Notes canvas for imported external sources indexed locally and optional AI for PDFs/Excel files.
+This map describes the main file layout and module responsibilities. It is updated for source version 6.0.2, with the Notes canvas for imported external sources indexed locally and optional AI for PDFs/Excel files.
 
 ### Overview
 
