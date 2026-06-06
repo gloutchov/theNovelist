@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage } from 'electron
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { getAppPreferences } from './app-preferences';
+import { confirmActiveExternalSourceImportClose } from './dialogs/active-import';
 import { registerIpcHandlers } from './ipc';
 import { getMainLanguage, setMainLanguage, translateMain } from './i18n';
 import { ProjectSessionManager } from './projects/session';
@@ -11,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectSessionManager = new ProjectSessionManager();
 const ABOUT_COPYRIGHT = 'Copyright © 2026 Gloutchov';
 let aboutWindow: BrowserWindow | null = null;
+let activeImportAppCloseConfirmed = false;
 
 function escapeHtml(value: string): string {
   return value
@@ -22,15 +24,18 @@ function escapeHtml(value: string): string {
 }
 
 async function resolveAppLogoDataUrl(): Promise<string> {
-  try {
-    const icon = await app.getFileIcon(process.execPath, {
-      size: 'large',
-    });
+  const iconCandidates = [
+    path.join(__dirname, '../../build/icon.png'),
+    path.join(process.resourcesPath, 'icon.png'),
+    path.join(process.resourcesPath, 'icon.icns'),
+    path.join(process.resourcesPath, 'build/icon.png'),
+  ];
+
+  for (const iconPath of iconCandidates) {
+    const icon = nativeImage.createFromPath(iconPath);
     if (!icon.isEmpty()) {
       return icon.toDataURL();
     }
-  } catch {
-    // Fall through to a generated placeholder if file icon lookup fails.
   }
 
   return nativeImage.createEmpty().toDataURL();
@@ -116,7 +121,7 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
     autoHideMenuBar: true,
     title: aboutTitle,
     parent: parentWindow,
-    modal: Boolean(parentWindow),
+    modal: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -153,11 +158,6 @@ function confirmPendingChanges(mainWindow: BrowserWindow): boolean {
 }
 
 function showAppInfo(parentWindow?: BrowserWindow): void {
-  if (process.platform === 'darwin') {
-    app.showAboutPanel();
-    return;
-  }
-
   void openAboutWindow(parentWindow);
 }
 
@@ -271,6 +271,23 @@ function createWindow(): void {
     },
   });
 
+  mainWindow.on('close', (event) => {
+    if (!projectSessionManager.hasActiveExternalSourceImport() || activeImportAppCloseConfirmed) {
+      return;
+    }
+
+    const confirmed = confirmActiveExternalSourceImportClose({
+      sessionManager: projectSessionManager,
+      browserWindow: mainWindow,
+      target: 'app',
+    });
+    if (!confirmed) {
+      event.preventDefault();
+      return;
+    }
+    activeImportAppCloseConfirmed = true;
+  });
+
   if (!debugToolsEnabled) {
     mainWindow.webContents.on('before-input-event', (event, input) => {
       if (isBlockedProductionShortcut(input)) {
@@ -341,6 +358,20 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (projectSessionManager.hasActiveExternalSourceImport() && !activeImportAppCloseConfirmed) {
+    const browserWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    const confirmed = confirmActiveExternalSourceImportClose({
+      sessionManager: projectSessionManager,
+      browserWindow,
+      target: 'app',
+    });
+    if (!confirmed) {
+      event.preventDefault();
+      return;
+    }
+    activeImportAppCloseConfirmed = true;
+  }
+
   projectSessionManager.closeProject();
 });

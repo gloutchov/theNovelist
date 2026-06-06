@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 5.6.0<br />
+  <strong>Versione sorgente / Source version:</strong> 6.0.0<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://gloutchov.github.io/theNovelist/">gloutchov.github.io/theNovelist</a>
@@ -40,14 +40,15 @@ Nota: la cartella locale `release/` puo contenere build precedenti o artefatti g
 - Cruscotto progetto con metriche, obiettivi, snapshot, semafori memoria/AI/fallback, stato AI/autosave e controlli editoriali.
 - Interfaccia bilingue italiano/inglese con rilevamento automatico della lingua di sistema, override manuale e tema chiaro/scuro/sistema.
 - Canvas capitoli con nodi, connessioni e trame parallele colorate.
-- Canvas dedicati per trame, scene, personaggi e location.
+- Canvas dedicati per trame, scene, personaggi, location e appunti esterni.
 - Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`, piu aggancio automatico dei riferimenti mancanti.
 - Creazione rapida di schede da testo selezionato.
 - Timeline cronologica separata dall'ordine di lettura, con viste distinte per capitoli e scene.
 - Scaletta drag and drop per ordinare il manoscritto.
+- Canvas Appunti per importare file di ricerca come fonti esterne, indicizzarli nella Memoria Wiki e collegarli fra loro, con AI opzionale per PDF/Excel non leggibili localmente.
 - Vista lettura per capitolo singolo o documento completo.
 - Revisioni di capitoli, scene, personaggi e location.
-- Memoria Wiki locale in Markdown, derivata dal database del progetto e interrogabile dall'app.
+- Memoria Wiki locale in Markdown, derivata dal database del progetto, inclusi gli Appunti esterni, e interrogabile dall'app.
 - Analisi AI per coerenza narrativa, eventi non risolti, stile, ritmo e nomi/convenzioni.
 - Export e stampa: capitolo singolo in DOCX/stampa; manoscritto completo in DOCX, ePUB e stampa.
 
@@ -114,17 +115,6 @@ Note sui moduli nativi:
 - `better-sqlite3` viene rebuildato per Electron prima di sviluppo/packaging.
 - Dopo test Electron o packaging, i moduli vengono riportati al target Node per test e tool locali.
 
-### Release 5.6.0
-
-La versione 5.6.0 introduce:
-
-- controllo automatico dei nomi di personaggi e location citati nei capitoli e nelle scene;
-- inserimento automatico del badge `@` quando una citazione testuale non e ancora collegata alla scheda;
-- sincronizzazione dei collegamenti capitolo-personaggio e capitolo-location durante il salvataggio;
-- protezione dai casi ambigui: nomi o cognomi condivisi tra piu schede non vengono agganciati automaticamente.
-
-Le note sintetiche della release corrente sono mantenute qui nel README per evitare duplicazione con un file separato.
-
 ---
 
 ## English
@@ -150,14 +140,15 @@ Note: the local `release/` folder may contain older builds or artifacts produced
 - Project dashboard with metrics, goals, snapshots, memory/AI/fallback traffic lights, AI/autosave status, and editorial checks.
 - Bilingual Italian/English interface with automatic system-language detection, manual override, and light/dark/system theme selection.
 - Chapter canvas with nodes, connections, and color-coded parallel plots.
-- Dedicated canvases for plots, scenes, characters, and locations.
+- Dedicated canvases for plots, scenes, characters, locations, and external notes.
 - Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`, plus automatic linking for missing references.
 - Quick card creation from selected text.
 - Chronological timeline independent from reading order, with separate chapter and scene views.
 - Drag-and-drop outline for manuscript ordering.
+- Notes canvas for importing research files as external sources, indexing them in Wiki memory, and linking them together, with optional AI for PDFs/Excel files not readable locally.
 - Reading view for a single chapter or the full document.
 - Revisions for chapters, scenes, characters, and locations.
-- Local Markdown Wiki memory derived from the project database and searchable from the app.
+- Local Markdown Wiki memory derived from the project database, including external Notes sources, and searchable from the app.
 - AI analysis for narrative coherence, unresolved events, style, rhythm, and names/conventions.
 - Export and print: single chapter to DOCX/print; full manuscript to DOCX, ePUB, and print.
 
@@ -223,17 +214,6 @@ Native module notes:
 
 - `better-sqlite3` is rebuilt for Electron before development/packaging.
 - After Electron tests or packaging, modules are restored to the Node target for local tests and tools.
-
-### Release 5.6.0
-
-Version 5.6.0 introduces:
-
-- automatic checks for character and location names mentioned in chapters and scenes;
-- automatic `@` badge insertion when a textual mention is not yet linked to its card;
-- chapter-character and chapter-location link synchronization during save;
-- ambiguity protection: first names or last names shared by multiple cards are not linked automatically.
-
-Short notes for the current release are kept here in the README to avoid duplicating them in a separate file.
 
 ## License
 

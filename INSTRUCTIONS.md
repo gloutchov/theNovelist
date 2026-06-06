@@ -42,6 +42,7 @@ In any case, it remains, always, an app made through vibe-coding.
 - The interface
 - Chapters/Scenes canvas: how the text editor works
 - Plots/Characters/Locations canvases
+- Notes Canvas
 - Memory
 - Settings
 
@@ -64,6 +65,7 @@ Main features:
 - Plot cards.
 - Character cards.
 - Location cards.
+- Notes canvas for external sources and research material.
 - Every narrative block (scene/chapter) has an AI-assisted editor.
 - Every Character Card and Location Card has an AI assistant.
 - Revision management tool for every scene/chapter/character/location.
@@ -138,21 +140,24 @@ The editor is simple but has everything needed, namely:
   To correlate characters/landscapes with chapters/scenes, simply recall them with `@`. During save, if the text contains the first name, last name, or full name of an existing character, or the name of an existing location, the program automatically adds the missing `@` badge and links the card to the chapter. Ambiguous names shared by multiple cards are not linked automatically. This lets the author always know where a character appears or which chapters take place in a given location.
   All information will be used to create a project "memory" and to populate both the dashboard and the timeline. The information will also be essential for the AI to know what is being worked on.
 
-### Timeline
+### Building a Timeline
 
 The timeline is useful for placing narrated events in chronological order. It is built manually, but each time you enter the timeline view it will show elements already positioned and new elements still to be positioned. From the sidebar, the author can choose between Chapter Timeline and Scene Timeline, so the two chronological views can be managed separately.
 The author can also specify precise start and end dates for the timeline, and define specific dates for each individual element connected to it.
 
-### Outline
+### Building the Outline
 
 The outline is a vertical drag-and-drop tool where the author can arrange chapters as preferred. Printing or exporting the novel/short story will follow the order chosen in this view. The Open button lets you read a chapter, or the entire document, in a distraction-free window designed not to strain the eyes.
 
-### Revisions
+### Collecting documents and Notes
+
+The program includes a Notes section. In this section it is possible to drag documents that are useful for drafting the text. Text files, Word documents, and Excel files can be uploaded. Notes are stored in the project, indexed, and saved in memory, so they can be accessed at any time, or so the AI can be asked to consult them to retrieve specific information.
+
+### Evaluating Revisions
 
 The program keeps a record of every change made to chapters and scenes, as well as to character and location cards. If you want to go back, you can open the Revisions view, find the desired version, and restore it.
-Be careful, however: once an old draft is restored, it will no longer be possible to return to the latest generated version.
 
-### Analysis
+### Running a text Analysis
 
 The program offers a series of tools that, thanks to AI, can evaluate the written text and identify potential flaws or possible missing elements.
 
@@ -222,7 +227,28 @@ The Plots canvas is not different from the other two, but it offers the features
 
 _Note:_ If you use API keys, it will be possible to generate and attach the image directly with the Generate In-App button. Otherwise, you will need to create the prompt, copy it to a cloud chatbot, generate the image, download it, and attach it with the Attach button.
 
+## Notes Canvas
+
+The `Notes` tab lets you import research material or useful drafting documents and store them without treating them as part of the novel.
+
+To import a source, drag one or more files onto the canvas. Supported files include TXT, Markdown, JSON, XML, YAML and other plain text files, RTF, CSV/TSV, DOCX, PDF, and Excel XLSX/XLS. The program copies each file into a dedicated project directory (`assets/sources/`), tries to read its content, indexes it locally, and creates a block on the canvas.
+
+For PDFs, the program first tries local extraction of embedded text. If a PDF contains little or no readable text, for example because it is scanned, the app asks whether to use OCR through AI: the file is sent to the AI provider only after confirmation and only if the project AI settings enable the necessary features.
+
+For CSV/TSV/XLS/XLSX files, the program first tries to read the content locally. If it cannot extract enough text, the same confirmation allows the spreadsheet to be sent to the AI as a file input and converted into indexable table text.
+
+During OCR or AI analysis, the Notes canvas shows a `Document being processed...` badge; the status panel shows `File being processed by AI...`.
+
+If you try to close the project or the program while a file is being processed, the program asks for confirmation: closing anyway can lose the in-progress processing data.
+
+Each block shows the file name, file type, and a short summary. Blocks have handles like the other canvases, so they can be connected to represent relationships between sources. You can select, move individually or in groups, delete blocks, and delete connections. Double-clicking a block opens the imported file with the system default application.
+
+When a Notes block is deleted, the program asks for confirmation because the corresponding imported file is deleted as well.
+
+Notes are also exported into the Wiki memory as `external_source` entries: file name, type, relationships, summary, and extracted text are searchable from the `Memory` view. If project memory is enabled for the AI chat, questions asked from the chapter/scene editor can also retrieve these sources as citable context. The AI is instructed to use these sources for answers, summaries, and precise details, not to transcribe full documents or long passages.
+
 ## Revisions
+
 The program allows users to compare the current version of a text (Chapter, Scene, Character, Location) with its previous versions. The program highlights differences, additions, and deletions, so that the author has a clear understanding of what has changed between the various versions and the most recent one.
 
 If desired, the author can restore a previous draft by clicking the Restore button.
@@ -241,7 +267,7 @@ The report provided is only indicative, but useful to the author during the revi
 
 ## Memory
 
-Each writing project has been given a sort of Wiki page that is updated at every save and that the AI can access to have greater awareness of the novel and provide more coherent answers. The Wiki memory contains information from the Text Editor, Plots, Characters, and Locations. Data is updated automatically, but manual updates can also be performed. The memory also tracks conversations with the AI in the text editor, so that they enrich the AI's knowledge as well. The AI should be seen as a 360-degree assistant.
+Each writing project has been given a sort of Wiki page that is updated at every save and that the AI can access to have greater awareness of the novel and provide more coherent answers. The Wiki memory contains information from the Text Editor, Plots, Characters, Locations, and Notes imported as external sources. Data is updated automatically, but manual updates can also be performed. The memory also tracks conversations with the AI in the text editor, so that they enrich the AI's knowledge as well. The AI should be seen as a 360-degree assistant.
 
 The memory can be queried at any time, both from the chatbot in the text editor and directly from the view called Memory. There is a Google-style search bar. In addition to answers related to the question asked or the keyword searched, the sources from which the answer was extracted will be available.
 

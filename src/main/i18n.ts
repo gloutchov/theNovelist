@@ -7,6 +7,14 @@ const mainDictionaries = {
   it: {
     'about.title': 'Info',
     'about.version': 'Versione {version}',
+    'dialog.activeImport.buttons.cancel': 'Annulla',
+    'dialog.activeImport.buttons.close': 'Chiudi',
+    'dialog.activeImport.cancelled': 'Chiusura annullata.',
+    'dialog.activeImport.message.app':
+      'Un file è in elaborazione. Sei sicuro di voler chiudere il programma? I dati saranno persi.',
+    'dialog.activeImport.message.project':
+      'Un file è in elaborazione. Sei sicuro di voler chiudere il progetto? I dati saranno persi.',
+    'dialog.activeImport.title': 'File in elaborazione',
     'dialog.directory.button': 'Seleziona',
     'dialog.directory.title': 'Seleziona cartella progetto',
     'dialog.export.chapterDocx.title': 'Esporta capitolo DOCX',
@@ -31,6 +39,14 @@ const mainDictionaries = {
   en: {
     'about.title': 'About',
     'about.version': 'Version {version}',
+    'dialog.activeImport.buttons.cancel': 'Cancel',
+    'dialog.activeImport.buttons.close': 'Close',
+    'dialog.activeImport.cancelled': 'Close cancelled.',
+    'dialog.activeImport.message.app':
+      'A file is being processed. Are you sure you want to close the program? Data will be lost.',
+    'dialog.activeImport.message.project':
+      'A file is being processed. Are you sure you want to close the project? Data will be lost.',
+    'dialog.activeImport.title': 'File Processing',
     'dialog.directory.button': 'Select',
     'dialog.directory.title': 'Select project folder',
     'dialog.export.chapterDocx.title': 'Export chapter DOCX',

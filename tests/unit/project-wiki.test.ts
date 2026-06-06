@@ -6,6 +6,7 @@ import { openDatabase } from '../../src/main/persistence/database';
 import { NovelistRepository } from '../../src/main/persistence/repository';
 import { createProjectOnDisk } from '../../src/main/projects/project-files';
 import { ensureProjectWiki } from '../../src/main/wiki/bootstrap';
+import { searchProjectWiki } from '../../src/main/wiki/search';
 import { exportProjectSources } from '../../src/main/wiki/source-export';
 import { syncProjectWikiDeterministic } from '../../src/main/wiki/sync';
 
@@ -147,6 +148,39 @@ describe('project wiki', () => {
         content: 'Il patto avviene nel magazzino.',
         mode: 'fallback',
       });
+      const externalSource = repository.createExternalSource(project.id, {
+        fileName: 'Dossier porto.txt',
+        fileType: 'txt',
+        storedFilePath: 'assets/sources/dossier-porto.txt',
+        originalFilePath: '/tmp/dossier-porto.txt',
+        summary: 'Il dossier cita il faro verde e il codice LANTERNA-17.',
+        extractedText:
+          'Nel dossier del porto si specifica che il faro verde resta acceso durante la consegna. Il codice operativo è LANTERNA-17.',
+        extractionMethod: 'local',
+        extractionStatus: 'indexed',
+        extractionMessage: '',
+        positionX: 420,
+        positionY: 260,
+      });
+      const relatedExternalSource = repository.createExternalSource(project.id, {
+        fileName: 'Mappa banchina.csv',
+        fileType: 'csv',
+        storedFilePath: 'assets/sources/mappa-banchina.csv',
+        originalFilePath: '/tmp/mappa-banchina.csv',
+        summary: 'Mappa della banchina.',
+        extractedText: 'Banchina nord, magazzino, faro verde.',
+        extractionMethod: 'local',
+        extractionStatus: 'indexed',
+        extractionMessage: '',
+        positionX: 760,
+        positionY: 260,
+      });
+      repository.createExternalSourceEdge(project.id, {
+        sourceId: externalSource.id,
+        targetId: relatedExternalSource.id,
+        sourceHandle: 'handle-right',
+        targetHandle: 'handle-left',
+      });
 
       const firstExport = await exportProjectSources({
         wikiPath: projectContext.wikiPath,
@@ -198,6 +232,34 @@ describe('project wiki', () => {
       expect(timelineSource).toContain('# Timeline Sources');
       expect(timelineSource).toContain('Ordine cronologico di lavoro definito dall’autore');
 
+      const externalSourceFiles = await readdir(
+        path.join(projectContext.wikiPath, 'sources', 'external-sources'),
+      );
+      expect(externalSourceFiles).toHaveLength(2);
+      const exportedExternalSource = await readFile(
+        path.join(
+          projectContext.wikiPath,
+          'sources',
+          'external-sources',
+          `external-source-${externalSource.id}.md`,
+        ),
+        'utf8',
+      );
+      expect(exportedExternalSource).toContain('# Dossier porto.txt');
+      expect(exportedExternalSource).toContain('- source_type: external_source');
+      expect(exportedExternalSource).toContain('LANTERNA-17');
+      expect(exportedExternalSource).toContain('outgoing: Mappa banchina.csv');
+
+      const externalSearchResults = await searchProjectWiki(
+        projectContext.wikiPath,
+        'LANTERNA-17 faro verde',
+      );
+      expect(externalSearchResults[0]).toMatchObject({
+        path: `sources/external-sources/external-source-${externalSource.id}.md`,
+        title: 'Dossier porto.txt',
+        category: 'source',
+      });
+
       const state = JSON.parse(
         await readFile(path.join(projectContext.wikiPath, 'maintenance', 'last-sync.json'), 'utf8'),
       ) as { derivedPending: boolean; sources: Record<string, unknown> };
@@ -212,8 +274,51 @@ describe('project wiki', () => {
           'cards/plot.md',
           'cards/timeline.md',
           'ai/chat.md',
+          `external-sources/external-source-${externalSource.id}.md`,
         ]),
       );
+
+      await writeFile(
+        path.join(
+          projectContext.wikiPath,
+          'sources',
+          'external-sources',
+          'external-source-orphan.md',
+        ),
+        '# stale external source\n',
+        'utf8',
+      );
+      repository.deleteExternalSource(relatedExternalSource.id);
+      const externalDeleteExport = await exportProjectSources({
+        wikiPath: projectContext.wikiPath,
+        repository,
+        project,
+      });
+      const remainingExternalSources = await readdir(
+        path.join(projectContext.wikiPath, 'sources', 'external-sources'),
+      );
+      expect(externalDeleteExport.changed).toBe(true);
+      expect(remainingExternalSources).toEqual([`external-source-${externalSource.id}.md`]);
+      await expect(
+        access(
+          path.join(
+            projectContext.wikiPath,
+            'sources',
+            'external-sources',
+            `external-source-${relatedExternalSource.id}.md`,
+          ),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        access(
+          path.join(
+            projectContext.wikiPath,
+            'sources',
+            'external-sources',
+            'external-source-orphan.md',
+          ),
+        ),
+      ).rejects.toThrow();
 
       repository.deleteChapterNode(chapter.id);
       const deleteExport = await exportProjectSources({

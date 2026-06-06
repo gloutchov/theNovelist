@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { CharacterRepository } from './repositories/character-repository';
 import { CodexRepository } from './repositories/codex-repository';
+import { ExternalSourceRepository } from './repositories/external-source-repository';
 import { LocationRepository } from './repositories/location-repository';
 import { ProjectRepository } from './repositories/project-repository';
 import { RevisionRepository } from './repositories/revision-repository';
@@ -20,6 +21,8 @@ import type {
   CreateCharacterCardInput,
   CreateCharacterImageInput,
   CreateEntityRevisionInput,
+  CreateExternalSourceEdgeInput,
+  CreateExternalSourceInput,
   CreateWritingSessionInput,
   CreateStoryEdgeInput,
   CreateChapterNodeInput,
@@ -30,6 +33,8 @@ import type {
   SetCharacterChapterLinksInput,
   SetLocationChapterLinksInput,
   EntityRevisionRecord,
+  ExternalSourceEdgeRecord,
+  ExternalSourceRecord,
   LocationChapterLinkRecord,
   LocationCardRecord,
   LocationImageRecord,
@@ -40,6 +45,7 @@ import type {
   TimelineSettingsRecord,
   UpdateChapterNodeInput,
   UpdateCharacterCardInput,
+  UpdateExternalSourceInput,
   UpdatePlotInput,
   UpdateLocationCardInput,
   UpdateSceneCardInput,
@@ -53,6 +59,7 @@ import type {
 export class NovelistRepository {
   private readonly characterRepository: CharacterRepository;
   private readonly codexRepository: CodexRepository;
+  private readonly externalSourceRepository: ExternalSourceRepository;
   private readonly locationRepository: LocationRepository;
   private readonly projectRepository: ProjectRepository;
   private readonly revisionRepository: RevisionRepository;
@@ -63,6 +70,7 @@ export class NovelistRepository {
   constructor(db: Database.Database) {
     this.characterRepository = new CharacterRepository(db);
     this.codexRepository = new CodexRepository(db);
+    this.externalSourceRepository = new ExternalSourceRepository(db);
     this.locationRepository = new LocationRepository(db);
     this.projectRepository = new ProjectRepository(db);
     this.revisionRepository = new RevisionRepository(db);
@@ -175,6 +183,41 @@ export class NovelistRepository {
 
   deleteStoryEdge(edgeId: string): void {
     this.storyRepository.deleteStoryEdge(edgeId);
+  }
+
+  createExternalSource(projectId: string, input: CreateExternalSourceInput): ExternalSourceRecord {
+    return this.externalSourceRepository.createExternalSource(projectId, input);
+  }
+
+  updateExternalSource(sourceId: string, input: UpdateExternalSourceInput): ExternalSourceRecord {
+    return this.externalSourceRepository.updateExternalSource(sourceId, input);
+  }
+
+  getExternalSourceById(sourceId: string): ExternalSourceRecord | null {
+    return this.externalSourceRepository.getExternalSourceById(sourceId);
+  }
+
+  listExternalSources(projectId: string): ExternalSourceRecord[] {
+    return this.externalSourceRepository.listExternalSources(projectId);
+  }
+
+  deleteExternalSource(sourceId: string): void {
+    this.externalSourceRepository.deleteExternalSource(sourceId);
+  }
+
+  createExternalSourceEdge(
+    projectId: string,
+    input: CreateExternalSourceEdgeInput,
+  ): ExternalSourceEdgeRecord {
+    return this.externalSourceRepository.createExternalSourceEdge(projectId, input);
+  }
+
+  listExternalSourceEdges(projectId: string): ExternalSourceEdgeRecord[] {
+    return this.externalSourceRepository.listExternalSourceEdges(projectId);
+  }
+
+  deleteExternalSourceEdge(edgeId: string): void {
+    this.externalSourceRepository.deleteExternalSourceEdge(edgeId);
   }
 
   isIdInProject(projectId: string, entityId: string): boolean {

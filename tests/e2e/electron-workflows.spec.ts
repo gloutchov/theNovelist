@@ -34,7 +34,7 @@ async function launchBuiltElectronApp(
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
     },
   });
-  const window = await app.firstWindow();
+  const window = app.windows()[0] ?? (await app.waitForEvent('window'));
   await window.waitForLoadState('domcontentloaded');
   return { app, window };
 }

@@ -17,6 +17,24 @@ afterEach(async () => {
 });
 
 describe('ProjectSessionManager', () => {
+  it('tracks active external source imports with idempotent completion', () => {
+    const session = new ProjectSessionManager();
+    expect(session.hasActiveExternalSourceImport()).toBe(false);
+
+    const completeFirst = session.beginExternalSourceImport();
+    const completeSecond = session.beginExternalSourceImport();
+    expect(session.hasActiveExternalSourceImport()).toBe(true);
+
+    completeFirst();
+    expect(session.hasActiveExternalSourceImport()).toBe(true);
+
+    completeFirst();
+    expect(session.hasActiveExternalSourceImport()).toBe(true);
+
+    completeSecond();
+    expect(session.hasActiveExternalSourceImport()).toBe(false);
+  });
+
   it('creates, opens and snapshots a project', async () => {
     const rootPath = await createTempDir('novelist-session-');
     const session = new ProjectSessionManager();

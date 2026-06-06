@@ -48,6 +48,8 @@ describe('database migrations', () => {
           'location_cards',
           'location_images',
           'location_chapter_links',
+          'external_sources',
+          'external_source_edges',
           'timeline_settings',
           'timeline_items',
         ]),
@@ -110,6 +112,24 @@ describe('database migrations', () => {
         .prepare("PRAGMA table_info('timeline_settings')")
         .all() as Array<{ name: string }>;
       expect(timelineSettingsColumns.map((row) => row.name)).toContain('timeline_end_x');
+
+      const externalSourceColumns = db
+        .prepare("PRAGMA table_info('external_sources')")
+        .all() as Array<{ name: string }>;
+      expect(externalSourceColumns.map((row) => row.name)).toEqual(
+        expect.arrayContaining([
+          'file_name',
+          'file_type',
+          'stored_file_path',
+          'summary',
+          'extracted_text',
+          'extraction_method',
+          'extraction_status',
+          'extraction_message',
+          'position_x',
+          'position_y',
+        ]),
+      );
     } finally {
       db.close();
     }

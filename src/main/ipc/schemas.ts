@@ -124,6 +124,36 @@ export const deleteEdgeRequestSchema = z.object({
   id: z.string().trim().min(1),
 });
 
+export const importExternalSourcesRequestSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        filePath: z.string().trim().min(1).max(5_000),
+        positionX: z.number(),
+        positionY: z.number(),
+      }),
+    )
+    .min(1)
+    .max(40),
+  allowAiPdfOcr: z.boolean().optional(),
+  allowAiAnalysis: z.boolean().optional(),
+});
+
+export const updateExternalSourceRequestSchema = z.object({
+  id: z.string().trim().min(1),
+  positionX: z.number(),
+  positionY: z.number(),
+});
+
+export const deleteExternalSourceRequestSchema = z.object({
+  id: z.string().trim().min(1),
+});
+
+export const openExternalSourceRequestSchema = deleteExternalSourceRequestSchema;
+
+export const createExternalSourceEdgeRequestSchema = createEdgeRequestSchema;
+export const deleteExternalSourceEdgeRequestSchema = deleteEdgeRequestSchema;
+
 export const chapterGetDocumentRequestSchema = z.object({
   chapterNodeId: z.string().trim().min(1),
 });
@@ -408,6 +438,32 @@ export const storyStateResponseSchema = z.object({
   edges: z.array(storyEdgeResponseSchema),
 });
 
+export const externalSourceResponseSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  fileName: z.string(),
+  fileType: z.string(),
+  storedFilePath: z.string(),
+  originalFilePath: z.string(),
+  summary: z.string(),
+  extractedText: z.string(),
+  extractionMethod: z.enum(['local', 'ai_ocr', 'ai_analysis', 'none']),
+  extractionStatus: z.enum(['indexed', 'partial', 'failed']),
+  extractionMessage: z.string(),
+  indexedAt: z.string(),
+  positionX: z.number(),
+  positionY: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const externalSourceEdgeResponseSchema = storyEdgeResponseSchema;
+
+export const externalSourcesStateResponseSchema = z.object({
+  sources: z.array(externalSourceResponseSchema),
+  edges: z.array(externalSourceEdgeResponseSchema),
+});
+
 export const chapterDocumentResponseSchema = z.object({
   id: z.string(),
   chapterNodeId: z.string(),
@@ -654,11 +710,16 @@ export const wikiSourceContentResponseSchema = z.object({
 });
 
 export const successResponseSchema = z.object({ ok: z.literal(true) });
+export const projectCloseResponseSchema = z.object({
+  ok: z.literal(true),
+  cancelled: z.boolean().optional(),
+});
 
 export type PingRequest = z.infer<typeof pingRequestSchema>;
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type AppPreferencesResponse = z.infer<typeof appPreferencesResponseSchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
+export type ProjectCloseResponse = z.infer<typeof projectCloseResponseSchema>;
 export type ProjectInspectPathResponse = z.infer<typeof projectInspectPathResponseSchema>;
 export type SnapshotResponse = z.infer<typeof snapshotResponseSchema>;
 export type WritingSessionResponse = z.infer<typeof writingSessionResponseSchema>;
@@ -666,6 +727,9 @@ export type PlotResponse = z.infer<typeof plotResponseSchema>;
 export type ChapterNodeResponse = z.infer<typeof chapterNodeResponseSchema>;
 export type StoryEdgeResponse = z.infer<typeof storyEdgeResponseSchema>;
 export type StoryStateResponse = z.infer<typeof storyStateResponseSchema>;
+export type ExternalSourceResponse = z.infer<typeof externalSourceResponseSchema>;
+export type ExternalSourceEdgeResponse = z.infer<typeof externalSourceEdgeResponseSchema>;
+export type ExternalSourcesStateResponse = z.infer<typeof externalSourcesStateResponseSchema>;
 export type ChapterDocumentResponse = z.infer<typeof chapterDocumentResponseSchema>;
 export type CharacterCardResponse = z.infer<typeof characterCardResponseSchema>;
 export type CharacterImageResponse = z.infer<typeof characterImageResponseSchema>;

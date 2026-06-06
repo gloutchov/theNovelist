@@ -2,6 +2,7 @@
 
 const translations = {
   it: {
+    'nav.news': 'Novità',
     'nav.features': 'Funzionalità',
     'nav.gallery': 'Immagini',
     'nav.privacy': 'Privacy',
@@ -17,7 +18,14 @@ const translations = {
     'intro.eyebrow': 'Per scrittori affermati e non',
     'intro.title': 'Un ambiente pensato per scrivere romanzi dalla A alla Z.',
     'intro.body':
-      "The Novelist offre una scrivania adatta allo sviluppo delle trame, alla gestione della timeline, all'organizzazione di personaggi e locations. Ogni storia ha la sua memoria, così che l'autore possa avere sempre consapevolezza di ciò che scrive, ed essere aiutato dalla AI quando e se è necessario, con analisi approfondite del testo.",
+      "The Novelist offre una scrivania adatta allo sviluppo delle trame, alla gestione della timeline, all'organizzazione di personaggi e locations. Offre una potente gestione degli Appunti, permettendo di caricare files ed averli sempre a disposizione quando si ha bisogno di riferimenti specifici. Ogni storia ha la sua memoria, così che l'autore possa avere sempre consapevolezza di ciò che scrive, ed essere aiutato dalla AI quando e se è necessario, con analisi approfondite del testo.",
+    'news.eyebrow': 'Novità',
+    'news.title': "E' arrivata la funzione Appunti!",
+    'news.notes.title': 'Appunti',
+    'news.notes.body':
+      "Hai bisogno di documenti specifici per lavorare al tuo romanzo? Vorresti avere tutti i files nello stesso ambiente di lavoro? Caricali nel Canvas Appunti. I documenti vengono memorizzati, indicizzati, e resi disponibili sia tramite la memoria, sia chiedendo direttamente alla AI dall'Editor di Testo. E se vuoi leggerli ed esaminarli da solo, ti basta cliccarci sopra. Il Canvas Appunti permette inoltre di collegare i documenti tra loro, in modo da rendere evidenti le potenziali relazioni.",
+    'news.notes.caption':
+      'Il Canvas Appunti organizza fonti esterne e materiali utili alla scrittura.',
     'features.eyebrow': 'Funzionalità principali',
     'features.title': 'Dalla mappa narrativa al manoscritto completo.',
     'features.dashboard.title': 'Cruscotto progetto',
@@ -71,6 +79,7 @@ const translations = {
     'download.docs': 'Manuale',
   },
   en: {
+    'nav.news': 'News',
     'nav.features': 'Features',
     'nav.gallery': 'Images',
     'nav.privacy': 'Privacy',
@@ -86,7 +95,14 @@ const translations = {
     'intro.eyebrow': 'For established and emerging writers',
     'intro.title': 'A workspace designed to write novels from A to Z.',
     'intro.body':
-      'The Novelist offers a writing desk for developing plots, managing the timeline, and organizing characters and locations. Every story has its own memory, so the author can always stay aware of what has been written and receive AI help when, and only when, it is needed, with in-depth text analysis.',
+      'The Novelist offers a writing desk for developing plots, managing the timeline, and organizing characters and locations. It also provides powerful Notes management, letting you upload files and keep them available whenever you need specific references. Every story has its own memory, so the author can always stay aware of what has been written and receive AI help when, and only when, it is needed, with in-depth text analysis.',
+    'news.eyebrow': 'News',
+    'news.title': 'The Notes feature is here!',
+    'news.notes.title': 'Notes',
+    'news.notes.body':
+      'Need specific documents while working on your novel? Would you like to keep all your files in the same workspace? Load them into the Notes Canvas. Documents are stored, indexed, and made available both through memory and by asking the AI directly from the Text Editor. And if you want to read and review them yourself, just click on them. The Notes Canvas also lets you connect documents to each other, making potential relationships visible.',
+    'news.notes.caption':
+      'The Notes Canvas organizes external sources and useful writing material.',
     'features.eyebrow': 'Main features',
     'features.title': 'From narrative map to complete manuscript.',
     'features.dashboard.title': 'Project dashboard',

@@ -16,6 +16,7 @@ describe('formatProjectMemoryContext', () => {
     expect(context).toContain('[1] Il magazzino');
     expect(context).toContain('sources/chapters/chapter-1.md');
     expect(context).toContain('cita i riferimenti');
+    expect(context).toContain('non riprodurre integralmente documenti');
   });
 
   it('formats empty results as missing evidence guidance', () => {

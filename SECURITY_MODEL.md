@@ -15,7 +15,7 @@ Questo documento riepiloga le misure di sicurezza implementate in The Novelist e
 - App desktop Electron con processi separati `main`, `preload` e `renderer`.
 - Ogni progetto vive in una cartella locale con:
   - `project.db`: database SQLite principale;
-  - `assets/`: immagini, export e allegati;
+  - `assets/`: immagini, export, allegati e fonti esterne importate;
   - `.snapshots/`: snapshot DB per recovery;
   - `wiki/`: memoria Markdown locale derivata dal database.
 - `project.db` resta la fonte di verità. La wiki è un artefatto derivato, app-managed e rigenerabile.
@@ -186,6 +186,11 @@ Riferimenti:
 
 - Le immagini associate vengono copiate in `assets/img/...`.
 - Le immagini generate vengono salvate in `assets/generated-images/...`.
+- I file importati nel canvas Appunti vengono copiati in `assets/sources/...` e registrati come fonti esterne, separate dal manoscritto.
+- L'import Appunti accetta solo estensioni previste (`txt`, `md`, `markdown`, `text`, `log`, `json`, `xml`, `yaml`, `yml`, `csv`, `tsv`, `rtf`, `docx`, `pdf`, `xlsx`, `xls`) e limita la dimensione del file prima della copia.
+- L'indicizzazione Appunti è locale e best-effort: il testo estratto viene troncato a una dimensione massima configurata e usato per riassunto/ricerca interna, non per modificare il romanzo.
+- Per i PDF senza testo locale sufficiente, l'utente può confermare un OCR tramite OpenAI. In quel caso il PDF viene inviato al provider esterno solo se AI, chiamate API e provider OpenAI sono abilitati nelle impostazioni del progetto; in caso contrario la fonte resta importata ma marcata come indicizzazione parziale o fallita.
+- Per CSV/TSV/XLS/XLSX senza testo locale sufficiente, l'utente può confermare l'analisi OpenAI del foglio di calcolo come file input. Anche questa analisi rispetta consenso AI, chiamate API e provider OpenAI, e invia il file solo entro limiti dimensionali configurati.
 - La lettura immagini verso renderer è limitata a raster interni ad `assets/` del progetto aperto.
 - L'import di immagini associate è validato lato main process prima della copia:
   - sono accettate solo estensioni raster previste (`png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`);
@@ -196,6 +201,8 @@ Riferimenti:
 Riferimenti:
 
 - `src/main/images/generation.ts`
+- `src/main/services/external-source-service.ts`
+- `src/main/sources/extraction.ts`
 - `src/main/projects/asset-paths.ts`
 - `src/main/services/image-runtime.ts`
 - `tests/unit/image-generation.test.ts`
@@ -289,7 +296,7 @@ This document summarizes the security measures implemented in The Novelist and t
 - Electron desktop app with separate `main`, `preload`, and `renderer` processes.
 - Each project lives in a local folder with:
   - `project.db`: main SQLite database;
-  - `assets/`: images, exports, and attachments;
+  - `assets/`: images, exports, attachments, and imported external sources;
   - `.snapshots/`: database snapshots for recovery;
   - `wiki/`: local Markdown memory derived from the database.
 - `project.db` remains the source of truth. The wiki is a derived, app-managed, regenerable artifact.
@@ -460,6 +467,11 @@ References:
 
 - Associated images are copied to `assets/img/...`.
 - Generated images are saved to `assets/generated-images/...`.
+- Files imported into the Notes canvas are copied to `assets/sources/...` and recorded as external sources, separate from the manuscript.
+- Notes import accepts only expected extensions (`txt`, `md`, `markdown`, `text`, `log`, `json`, `xml`, `yaml`, `yml`, `csv`, `tsv`, `rtf`, `docx`, `pdf`, `xlsx`, `xls`) and limits file size before copy.
+- Notes indexing is local and best-effort: extracted text is truncated to a configured maximum and used for summaries/internal search, not to modify the novel.
+- For PDFs without enough locally readable text, the user can confirm OCR through OpenAI. In that case the PDF is sent to the external provider only if AI, API calls, and the OpenAI provider are enabled in the project settings; otherwise the source stays imported but is marked as partially indexed or failed.
+- For CSV/TSV/XLS/XLSX files without enough locally readable text, the user can confirm OpenAI analysis of the spreadsheet as a file input. This analysis also respects AI consent, API calls, and the OpenAI provider, and sends the file only within configured size limits.
 - Image reads toward the renderer are limited to raster files inside the open project's `assets/`.
 - Associated image import is validated in the main process before copy:
   - only expected raster extensions are accepted (`png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`);
@@ -470,6 +482,8 @@ References:
 References:
 
 - `src/main/images/generation.ts`
+- `src/main/services/external-source-service.ts`
+- `src/main/sources/extraction.ts`
 - `src/main/projects/asset-paths.ts`
 - `src/main/services/image-runtime.ts`
 - `tests/unit/image-generation.test.ts`

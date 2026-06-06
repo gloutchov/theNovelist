@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import type { NovelistRepository } from '../persistence/repository';
 import type {
   ChapterNodeRecord,
   CharacterCardRecord,
   CodexChatMessageRecord,
+  ExternalSourceEdgeRecord,
+  ExternalSourceRecord,
   LocationCardRecord,
   PlotRecord,
   ProjectRecord,
@@ -134,7 +136,52 @@ function sourceRelativePathFromKey(key: string): string | null {
     return path.join('sources', 'ai', 'chat.md');
   }
 
+  if (/^external-sources\/[a-z0-9_.-]+\.md$/.test(key)) {
+    return path.join('sources', 'external-sources', path.basename(key));
+  }
+
   return null;
+}
+
+async function removeStaleGeneratedSourceFiles(params: {
+  wikiPath: string;
+  currentRelativePaths: Set<string>;
+}): Promise<string[]> {
+  const generatedDirs = [
+    {
+      relativeDir: path.join('sources', 'chapters'),
+      filePattern: /^chapter-[a-z0-9_.-]+\.md$/,
+    },
+    {
+      relativeDir: path.join('sources', 'external-sources'),
+      filePattern: /^external-source-[a-z0-9_.-]+\.md$/,
+    },
+  ];
+  const removed: string[] = [];
+
+  for (const generatedDir of generatedDirs) {
+    const absoluteDir = path.join(params.wikiPath, generatedDir.relativeDir);
+    let entries: string[] = [];
+    try {
+      entries = await readdir(absoluteDir);
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!generatedDir.filePattern.test(entry)) {
+        continue;
+      }
+      const relativePath = path.join(generatedDir.relativeDir, entry);
+      if (params.currentRelativePaths.has(relativePath)) {
+        continue;
+      }
+      await rm(path.join(params.wikiPath, relativePath), { force: true });
+      removed.push(relativePath.split(path.sep).join('/'));
+    }
+  }
+
+  return removed;
 }
 
 function formatChapterSource(params: {
@@ -407,6 +454,53 @@ function formatAiChatSource(
   ].join('\n');
 }
 
+function formatExternalSource(params: {
+  source: ExternalSourceRecord;
+  edges: ExternalSourceEdgeRecord[];
+  sourcesById: Map<string, ExternalSourceRecord>;
+}): string {
+  const relatedEdges = params.edges.filter(
+    (edge) => edge.sourceId === params.source.id || edge.targetId === params.source.id,
+  );
+  const relationships = relatedEdges.map((edge) => {
+    const relatedSourceId = edge.sourceId === params.source.id ? edge.targetId : edge.sourceId;
+    const relatedSource = params.sourcesById.get(relatedSourceId);
+    const direction = edge.sourceId === params.source.id ? 'outgoing' : 'incoming';
+    return `${direction}: ${relatedSource?.fileName ?? relatedSourceId} (${relatedSourceId})`;
+  });
+
+  return [
+    `# ${params.source.fileName}`,
+    '',
+    '## Metadata',
+    '',
+    `- source_type: external_source`,
+    `- id: ${params.source.id}`,
+    `- file_name: ${params.source.fileName}`,
+    `- file_type: ${params.source.fileType}`,
+    `- stored_file_path: ${params.source.storedFilePath}`,
+    `- original_file_path: ${params.source.originalFilePath}`,
+    `- extraction_method: ${params.source.extractionMethod}`,
+    `- extraction_status: ${params.source.extractionStatus}`,
+    `- extraction_message: ${params.source.extractionMessage}`,
+    `- indexed_at: ${params.source.indexedAt}`,
+    `- updated_at: ${params.source.updatedAt}`,
+    '',
+    '## Relationships',
+    '',
+    formatList(relationships),
+    '',
+    '## Summary',
+    '',
+    normalizeText(params.source.summary) || 'No summary.',
+    '',
+    '## Extracted Text',
+    '',
+    normalizeText(params.source.extractedText) || 'No extracted text.',
+    '',
+  ].join('\n');
+}
+
 function buildSourceFiles(params: {
   repository: NovelistRepository;
   project: ProjectRecord;
@@ -420,6 +514,9 @@ function buildSourceFiles(params: {
   const timelineSettings = repository.getTimelineSettings(project.id);
   const timelineItems = repository.listTimelineItems(project.id);
   const aiChatMessages = repository.listProjectCodexChatMessages(project.id);
+  const externalSources = repository.listExternalSources(project.id);
+  const externalSourceEdges = repository.listExternalSourceEdges(project.id);
+  const externalSourcesById = new Map(externalSources.map((source) => [source.id, source]));
 
   const chapterSources = chapters.map((node) => {
     const document = repository.getChapterDocumentByNodeId(node.id);
@@ -437,9 +534,22 @@ function buildSourceFiles(params: {
       }),
     };
   });
+  const externalSourceFiles = externalSources.map((source) => {
+    const fileName = `external-source-${sanitizeFilePart(source.id)}.md`;
+    return {
+      key: `external-sources/${fileName}`,
+      relativePath: path.join('sources', 'external-sources', fileName),
+      content: formatExternalSource({
+        source,
+        edges: externalSourceEdges,
+        sourcesById: externalSourcesById,
+      }),
+    };
+  });
 
   return [
     ...chapterSources,
+    ...externalSourceFiles,
     {
       key: 'cards/characters.md',
       relativePath: path.join('sources', 'cards', 'characters.md'),
@@ -520,6 +630,13 @@ export async function exportProjectSources(params: {
     delete nextSources[key];
     changedSources.push(key);
   }
+
+  const currentRelativePaths = new Set(sources.map((source) => source.relativePath));
+  const staleGeneratedFiles = await removeStaleGeneratedSourceFiles({
+    wikiPath: wikiPaths.wikiPath,
+    currentRelativePaths,
+  });
+  changedSources.push(...staleGeneratedFiles.map((relativePath) => `orphan:${relativePath}`));
 
   const changed = changedSources.length > 0;
   const derivedPending = previousState.derivedPending || changed;

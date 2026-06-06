@@ -29,6 +29,7 @@ export function formatProjectMemoryContext(
   const sections: string[] = [
     'Memoria progetto recuperata dalla wiki locale.',
     'Usa queste fonti solo come contesto citabile. Distingui fatti espliciti, schede autore, sintesi wiki e inferenze.',
+    'Non copiare lunghi passaggi dalle fonti: rispondi con sintesi e dettagli puntuali, usando citazioni brevi solo se indispensabili.',
     '',
   ];
   let remainingBudget = maxChars - sections.join('\n').length;
@@ -50,7 +51,7 @@ export function formatProjectMemoryContext(
   }
 
   sections.push(
-    'Regole: cita i riferimenti tra parentesi quadre quando rispondi su fatti del romanzo; se le fonti non bastano, dillo esplicitamente.',
+    'Regole: cita i riferimenti tra parentesi quadre quando rispondi su fatti del romanzo; non riprodurre integralmente documenti o brani lunghi; se le fonti non bastano, dillo esplicitamente.',
   );
 
   return trimToBudget(sections.join('\n'), maxChars);

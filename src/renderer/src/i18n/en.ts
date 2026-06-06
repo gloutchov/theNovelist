@@ -301,6 +301,84 @@ export const en: TranslationDictionary = {
   'editor.status.selectionPreviewReady':
     '{action} preview ready ({mode}). Choose Apply or Discard.',
   'editor.status.selectionRequired': 'Select text in the chapter first.',
+  'externalSources.delete': 'Delete Source',
+  'externalSources.deleteConfirm.multiple':
+    'Do you want these documents to be permanently deleted from Memory?',
+  'externalSources.deleteConfirm.single':
+    'Do you want this document to be permanently deleted from Memory?',
+  'externalSources.aiOcrConfirm':
+    'Use OpenAI OCR for {count} PDF if local extraction finds no text? The PDF will be sent to the AI provider only for files that need it.',
+  'externalSources.aiAnalysisConfirm':
+    'Do you want the document to be analyzed by AI?',
+  'externalSources.aiProcessing.title': 'Document processing...',
+  'externalSources.dropOverlay.body':
+    'TXT, Markdown, JSON, XML, YAML, CSV, RTF, DOCX, PDF, and XLSX are copied into the project and indexed as external sources.',
+  'externalSources.dropOverlay.title': 'Drop notes files here',
+  'externalSources.emptyProject': 'Open or create a project to manage notes.',
+  'externalSources.extractionMethod': 'Indexing method',
+  'externalSources.extractionMethod.ai_analysis': 'AI analysis',
+  'externalSources.extractionMethod.aiAnalysisShort': 'AI',
+  'externalSources.extractionMethod.ai_ocr': 'AI OCR',
+  'externalSources.extractionMethod.aiOcrShort': 'OCR',
+  'externalSources.extractionMethod.local': 'Local',
+  'externalSources.extractionMethod.none': 'None',
+  'externalSources.extractionMessage.aiDisabled':
+    'AI OCR was requested, but AI is disabled for this project.',
+  'externalSources.extractionMessage.aiOcrEmpty':
+    'AI OCR completed, but no readable text was returned.',
+  'externalSources.extractionMessage.aiOcrFailed': 'AI OCR failed',
+  'externalSources.extractionMessage.aiOcrIndexed':
+    'Indexed with OpenAI OCR after explicit confirmation.',
+  'externalSources.extractionMessage.apiCallsDisabled':
+    'AI OCR was requested, but API calls are disabled in AI settings.',
+  'externalSources.extractionMessage.apiKeyMissing':
+    'AI OCR was requested, but no OpenAI API key is available.',
+  'externalSources.extractionMessage.localNoReadableText':
+    'No readable text was extracted locally.',
+  'externalSources.extractionMessage.openAiProviderRequired':
+    'AI OCR requires the OpenAI API provider in AI settings.',
+  'externalSources.extractionMessage.pdfOcrSizeLimit':
+    'The PDF exceeds the AI OCR size limit and was indexed only locally.',
+  'externalSources.extractionMessage.pdfOcrSkippedNoConsent':
+    'PDF imported without AI OCR confirmation; no local text was extracted.',
+  'externalSources.extractionMessage.spreadsheetAiEmpty':
+    'Excel AI analysis completed, but no readable text was returned.',
+  'externalSources.extractionMessage.spreadsheetAiFailed': 'Excel AI analysis failed',
+  'externalSources.extractionMessage.spreadsheetAiIndexed':
+    'Indexed with OpenAI analysis after explicit confirmation.',
+  'externalSources.extractionMessage.spreadsheetAiNoPayload':
+    'The Excel file contains no readable parts to send for AI analysis.',
+  'externalSources.extractionMessage.spreadsheetAiSizeLimit':
+    'The spreadsheet file exceeds the AI analysis size limit.',
+  'externalSources.extractionMessage.spreadsheetAiSkippedNoConsent':
+    'Spreadsheet imported without AI analysis confirmation; no local text was extracted.',
+  'externalSources.extractionMessage.spreadsheetAiUnsupported':
+    'Spreadsheet format is not supported by AI analysis.',
+  'externalSources.extractionStatus': 'Indexing status',
+  'externalSources.extractionStatus.failed': 'Not indexed',
+  'externalSources.extractionStatus.indexed': 'Indexed',
+  'externalSources.extractionStatus.partial': 'Partial',
+  'externalSources.fileType': 'File type',
+  'externalSources.selection': 'Selected source:',
+  'externalSources.sidebar.dropHint':
+    'Drag files onto the canvas to save them as external project sources.',
+  'externalSources.status.connectionCreated': 'Notes relationship created',
+  'externalSources.status.connectionsDeleted': '{count} notes relationships deleted',
+  'externalSources.status.deleted': 'External source deleted',
+  'externalSources.status.deletedMany': '{count} external sources deleted',
+  'externalSources.status.imported': '{count} external sources imported',
+  'externalSources.status.aiProcessing': 'File being processed by AI...',
+  'externalSources.status.importedPartial':
+    '{count} external sources imported, {partialCount} partially indexed',
+  'externalSources.status.importedWithOcr':
+    '{count} external sources imported, {ocrCount} PDFs indexed with AI OCR',
+  'externalSources.status.importedWithAi':
+    '{count} external sources imported, {aiCount} indexed with AI',
+  'externalSources.status.importError': 'Notes import error',
+  'externalSources.status.loaded': 'Notes canvas loaded',
+  'externalSources.status.noFiles': 'No importable file found in the drop.',
+  'externalSources.status.opened': 'Notes file opened',
+  'externalSources.title': 'Notes',
   'export.status.manuscriptDocxCancelled': 'Full document DOCX export cancelled',
   'export.status.manuscriptDocxError': 'Full document DOCX export error',
   'export.status.manuscriptDocxExported': 'Full document DOCX exported: {filePath}',
@@ -687,6 +765,7 @@ export const en: TranslationDictionary = {
   'shell.tabs.characters': 'Characters',
   'shell.tabs.dashboard': 'Dashboard',
   'shell.tabs.locations': 'Locations',
+  'shell.tabs.externalSources': 'Notes',
   'shell.tabs.memory': 'Memory',
   'shell.tabs.outline': 'Outline',
   'shell.tabs.plots': 'Plots',

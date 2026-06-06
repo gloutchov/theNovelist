@@ -56,6 +56,36 @@ export interface StoryEdgeRecord {
   createdAt: string;
 }
 
+export interface ExternalSourceRecord {
+  id: string;
+  projectId: string;
+  fileName: string;
+  fileType: string;
+  storedFilePath: string;
+  originalFilePath: string;
+  summary: string;
+  extractedText: string;
+  extractionMethod: 'local' | 'ai_ocr' | 'ai_analysis' | 'none';
+  extractionStatus: 'indexed' | 'partial' | 'failed';
+  extractionMessage: string;
+  indexedAt: string;
+  positionX: number;
+  positionY: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalSourceEdgeRecord {
+  id: string;
+  projectId: string;
+  sourceId: string;
+  targetId: string;
+  sourceHandle: string | null;
+  targetHandle: string | null;
+  label: string | null;
+  createdAt: string;
+}
+
 export interface ChapterDocumentRecord {
   id: string;
   chapterNodeId: string;
@@ -248,6 +278,33 @@ export interface UpdateChapterNodeInput {
 }
 
 export interface CreateStoryEdgeInput {
+  sourceId: string;
+  targetId: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  label?: string | null;
+}
+
+export interface CreateExternalSourceInput {
+  fileName: string;
+  fileType: string;
+  storedFilePath: string;
+  originalFilePath: string;
+  summary: string;
+  extractedText: string;
+  extractionMethod: ExternalSourceRecord['extractionMethod'];
+  extractionStatus: ExternalSourceRecord['extractionStatus'];
+  extractionMessage: string;
+  positionX: number;
+  positionY: number;
+}
+
+export interface UpdateExternalSourceInput {
+  positionX: number;
+  positionY: number;
+}
+
+export interface CreateExternalSourceEdgeInput {
   sourceId: string;
   targetId: string;
   sourceHandle?: string | null;

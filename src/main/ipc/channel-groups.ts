@@ -74,6 +74,15 @@ export const IPC_CHANNEL_GROUPS = {
     IPC_CHANNELS.locationCreateImage,
     IPC_CHANNELS.locationDeleteImage,
   ],
+  externalSources: [
+    IPC_CHANNELS.externalSourcesGetState,
+    IPC_CHANNELS.externalSourcesImport,
+    IPC_CHANNELS.externalSourcesUpdate,
+    IPC_CHANNELS.externalSourcesDelete,
+    IPC_CHANNELS.externalSourcesOpen,
+    IPC_CHANNELS.externalSourcesCreateEdge,
+    IPC_CHANNELS.externalSourcesDeleteEdge,
+  ],
   scene: [
     IPC_CHANNELS.sceneListCards,
     IPC_CHANNELS.sceneCreateCard,

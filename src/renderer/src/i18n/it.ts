@@ -302,6 +302,84 @@ export const it: TranslationDictionary = {
   'editor.status.selectionPreviewReady':
     'Anteprima {action} pronta ({mode}). Scegli Applica o Scarta.',
   'editor.status.selectionRequired': 'Seleziona prima del testo nel capitolo.',
+  'externalSources.delete': 'Elimina Fonte',
+  'externalSources.deleteConfirm.multiple':
+    'Vuoi che i documenti siano cancellati definitivamente dalla Memoria?',
+  'externalSources.deleteConfirm.single':
+    'Vuoi che il documento sia cancellato definitivamente dalla Memoria?',
+  'externalSources.aiOcrConfirm':
+    'Vuoi usare OpenAI OCR per {count} PDF se l’estrazione locale non trova testo? Il PDF verra inviato al provider AI solo per i file che ne hanno bisogno.',
+  'externalSources.aiAnalysisConfirm':
+    'Vuoi che il documento sia analizzato dalla AI?',
+  'externalSources.aiProcessing.title': 'Documento in elaborazione...',
+  'externalSources.dropOverlay.body':
+    'TXT, Markdown, JSON, XML, YAML, CSV, RTF, DOCX, PDF e XLSX vengono copiati nel progetto e indicizzati come fonti esterne.',
+  'externalSources.dropOverlay.title': 'Trascina qui i file di appunti',
+  'externalSources.emptyProject': 'Apri o crea un progetto per gestire gli appunti.',
+  'externalSources.extractionMethod': 'Metodo indicizzazione',
+  'externalSources.extractionMethod.ai_analysis': 'Analisi AI',
+  'externalSources.extractionMethod.aiAnalysisShort': 'AI',
+  'externalSources.extractionMethod.ai_ocr': 'OCR AI',
+  'externalSources.extractionMethod.aiOcrShort': 'OCR',
+  'externalSources.extractionMethod.local': 'Locale',
+  'externalSources.extractionMethod.none': 'Nessuno',
+  'externalSources.extractionMessage.aiDisabled':
+    'OCR AI richiesto, ma l’AI non è abilitata per questo progetto.',
+  'externalSources.extractionMessage.aiOcrEmpty':
+    'OCR AI completato, ma non è stato restituito testo leggibile.',
+  'externalSources.extractionMessage.aiOcrFailed': 'OCR AI non riuscito',
+  'externalSources.extractionMessage.aiOcrIndexed':
+    'Indicizzato con OCR OpenAI dopo conferma esplicita.',
+  'externalSources.extractionMessage.apiCallsDisabled':
+    'OCR AI richiesto, ma le chiamate API sono disabilitate nelle impostazioni AI.',
+  'externalSources.extractionMessage.apiKeyMissing':
+    'OCR AI richiesto, ma non è disponibile una chiave OpenAI API.',
+  'externalSources.extractionMessage.localNoReadableText':
+    'Nessun testo leggibile estratto localmente.',
+  'externalSources.extractionMessage.openAiProviderRequired':
+    'OCR AI richiede il provider OpenAI API nelle impostazioni AI.',
+  'externalSources.extractionMessage.pdfOcrSizeLimit':
+    'Il PDF supera il limite dimensione OCR AI ed è stato indicizzato solo localmente.',
+  'externalSources.extractionMessage.pdfOcrSkippedNoConsent':
+    'PDF importato senza conferma OCR AI; non è stato estratto testo locale.',
+  'externalSources.extractionMessage.spreadsheetAiEmpty':
+    'Analisi AI Excel completata, ma non è stato restituito testo leggibile.',
+  'externalSources.extractionMessage.spreadsheetAiFailed': 'Analisi AI Excel non riuscita',
+  'externalSources.extractionMessage.spreadsheetAiIndexed':
+    'Indicizzato con analisi OpenAI dopo conferma esplicita.',
+  'externalSources.extractionMessage.spreadsheetAiNoPayload':
+    'Il file Excel non contiene parti leggibili da inviare all’analisi AI.',
+  'externalSources.extractionMessage.spreadsheetAiSizeLimit':
+    'Il foglio di calcolo supera il limite dimensione per l’analisi AI.',
+  'externalSources.extractionMessage.spreadsheetAiSkippedNoConsent':
+    'Foglio di calcolo importato senza conferma analisi AI; non è stato estratto testo locale.',
+  'externalSources.extractionMessage.spreadsheetAiUnsupported':
+    'Formato foglio di calcolo non supportato dall’analisi AI.',
+  'externalSources.extractionStatus': 'Stato indicizzazione',
+  'externalSources.extractionStatus.failed': 'Non indicizzato',
+  'externalSources.extractionStatus.indexed': 'Indicizzato',
+  'externalSources.extractionStatus.partial': 'Parziale',
+  'externalSources.fileType': 'Tipo file',
+  'externalSources.selection': 'Fonte selezionata:',
+  'externalSources.sidebar.dropHint':
+    'Trascina file nel canvas per salvarli come fonti esterne del progetto.',
+  'externalSources.status.connectionCreated': 'Relazione appunti creata',
+  'externalSources.status.connectionsDeleted': '{count} relazioni appunti eliminate',
+  'externalSources.status.deleted': 'Fonte esterna eliminata',
+  'externalSources.status.deletedMany': '{count} fonti esterne eliminate',
+  'externalSources.status.imported': '{count} fonti esterne importate',
+  'externalSources.status.aiProcessing': 'File in elaborazione dalla AI...',
+  'externalSources.status.importedPartial':
+    '{count} fonti esterne importate, {partialCount} con indicizzazione parziale',
+  'externalSources.status.importedWithOcr':
+    '{count} fonti esterne importate, {ocrCount} PDF indicizzati con OCR AI',
+  'externalSources.status.importedWithAi':
+    '{count} fonti esterne importate, {aiCount} indicizzate con AI',
+  'externalSources.status.importError': 'Errore importazione appunti',
+  'externalSources.status.loaded': 'Canvas appunti caricato',
+  'externalSources.status.noFiles': 'Nessun file importabile trovato nel trascinamento.',
+  'externalSources.status.opened': 'File appunti aperto',
+  'externalSources.title': 'Appunti',
   'export.status.manuscriptDocxCancelled': 'Esportazione DOCX documento completo annullata',
   'export.status.manuscriptDocxError': 'Errore export DOCX documento completo',
   'export.status.manuscriptDocxExported': 'Documento completo DOCX esportato: {filePath}',
@@ -697,6 +775,7 @@ export const it: TranslationDictionary = {
   'shell.tabs.characters': 'Personaggi',
   'shell.tabs.dashboard': 'Cruscotto',
   'shell.tabs.locations': 'Location',
+  'shell.tabs.externalSources': 'Appunti',
   'shell.tabs.memory': 'Memoria',
   'shell.tabs.outline': 'Scaletta',
   'shell.tabs.plots': 'Trame',

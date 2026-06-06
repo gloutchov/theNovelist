@@ -7,6 +7,7 @@ import { registerAppIpcHandlers } from './handlers/app';
 import { registerChapterIpcHandlers } from './handlers/chapter';
 import { registerCharacterIpcHandlers } from './handlers/character';
 import { registerCodexIpcHandlers } from './handlers/codex';
+import { registerExternalSourceIpcHandlers } from './handlers/external-sources';
 import { registerLocationIpcHandlers } from './handlers/location';
 import { registerProjectIpcHandlers } from './handlers/project';
 import { registerRevisionIpcHandlers } from './handlers/revision';
@@ -26,6 +27,7 @@ export type {
   PingResponse,
   AppPreferencesResponse,
   ProjectResponse,
+  ProjectCloseResponse,
   ProjectInspectPathResponse,
   SnapshotResponse,
   WritingSessionResponse,
@@ -38,6 +40,9 @@ export type {
   CharacterImageResponse,
   LocationCardResponse,
   LocationImageResponse,
+  ExternalSourceResponse,
+  ExternalSourceEdgeResponse,
+  ExternalSourcesStateResponse,
   SceneCardResponse,
   TimelineStateResponse,
   TimelineSettingsResponse,
@@ -64,6 +69,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
   registerWikiIpcHandlers(ipcMain, sessionManager);
   registerTimelineIpcHandlers(ipcMain, sessionManager);
   registerStoryIpcHandlers(ipcMain, sessionManager);
+  registerExternalSourceIpcHandlers(ipcMain, sessionManager);
   registerSceneIpcHandlers(ipcMain, sessionManager);
   registerRevisionIpcHandlers(ipcMain, sessionManager);
   registerCharacterIpcHandlers(ipcMain, sessionManager, resolveImageApiRuntime);

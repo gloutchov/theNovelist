@@ -26,6 +26,7 @@ import ChapterEditor from './ChapterEditor';
 import ChapterFlowNode from './ChapterFlowNode';
 import CharacterBoard from './CharacterBoard';
 import CharacterFlowNode from './CharacterFlowNode';
+import ExternalSourcesBoard from './ExternalSourcesBoard';
 import { getNearbyCanvasPosition } from './canvas-position';
 import {
   FLOW_MINIMAP_MASK_COLOR,
@@ -125,6 +126,7 @@ type WorkspaceTab =
   | 'scenes'
   | 'characters'
   | 'locations'
+  | 'externalSources'
   | 'revisions'
   | 'analysis'
   | 'memory';
@@ -183,6 +185,8 @@ function getWorkspaceStatusKey(tab: WorkspaceTab, hasProject: boolean): Translat
         return 'entity.character.emptyProject';
       case 'locations':
         return 'entity.location.emptyProject';
+      case 'externalSources':
+        return 'externalSources.emptyProject';
       case 'revisions':
         return 'revision.emptyProject';
       case 'analysis':
@@ -209,6 +213,8 @@ function getWorkspaceStatusKey(tab: WorkspaceTab, hasProject: boolean): Translat
       return 'entity.status.characterCanvasLoaded';
     case 'locations':
       return 'entity.status.locationCanvasLoaded';
+    case 'externalSources':
+      return 'externalSources.status.loaded';
     case 'revisions':
       return 'revision.status.ready';
     case 'analysis':
@@ -1199,7 +1205,10 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      await window.novelistApi.closeProject();
+      const closeResult = await window.novelistApi.closeProject();
+      if (closeResult.cancelled) {
+        return;
+      }
       resetProjectSessionState();
       resetAiSettings();
       resetWikiState();
@@ -2285,6 +2294,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            className={activeTab === 'externalSources' ? 'tab-active' : ''}
+            onClick={() => setActiveTab('externalSources')}
+            disabled={!currentProject}
+          >
+            {t('shell.tabs.externalSources')}
+          </button>
+          <button
+            type="button"
             className={activeTab === 'revisions' ? 'tab-active' : ''}
             onClick={() => setActiveTab('revisions')}
             disabled={!currentProject}
@@ -2837,6 +2854,22 @@ export default function App() {
         ) : (
           <section className="panel">
             <p>{t('entity.location.emptyProject')}</p>
+          </section>
+        )
+      ) : null}
+
+      {activeTab === 'externalSources' ? (
+        currentProject ? (
+          <ExternalSourcesBoard
+            currentProject={currentProject}
+            statusMessage={status}
+            workspaceNotice={workspaceNotice}
+            onStatus={handleWorkspaceStatus}
+            t={t}
+          />
+        ) : (
+          <section className="panel">
+            <p>{t('externalSources.emptyProject')}</p>
           </section>
         )
       ) : null}

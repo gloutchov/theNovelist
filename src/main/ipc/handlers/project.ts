@@ -2,12 +2,14 @@ import { BrowserWindow, dialog, type IpcMain } from 'electron';
 import { z } from 'zod';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { APP_CONFIG } from '../../config/app-config';
+import { confirmActiveExternalSourceImportClose } from '../../dialogs/active-import';
 import { translateMain } from '../../i18n';
 import type { ProjectSessionManager } from '../../projects/session';
 import { ProjectService } from '../../services/project-service';
 import {
   projectCreateRequestSchema,
   projectInspectPathResponseSchema,
+  projectCloseResponseSchema,
   projectOpenRequestSchema,
   projectPlanningUpdateRequestSchema,
   projectResponseSchema,
@@ -53,9 +55,20 @@ export function registerProjectIpcHandlers(
     return projectResponseSchema.parse(project);
   });
 
-  ipcMain.handle(IPC_CHANNELS.projectClose, async () => {
+  ipcMain.handle(IPC_CHANNELS.projectClose, async (event) => {
+    const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    if (
+      !confirmActiveExternalSourceImportClose({
+        sessionManager,
+        browserWindow,
+        target: 'project',
+      })
+    ) {
+      return projectCloseResponseSchema.parse({ ok: true, cancelled: true });
+    }
+
     await projectService.closeProject();
-    return successResponseSchema.parse({ ok: true });
+    return projectCloseResponseSchema.parse({ ok: true });
   });
 
   ipcMain.handle(IPC_CHANNELS.projectInspectPath, async (_event, payload: unknown) => {

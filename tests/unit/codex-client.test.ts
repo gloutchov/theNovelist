@@ -47,6 +47,7 @@ describe('CodexCliService', () => {
     expect(prompt).toContain('Memoria progetto');
     expect(prompt).toContain('sources/chapters/chapter-1.md');
     expect(prompt).toContain('cita i riferimenti disponibili');
+    expect(prompt).toContain('non trascrivere lunghi passaggi');
     expect(prompt).toContain('non hai trovato conferma');
   });
 

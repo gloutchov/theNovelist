@@ -41,6 +41,7 @@ Rimane comunque, e sempre, una app realizzata in vibe-coding.
 - L'interfaccia
 - Canvas Capitoli/Scene: Come funziona l'editor di testo
 - Canvas Trame/Personaggi/Location
+- Canvas Appunti
 - Memoria
 - Impostazioni
 
@@ -63,6 +64,7 @@ Funzionalità principali:
 - Schede trama.
 - Schede personaggio.
 - Schede Location.
+- Gestione delle fonti esterne e materiali di ricerca.
 - Ogni blocco narrativo (scena/capitolo) è dotato di un editor assistito da AI.
 - Ogni Scheda Personaggio, e Scheda Location, è dotata di un assistente AI.
 - Strumento per la gestione delle revisioni di ogni scena/capitolo/personaggio/location.
@@ -137,20 +139,24 @@ L'editor è semplice ma possiede tutto ciò che serve, ovvero:
   Per avere una correlazione tra personaggi/paesaggi e i capitoli/scene, è sufficiente richiamarli con la @. Se durante il salvataggio il testo contiene il nome, il cognome o il nome completo di un personaggio già presente, oppure il nome di una location già presente, il programma aggiunge automaticamente il badge @ mancante e collega la scheda al capitolo. I nomi ambigui condivisi da più schede non vengono agganciati automaticamente. Questo permetterà all'autore di sapere sempre dove è presente un personaggio o quali capitoli si svolgono in una determinata location.
   Tutte le informazioni saranno utilizzate per creare una 'memoria' del progetto, e per compilare sia il cruscotto, sia la timeline. Le informazioni saranno anche fondamentali affinché la AI sappia su cosa si sta lavorando.
 
-### Timeline
+### Costruire una Timeline
 
 La timeline viene utile per dare ordine cronologico agli eventi raccontati. La sua costruzione è manuale, ma ogni volta che si entra nella vista timeline, questa mostrerà gli elementi già posizionati, e quelli nuovi ancora da posizionare. Dal menu laterale è possibile scegliere tra Timeline Capitoli e Timeline Scene, così da lavorare sulle due cronologie separatamente.
 L'autore può anche indicare date precise, sia di inizio, sia di fine, della timeline. E definire anche date specifiche per ogni singolo elemento connesso ad essa.
 
-### Scaletta
+### Costruire la Scaletta
 
 La scaletta è uno strumento di drag and drop verticale in cui l'autore può disporre i capitoli come meglio preferisce. La stampa, o l'export del romanzo/racconto avverrà in base all'ordinamento scelto in questa vista. Il pulsante Apri permette di leggere il capitolo, o l'intero documento, in una finestra a zero-fastidi, pensata per non affaticare gli occhi.
 
-### Revisioni
+### Raccogliere documenti e Appunti
+
+Il programma è dotato di una sezione Appunti. In questa sezione è possibile trascinare documenti utili alla stesura del testo. Possono essere caricati files di testo, documenti word, e anche files excel. Gli Appunti vengono memorizzati nel progetto, indicizzati, salvati in memoria, così da poterci accedere in ogni momento, o di chiedere alla AI di consultarli per ricavare informazioni specifiche.
+
+### Valutare le Revisioni
 
 Il programma tiene memoria di ogni modifica fatta nei capitoli e nelle scene, così come nelle schede personaggio e location. Nel caso si voglia tornare indietro, è possibile andare sulla vista Revisioni, cercare quella desiderata, e ripristinarla.
 
-### Analisi
+### Fare una Analisi del testo
 
 Il programma offre una serie di strumenti, che grazie alla AI, sono in grado di valutare il tasto scritto e individuarne i potenziali difetti, o le eventuali mancanze.
 
@@ -220,6 +226,26 @@ Il Canvas Trame non differisce dagli altri due, ma offre le funzionalità già d
 
 _Nota:_ Nel caso si usino le API KEY, sarà possibile generare e associare direttamente l'immagine col tasto 'Genera In-App', altrimenti sarà necessario creare il prompt, copiarlo su un chatbot in cloud, generare l'immagine, scaricarla, e associarla col tasto 'Associa'.
 
+## Canvas Appunti
+
+Il tab `Appunti`, permette di importare materiali di ricerca o documenti utili alla stesura, e di memorizzarli senza che questi siano considerati parte del romanzo.
+
+Per importare una fonte è sufficiente trascinare uno o più file nel canvas. I file supportati sono TXT, Markdown, JSON, XML, YAML e altri file di testo semplice, RTF, CSV/TSV, DOCX, PDF e Excel XLSX/XLS. Il programma copia il file in una directory dedicata del progetto (`assets/sources/`), prova a leggerne il contenuto, lo indicizza localmente e crea un blocco sul canvas.
+
+Per i PDF il programma tenta prima l'estrazione locale del testo incorporato. Se il PDF contiene poco o nessun testo leggibile, per esempio perché scannerizzato, viene chiesto se usare l'OCR tramite AI: il file viene inviato al provider AI solo dopo conferma e solo se le impostazioni AI del progetto abilitano le funzionalità necessarie.
+
+Per i file CSV/TSV/XLS/XLSX il programma tenta prima di leggere il contenuto localmente. Se non ricava testo sufficiente, la stessa conferma permette di inviare il foglio di calcolo alla AI come file input e trasformarlo in testo tabellare indicizzabile.
+
+Durante OCR o analisi AI viene mostrato un badge `Documento in elaborazione...` sul canvas Appunti; nel pannello di stato appare la scritta `File in elaborazione dalla AI...`.
+
+Se si tenta di chiudere il progetto o il programma mentre un file è in elaborazione, il programma chiede conferma: chiudendo comunque, i dati dell'elaborazione in corso possono andare persi.
+
+Ogni blocco mostra nome file, tipo file e un breve riassunto. I blocchi hanno maniglie come gli altri canvas, quindi possono essere collegati tra loro per rappresentare relazioni tra fonti. È possibile selezionare, spostare singolarmente o in gruppo, cancellare blocchi e cancellare connessioni. Con un doppio click sul blocco viene aperto il file importato con l'applicazione predefinita del sistema.
+
+Quando si elimina un blocco Appunti, il programma chiede conferma perché ciò causa l'eliminazione del file importato corrispondente.
+
+Gli Appunti vengono esportati anche nella Memoria Wiki come `external_source`: nome file, tipo, relazioni, riassunto e testo estratto sono ricercabili dalla vista `Memoria`. Se la memoria progetto è abilitata per la chat AI, anche le domande poste nell'editor capitolo/scena possono recuperare queste fonti come contesto citabile. La AI è istruita a usare queste fonti per risposte, sintesi e dettagli puntuali, non per trascrivere integralmente documenti o lunghi brani.
+
 ## Revisioni
 
 Il programma permette di confrontare la versione attuale di un testo (Capitolo, Scena, Personaggio, Location) con le sue precedenti versioni. Il programma evidenzia le differenze, aggiunte e cancellazioni, in modo che l'autore abbia una chiara idea di ciò che è cambiato tra le varie versioni e quella più recente. 
@@ -239,7 +265,7 @@ Il report fornito è solamente indicativo, ma utile all'autore durante la fase d
 
 ## Memoria
 
-Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, e dalle Location. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
+Ogni progetto di scrittura è stato dotato di una sorta di pagina Wiki che viene aggiornata a ogni salvataggio, e a cui la AI può accedere per aver maggiore consapevolezza del romanzo, e dare risposte più coerenti. La memoria Wiki contiene informazioni provenienti dall'Editor di Testo, dalle Trame, dai Personaggi, dalle Location e dagli Appunti importati come fonti esterne. I dati vengono aggiornati in automatico, ma è possibile anche eseguire aggiornamenti manuali. La memoria tiene traccia anche delle conversazioni avute con la AI nell'editor di testo, così che anche queste vadano ad arricchire la competenza della AI stessa, che deve essere vista come un assistente a 360°.
 
 La memoria può essere interrogata in ogni momento, sia dal chatbot presente nell'editor di testo, sia direttamente dalla vista chiamata memoria. Qui è presente una barra di ricerca in stile 'Google'. Oltre alle risposte relative alla domanda posta, o alla parola chiave cercata, saranno disponibili le fonti da cui è stata estrapolata la risposta.
 

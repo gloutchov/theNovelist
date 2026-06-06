@@ -500,6 +500,77 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 22,
+    statements: [
+      `
+      CREATE TABLE IF NOT EXISTS external_sources (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        stored_file_path TEXT NOT NULL,
+        original_file_path TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        extracted_text TEXT NOT NULL,
+        indexed_at TEXT NOT NULL,
+        position_x REAL NOT NULL,
+        position_y REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      CREATE TABLE IF NOT EXISTS external_source_edges (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        source_handle TEXT,
+        target_handle TEXT,
+        label TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (source_id) REFERENCES external_sources(id) ON DELETE CASCADE,
+        FOREIGN KEY (target_id) REFERENCES external_sources(id) ON DELETE CASCADE
+      );
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_external_sources_project
+      ON external_sources(project_id, file_name);
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_external_source_edges_project
+      ON external_source_edges(project_id, created_at);
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_external_source_edges_source
+      ON external_source_edges(source_id);
+      `,
+      `
+      CREATE INDEX IF NOT EXISTS idx_external_source_edges_target
+      ON external_source_edges(target_id);
+      `,
+    ],
+  },
+  {
+    version: 23,
+    statements: [
+      `
+      ALTER TABLE external_sources
+      ADD COLUMN extraction_method TEXT NOT NULL DEFAULT 'local';
+      `,
+      `
+      ALTER TABLE external_sources
+      ADD COLUMN extraction_status TEXT NOT NULL DEFAULT 'indexed';
+      `,
+      `
+      ALTER TABLE external_sources
+      ADD COLUMN extraction_message TEXT NOT NULL DEFAULT '';
+      `,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

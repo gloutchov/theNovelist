@@ -7,6 +7,8 @@ import type {
   ChapterDocumentRecord,
   ChapterNodeRecord,
   EntityRevisionRecord,
+  ExternalSourceEdgeRecord,
+  ExternalSourceRecord,
   LocationCardRecord,
   LocationChapterLinkRecord,
   LocationImageRecord,
@@ -146,6 +148,52 @@ export function toChapterNodeRecord(row: Record<string, unknown>): ChapterNodeRe
 }
 
 export function toStoryEdgeRecord(row: Record<string, unknown>): StoryEdgeRecord {
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    sourceId: String(row.source_id),
+    targetId: String(row.target_id),
+    sourceHandle: row.source_handle ? String(row.source_handle) : null,
+    targetHandle: row.target_handle ? String(row.target_handle) : null,
+    label: row.label ? String(row.label) : null,
+    createdAt: String(row.created_at),
+  };
+}
+
+export function toExternalSourceRecord(row: Record<string, unknown>): ExternalSourceRecord {
+  const extractionMethod = String(row.extraction_method ?? 'local');
+  const extractionStatus = String(row.extraction_status ?? 'indexed');
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    fileName: String(row.file_name),
+    fileType: String(row.file_type),
+    storedFilePath: String(row.stored_file_path),
+    originalFilePath: String(row.original_file_path),
+    summary: String(row.summary),
+    extractedText: String(row.extracted_text),
+    extractionMethod:
+      extractionMethod === 'ai_ocr' ||
+      extractionMethod === 'ai_analysis' ||
+      extractionMethod === 'none'
+        ? extractionMethod
+        : 'local',
+    extractionStatus:
+      extractionStatus === 'partial' || extractionStatus === 'failed'
+        ? extractionStatus
+        : 'indexed',
+    extractionMessage: String(row.extraction_message ?? ''),
+    indexedAt: String(row.indexed_at),
+    positionX: Number(row.position_x),
+    positionY: Number(row.position_y),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+export function toExternalSourceEdgeRecord(
+  row: Record<string, unknown>,
+): ExternalSourceEdgeRecord {
   return {
     id: String(row.id),
     projectId: String(row.project_id),

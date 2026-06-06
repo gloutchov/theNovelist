@@ -213,6 +213,34 @@ export async function installNovelistApiMock(
         chapterNodeId: string;
         createdAt: string;
       }>,
+      externalSources: [] as Array<{
+        id: string;
+        projectId: string;
+        fileName: string;
+        fileType: string;
+        storedFilePath: string;
+        originalFilePath: string;
+        summary: string;
+        extractedText: string;
+        extractionMethod: 'local' | 'ai_ocr' | 'ai_analysis' | 'none';
+        extractionStatus: 'indexed' | 'partial' | 'failed';
+        extractionMessage: string;
+        indexedAt: string;
+        positionX: number;
+        positionY: number;
+        createdAt: string;
+        updatedAt: string;
+      }>,
+      externalSourceEdges: [] as Array<{
+        id: string;
+        projectId: string;
+        sourceId: string;
+        targetId: string;
+        sourceHandle: string | null;
+        targetHandle: string | null;
+        label: string | null;
+        createdAt: string;
+      }>,
       sceneCards: [] as Array<{
         id: string;
         projectId: string;
@@ -277,6 +305,8 @@ export async function installNovelistApiMock(
       state.locationCards = [];
       state.locationImages = [];
       state.locationChapterLinks = [];
+      state.externalSources = [];
+      state.externalSourceEdges = [];
       state.sceneCards = [];
       state.timelineSettings = null;
       state.timelineItems = [];
@@ -1274,6 +1304,116 @@ export async function installNovelistApiMock(
 
       deleteLocationImage: async (payload: { id: string }) => {
         state.locationImages = state.locationImages.filter((image) => image.id !== payload.id);
+        return { ok: true as const };
+      },
+
+      getDroppedFilePaths: (files: File[]) =>
+        files
+          .map((file) => (file as File & { path?: string }).path ?? file.name)
+          .filter(Boolean),
+
+      getExternalSourcesState: async () => ({
+        sources: clone(state.externalSources),
+        edges: clone(state.externalSourceEdges),
+      }),
+
+      importExternalSources: async (payload: {
+        files: Array<{ filePath: string; positionX: number; positionY: number }>;
+        allowAiPdfOcr?: boolean;
+        allowAiAnalysis?: boolean;
+      }) => {
+        const project = ensureProject();
+        const now = nowIso();
+        const created = payload.files.map((file, index) => {
+          const fileName = file.filePath.split(/[\\/]/).pop() || `source-${index + 1}.txt`;
+          const extension = fileName.includes('.') ? fileName.split('.').pop() || 'txt' : 'txt';
+          const isSpreadsheet = ['csv', 'tsv', 'xls', 'xlsx'].includes(extension.toLowerCase());
+          return {
+            id: nextId('external-source'),
+            projectId: project.id,
+            fileName,
+            fileType: extension.toLowerCase(),
+            storedFilePath: `assets/sources/${fileName}`,
+            originalFilePath: file.filePath,
+            summary: `Mock summary for ${fileName}`,
+            extractedText: `Mock indexed content for ${fileName}`,
+            extractionMethod: payload.allowAiAnalysis
+              ? extension.toLowerCase() === 'pdf'
+                ? ('ai_ocr' as const)
+                : isSpreadsheet
+                  ? ('ai_analysis' as const)
+                  : ('local' as const)
+              : payload.allowAiPdfOcr && extension.toLowerCase() === 'pdf'
+                ? ('ai_ocr' as const)
+                : ('local' as const),
+            extractionStatus: 'indexed' as const,
+            extractionMessage: payload.allowAiAnalysis
+              ? extension.toLowerCase() === 'pdf'
+                ? 'externalSources.extractionMessage.aiOcrIndexed'
+                : isSpreadsheet
+                  ? 'externalSources.extractionMessage.spreadsheetAiIndexed'
+                  : ''
+              : payload.allowAiPdfOcr && extension.toLowerCase() === 'pdf'
+                ? 'externalSources.extractionMessage.aiOcrIndexed'
+                : '',
+            indexedAt: now,
+            positionX: file.positionX + index * 340,
+            positionY: file.positionY,
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
+        state.externalSources.push(...created);
+        return clone(created);
+      },
+
+      updateExternalSource: async (payload: { id: string; positionX: number; positionY: number }) => {
+        const source = state.externalSources.find((item) => item.id === payload.id);
+        if (!source) {
+          throw new Error('External source not found');
+        }
+        Object.assign(source, {
+          positionX: payload.positionX,
+          positionY: payload.positionY,
+          updatedAt: nowIso(),
+        });
+        return clone(source);
+      },
+
+      deleteExternalSource: async (payload: { id: string }) => {
+        state.externalSources = state.externalSources.filter((source) => source.id !== payload.id);
+        state.externalSourceEdges = state.externalSourceEdges.filter(
+          (edge) => edge.sourceId !== payload.id && edge.targetId !== payload.id,
+        );
+        return { ok: true as const };
+      },
+
+      openExternalSource: async (_payload: { id: string }) => ({ ok: true as const }),
+
+      createExternalSourceEdge: async (payload: {
+        sourceId: string;
+        targetId: string;
+        sourceHandle?: string | null;
+        targetHandle?: string | null;
+        label?: string;
+      }) => {
+        const project = ensureProject();
+        const edge = {
+          id: nextId('external-source-edge'),
+          projectId: project.id,
+          sourceId: payload.sourceId,
+          targetId: payload.targetId,
+          sourceHandle: payload.sourceHandle ?? null,
+          targetHandle: payload.targetHandle ?? null,
+          label: payload.label ?? null,
+          createdAt: nowIso(),
+        };
+        state.externalSourceEdges.push(edge);
+        return clone(edge);
+      },
+
+      deleteExternalSourceEdge: async (payload: { id: string }) => {
+        state.externalSourceEdges = state.externalSourceEdges.filter((edge) => edge.id !== payload.id);
         return { ok: true as const };
       },
 

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type {
   AppPreferencesResponse,
@@ -13,11 +13,15 @@ import type {
   CodexStatusResponse,
   EntityRevisionCurrentResponse,
   EntityRevisionResponse,
+  ExternalSourceEdgeResponse,
+  ExternalSourceResponse,
+  ExternalSourcesStateResponse,
   LocationCardResponse,
   LocationImageResponse,
   PingRequest,
   PingResponse,
   PlotResponse,
+  ProjectCloseResponse,
   ProjectInspectPathResponse,
   ProjectResponse,
   SceneCardResponse,
@@ -59,7 +63,7 @@ const novelistApi = {
   }): Promise<ProjectResponse> => ipcRenderer.invoke(IPC_CHANNELS.projectUpdatePlanning, payload),
   openProject: (payload: { rootPath: string }): Promise<ProjectResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectOpen, payload),
-  closeProject: (): Promise<{ ok: true }> => ipcRenderer.invoke(IPC_CHANNELS.projectClose),
+  closeProject: (): Promise<ProjectCloseResponse> => ipcRenderer.invoke(IPC_CHANNELS.projectClose),
   inspectProjectPath: (payload: { rootPath: string }): Promise<ProjectInspectPathResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectInspectPath, payload),
   selectProjectDirectory: (): Promise<string | null> =>
@@ -68,6 +72,10 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.projectSelectImageFile),
   readImageDataUrl: (payload: { filePath: string }): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectReadImageDataUrl, payload),
+  getDroppedFilePaths: (files: File[]): string[] =>
+    files
+      .map((file) => webUtils.getPathForFile(file))
+      .filter((filePath): filePath is string => Boolean(filePath)),
   getCurrentProject: (): Promise<ProjectResponse | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.projectGetCurrent),
   saveSnapshot: (payload?: { reason?: string }): Promise<SnapshotResponse> =>
@@ -272,6 +280,34 @@ const novelistApi = {
     ipcRenderer.invoke(IPC_CHANNELS.locationGenerateImage, payload),
   deleteLocationImage: (payload: { id: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.locationDeleteImage, payload),
+  getExternalSourcesState: (): Promise<ExternalSourcesStateResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesGetState),
+  importExternalSources: (payload: {
+    files: Array<{ filePath: string; positionX: number; positionY: number }>;
+    allowAiPdfOcr?: boolean;
+    allowAiAnalysis?: boolean;
+  }): Promise<ExternalSourceResponse[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesImport, payload),
+  updateExternalSource: (payload: {
+    id: string;
+    positionX: number;
+    positionY: number;
+  }): Promise<ExternalSourceResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesUpdate, payload),
+  deleteExternalSource: (payload: { id: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesDelete, payload),
+  openExternalSource: (payload: { id: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesOpen, payload),
+  createExternalSourceEdge: (payload: {
+    sourceId: string;
+    targetId: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+    label?: string;
+  }): Promise<ExternalSourceEdgeResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesCreateEdge, payload),
+  deleteExternalSourceEdge: (payload: { id: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.externalSourcesDeleteEdge, payload),
   listSceneCards: (): Promise<SceneCardResponse[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.sceneListCards),
   createSceneCard: (payload: {

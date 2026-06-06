@@ -29,6 +29,7 @@ export class ProjectSessionManager {
   private repository: NovelistRepository | null = null;
   private currentProject: OpenedProject | null = null;
   private autosave: AutoSaveScheduler | null = null;
+  private activeExternalSourceImportCount = 0;
 
   async createProject(params: {
     rootPath: string;
@@ -64,6 +65,23 @@ export class ProjectSessionManager {
 
   getOpenedProject(): OpenedProject | null {
     return this.currentProject;
+  }
+
+  hasActiveExternalSourceImport(): boolean {
+    return this.activeExternalSourceImportCount > 0;
+  }
+
+  beginExternalSourceImport(): () => void {
+    this.activeExternalSourceImportCount += 1;
+    let completed = false;
+
+    return () => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      this.activeExternalSourceImportCount = Math.max(0, this.activeExternalSourceImportCount - 1);
+    };
   }
 
   getRepository(): NovelistRepository {

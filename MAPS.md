@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 5.6.0, con il controllo automatico dei riferimenti `@` mancanti per personaggi e location in capitoli e scene.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.0.0, con il canvas Appunti per fonti esterne importate, indicizzate localmente e AI opzionale per PDF/Excel.
 
 ### Vista generale
 
@@ -140,6 +140,7 @@ src/main/
 |-- projects/                # Sessione progetto, snapshot, asset e file.
 |-- security/                # Storage sicuro e policy debug/devtools.
 |-- services/                # Servizi di dominio sopra i repository.
+|-- sources/                 # Estrazione testo, OCR PDF e analisi XLSX opzionale per fonti esterne Appunti.
 `-- wiki/                    # Bootstrap, sync, ricerca, export e path safety Wiki.
 ```
 
@@ -163,6 +164,7 @@ src/renderer/
     |-- AnalysisBoard.tsx    # Analisi AI e cleanup output.
     |-- ChapterEditor.tsx    # Editor rich text capitolo/scena.
     |-- CharacterBoard.tsx   # Canvas personaggi.
+    |-- ExternalSourcesBoard.tsx # Canvas Appunti e fonti esterne.
     |-- LocationBoard.tsx    # Canvas location.
     |-- RevisionBoard.tsx    # Revisioni.
     |-- SceneBoard.tsx       # Canvas scene.
@@ -284,7 +286,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 5.6.0, with automatic checking for missing `@` references to characters and locations in chapters and scenes.
+This map describes the main file layout and module responsibilities. It is updated for source version 6.0.0, with the Notes canvas for imported external sources indexed locally and optional AI for PDFs/Excel files.
 
 ### Overview
 
@@ -416,6 +418,7 @@ src/main/
 |-- projects/                # Project session, snapshots, assets, and files.
 |-- security/                # Secure storage and debug/devtools policy.
 |-- services/                # Domain services above repositories.
+|-- sources/                 # Text extraction, optional PDF OCR, and optional XLSX analysis for external Notes sources.
 `-- wiki/                    # Wiki bootstrap, sync, search, export, and path safety.
 ```
 
@@ -439,6 +442,7 @@ src/renderer/
     |-- AnalysisBoard.tsx    # AI analysis and output cleanup.
     |-- ChapterEditor.tsx    # Chapter/scene rich text editor.
     |-- CharacterBoard.tsx   # Character canvas.
+    |-- ExternalSourcesBoard.tsx # Notes canvas and external sources.
     |-- LocationBoard.tsx    # Location canvas.
     |-- RevisionBoard.tsx    # Revisions.
     |-- SceneBoard.tsx       # Scene canvas.
