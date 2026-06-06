@@ -34,7 +34,7 @@ async function resolveAppLogoDataUrl(): Promise<string> {
   for (const iconPath of iconCandidates) {
     const icon = nativeImage.createFromPath(iconPath);
     if (!icon.isEmpty()) {
-      return icon.toDataURL();
+      return icon.resize({ width: 168, height: 168, quality: 'best' }).toDataURL();
     }
   }
 
@@ -138,6 +138,9 @@ async function openAboutWindow(parentWindow?: BrowserWindow): Promise<void> {
     aboutWindow = null;
   });
   aboutWindow.once('ready-to-show', () => {
+    aboutWindow?.show();
+  });
+  aboutWindow.webContents.once('did-fail-load', () => {
     aboutWindow?.show();
   });
 
