@@ -46,6 +46,19 @@ async function runWithRetry(command, args, attempts = 5) {
 }
 
 module.exports = async function afterPack(context) {
+  if (context.electronPlatformName === 'darwin') {
+    if (process.platform !== 'darwin') {
+      return;
+    }
+
+    const appInfo = context.packager?.appInfo;
+    const productFilename = appInfo?.productFilename || 'The Novelist';
+    const appPath = path.join(context.appOutDir, `${productFilename}.app`);
+
+    await run('xattr', ['-cr', appPath]);
+    return;
+  }
+
   if (context.electronPlatformName !== 'win32') {
     return;
   }

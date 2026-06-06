@@ -1,6 +1,6 @@
 {
   "name": "the-novelist",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "copyright": "Copyright © 2026 Gloutchov",
   "private": true,
   "license": "Apache-2.0",
@@ -61,7 +61,7 @@
       "main": "out/main/index.js"
     },
     "mac": {
-      "identity": null,
+      "identity": "-",
       "icon": "build/icon.png",
       "target": [
         "dmg",
