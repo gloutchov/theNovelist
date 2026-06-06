@@ -1388,7 +1388,7 @@ export async function installNovelistApiMock(
         return { ok: true as const };
       },
 
-      openExternalSource: async (_payload: { id: string }) => ({ ok: true as const }),
+      openExternalSource: async () => ({ ok: true as const }),
 
       createExternalSourceEdge: async (payload: {
         sourceId: string;

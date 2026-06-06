@@ -16,7 +16,6 @@ import {
   readImageDataUrlRequestSchema,
   saveSnapshotRequestSchema,
   snapshotResponseSchema,
-  successResponseSchema,
   writingSessionResponseSchema,
 } from '../schemas';
 

@@ -44,9 +44,12 @@ export interface UpdateExternalSourceServiceInput extends UpdateExternalSourceIn
 }
 
 function sanitizeFileName(fileName: string): string {
-  const sanitized = fileName
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, ' ')
+  const withoutReservedCharacters = fileName.trim().replace(/[<>:"/\\|?*]/g, ' ');
+  const withoutControlCharacters = Array.from(withoutReservedCharacters, (character) => {
+    const code = character.charCodeAt(0);
+    return code >= 0 && code <= 31 ? ' ' : character;
+  }).join('');
+  const sanitized = withoutControlCharacters
     .replace(/\s+/g, ' ')
     .replace(/[. ]+$/g, '')
     .trim();
