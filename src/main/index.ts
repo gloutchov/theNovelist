@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, type NativeImage } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { getAppPreferences } from './app-preferences';
@@ -23,19 +23,43 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-async function resolveAppLogoDataUrl(): Promise<string> {
-  const iconCandidates = [
-    path.join(process.resourcesPath, 'icon.png'),
-    path.join(__dirname, '../../build/icon.png'),
+function getAppIconCandidates(): string[] {
+  return [
     path.join(process.resourcesPath, 'icon.icns'),
+    path.join(process.resourcesPath, 'icon.png'),
+    path.join(__dirname, '../../build/icon.icns'),
+    path.join(__dirname, '../../build/icon-mac.png'),
+    path.join(__dirname, '../../build/icon.png'),
     path.join(process.resourcesPath, 'build/icon.png'),
   ];
+}
 
-  for (const iconPath of iconCandidates) {
+function resolveAppIcon(): NativeImage | null {
+  for (const iconPath of getAppIconCandidates()) {
     const icon = nativeImage.createFromPath(iconPath);
     if (!icon.isEmpty()) {
-      return icon.resize({ width: 168, height: 168, quality: 'best' }).toDataURL();
+      return icon;
     }
+  }
+
+  return null;
+}
+
+function installDockIcon(): void {
+  if (process.platform !== 'darwin' || !app.dock) {
+    return;
+  }
+
+  const icon = resolveAppIcon();
+  if (icon) {
+    app.dock.setIcon(icon);
+  }
+}
+
+async function resolveAppLogoDataUrl(): Promise<string> {
+  const icon = resolveAppIcon();
+  if (icon) {
+    return icon.resize({ width: 168, height: 168, quality: 'best' }).toDataURL();
   }
 
   const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
@@ -335,6 +359,7 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   const preferences = await getAppPreferences();
   setMainLanguage(preferences.effectiveLanguage);
+  installDockIcon();
 
   app.setAboutPanelOptions({
     applicationName: app.getName(),
