@@ -83,6 +83,68 @@ Decisione release:
 - Il bump sorgente e `6.0.5`.
 - Essendo una patch di governance/documentazione, tag e GitHub Release richiedono una decisione esplicita del progettista dopo merge e verifiche.
 
+## Patch pianificata
+
+### Versione 6.0.6 - Hardening delle dipendenze
+
+- Stato: `pianificata`.
+- Branch previsto: `patch/6.0.6-dependency-security`.
+- Tipo incremento: `+0.0.1`.
+- Obiettivo: correggere o mitigare le vulnerabilita delle dipendenze con aggiornamenti controllati, verificando separatamente il rischio runtime e quello degli strumenti di sviluppo, test e packaging.
+
+Baseline rilevata il 31 agosto 2026 con il lockfile della versione 6.0.5:
+
+- audit completo: 28 vulnerabilita (`2 low`, `1 moderate`, `22 high`, `3 critical`);
+- audit delle sole dipendenze di produzione: 3 vulnerabilita (`1 moderate`, `2 high`, `0 critical`);
+- dipendenze dirette segnalate nell'audit completo: `@vitest/coverage-v8`, `vitest`, `electron`, `electron-builder` e `vite`;
+- la severita dell'audit non dimostra da sola la raggiungibilita nell'app pacchettizzata: ogni advisory deve essere collegato al relativo percorso di dipendenza e alla superficie realmente distribuita.
+
+Attivita principali:
+
+- [ ] Acquisire e revisionare `npm audit --json` e `npm audit --omit=dev --json` senza includere credenziali o dati locali negli artifact.
+- [ ] Classificare ogni advisory per dipendenza diretta/transitiva, ambiente runtime/build/test, raggiungibilita e disponibilita di una correzione compatibile.
+- [ ] Aggiornare prima le dipendenze dirette entro range compatibili e rigenerare deterministicamente `package-lock.json`.
+- [ ] Gestire separatamente eventuali upgrade major, con analisi delle breaking change e test mirati; non usare `npm audit fix --force` come sostituto della revisione.
+- [ ] Verificare in particolare Electron, Vite, Vitest, coverage ed electron-builder con le rispettive catene transitive.
+- [ ] Ricostruire i moduli nativi per Node ed Electron dopo gli aggiornamenti.
+- [ ] Rieseguire entrambi gli audit e documentare eventuali vulnerabilita residue, motivazione, mitigazioni e decisione di accettazione.
+- [ ] Sincronizzare versione e documentazione solo dopo che il nuovo lockfile e validato.
+
+Criteri di accettazione:
+
+- Nessuna vulnerabilita `critical` o `high` resta nel grafo di produzione quando esiste una correzione compatibile.
+- Nessuna vulnerabilita `critical` resta nel grafo completo quando esiste una correzione compatibile.
+- Ogni vulnerabilita residua e documentata in `SECURITY_MODEL.md` con ambiente interessato, raggiungibilita, mitigazione e motivo del rinvio.
+- Installazione da lockfile, build, avvio Electron, persistenza SQLite, test e packaging continuano a funzionare.
+- Non vengono introdotte dipendenze sostitutive o upgrade major senza una motivazione revisionabile.
+
+Test richiesti:
+
+- `npm ci`
+- `npm audit --json`
+- `npm audit --omit=dev --json`
+- `npm run docs:check`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run test`
+- `npm run test:e2e`
+- `npm run test:e2e:electron`
+- `npm run build`
+- `npm run pack`
+- `npm run test:smoke:electron`
+
+Documentazione interessata:
+
+- `PLAN.md`
+- `SECURITY_MODEL.md`
+- `README.md`
+- `MAPS.md` e `AGENTS.md` solo se cambiano struttura, comandi o regole operative.
+
+Decisione release:
+
+- Tag e GitHub Release saranno valutati dopo la classificazione delle vulnerabilita corrette e residue.
+- Una correzione di sicurezza con impatto concreto sugli artifact distribuiti rende raccomandabile una release; modifiche limitate agli strumenti di sviluppo richiedono conferma esplicita del progettista.
+
 ## Milestone future
 
 Le prossime milestone funzionali saranno aggiunte solo dopo una decisione progettuale esplicita. Non vengono introdotte roadmap speculative in questa patch.
