@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 6.0.4<br />
+  <strong>Versione sorgente / Source version:</strong> 6.0.5<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://gloutchov.github.io/theNovelist/">gloutchov.github.io/theNovelist</a>
@@ -70,12 +70,15 @@ Consensi disponibili:
 
 La memoria locale viene inviata a provider esterni solo se il consenso dedicato e attivo. Ollama resta disponibile per chi vuole mantenere il testo sul proprio computer.
 
-### Documentazione utente
+### Documentazione
 
 - [ISTRUZIONI.md](./ISTRUZIONI.md): manuale completo in italiano.
 - [INSTRUCTIONS.md](./INSTRUCTIONS.md): traduzione completa in inglese.
 - [SECURITY_MODEL.md](./SECURITY_MODEL.md): note tecniche su sicurezza, limiti residui e hardening.
 - [MAPS.md](./MAPS.md): mappa del repository.
+- [PLAN.md](./PLAN.md): milestone, branch, criteri di accettazione e stato del lavoro.
+- [AGENTS.md](./AGENTS.md): regole operative specifiche del repository.
+- [STARTUP_PREFERENCES.md](./STARTUP_PREFERENCES.md): baseline generale delle preferenze progettuali.
 
 ### Sviluppo locale
 
@@ -94,6 +97,8 @@ npm run dev
 Comandi principali:
 
 ```bash
+npm run docs:check
+npm run lint
 npm run typecheck
 npm run test
 npm run test:e2e
@@ -170,12 +175,15 @@ Available consents:
 
 Local memory is sent to external providers only when the dedicated consent is enabled. Ollama remains available for users who want to keep text on their own computer.
 
-### User Documentation
+### Documentation
 
 - [ISTRUZIONI.md](./ISTRUZIONI.md): complete Italian manual.
 - [INSTRUCTIONS.md](./INSTRUCTIONS.md): complete English translation.
 - [SECURITY_MODEL.md](./SECURITY_MODEL.md): technical security notes, residual risks, and hardening.
 - [MAPS.md](./MAPS.md): repository map.
+- [PLAN.md](./PLAN.md): milestones, branches, acceptance criteria, and work status.
+- [AGENTS.md](./AGENTS.md): repository-specific operating rules.
+- [STARTUP_PREFERENCES.md](./STARTUP_PREFERENCES.md): general project-preference baseline.
 
 ### Local Development
 
@@ -194,6 +202,8 @@ npm run dev
 Main commands:
 
 ```bash
+npm run docs:check
+npm run lint
 npm run typecheck
 npm run test
 npm run test:e2e

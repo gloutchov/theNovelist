@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.0.4, con il canvas Appunti per fonti esterne importate, indicizzate localmente e AI opzionale per PDF/Excel.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.0.5, con il canvas Appunti per fonti esterne importate, indicizzate localmente e AI opzionale per PDF/Excel.
 
 ### Vista generale
 
@@ -43,8 +43,10 @@ theNovelist/
 |-- ISTRUZIONI.md
 |-- LICENSE
 |-- MAPS.md
+|-- PLAN.md
 |-- README.md
 |-- SECURITY_MODEL.md
+|-- STARTUP_PREFERENCES.md
 |-- package.json
 |-- package-lock.json
 |-- electron.vite.config.ts
@@ -78,6 +80,7 @@ docs/
 `-- styles.css      # Stili responsive del sito statico.
 
 scripts/
+|-- check-required-docs.mjs       # Verifica documenti obbligatori e licenza.
 |-- electron-builder-after-pack.cjs # Hook post-packaging Electron.
 |-- generate-checksums.mjs          # Genera SHA256SUMS.
 |-- rebuild-electron-native.mjs     # Rebuild moduli nativi per Electron.
@@ -266,6 +269,8 @@ ISTRUZIONI.md     # Manuale utente completo in italiano.
 INSTRUCTIONS.md   # Traduzione inglese completa del manuale.
 SECURITY_MODEL.md # Note di sicurezza bilingue.
 MAPS.md           # Questa mappa bilingue.
+PLAN.md           # Milestone, branch, criteri di accettazione e stato.
+STARTUP_PREFERENCES.md # Baseline generale delle preferenze progettuali.
 LICENSE           # Licenza Apache 2.0.
 ```
 
@@ -286,7 +291,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 6.0.4, with the Notes canvas for imported external sources indexed locally and optional AI for PDFs/Excel files.
+This map describes the main file layout and module responsibilities. It is updated for source version 6.0.5, with the Notes canvas for imported external sources indexed locally and optional AI for PDFs/Excel files.
 
 ### Overview
 
@@ -321,8 +326,10 @@ theNovelist/
 |-- ISTRUZIONI.md
 |-- LICENSE
 |-- MAPS.md
+|-- PLAN.md
 |-- README.md
 |-- SECURITY_MODEL.md
+|-- STARTUP_PREFERENCES.md
 |-- package.json
 |-- package-lock.json
 |-- electron.vite.config.ts
@@ -356,6 +363,7 @@ docs/
 `-- styles.css      # Responsive styles for the static site.
 
 scripts/
+|-- check-required-docs.mjs       # Checks required documentation and license.
 |-- electron-builder-after-pack.cjs # Electron post-packaging hook.
 |-- generate-checksums.mjs          # SHA256SUMS generation.
 |-- rebuild-electron-native.mjs     # Native module rebuild for Electron.
@@ -544,6 +552,8 @@ ISTRUZIONI.md     # Complete Italian user manual.
 INSTRUCTIONS.md   # Complete English translation of the manual.
 SECURITY_MODEL.md # Bilingual security notes.
 MAPS.md           # This bilingual repository map.
+PLAN.md           # Milestones, branches, acceptance criteria, and status.
+STARTUP_PREFERENCES.md # General project-preference baseline.
 LICENSE           # Apache 2.0 license.
 ```
 
