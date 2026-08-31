@@ -145,6 +145,110 @@ Decisione release:
 - Tag e GitHub Release saranno valutati dopo la classificazione delle vulnerabilita corrette e residue.
 - Una correzione di sicurezza con impatto concreto sugli artifact distribuiti rende raccomandabile una release; modifiche limitate agli strumenti di sviluppo richiedono conferma esplicita del progettista.
 
+## Milestone pianificata
+
+### Versione 6.1.0 - Dettatura negli editor capitolo e scena
+
+- Stato: `pianificata`.
+- Branch previsto: `milestone/6.1-editor-dictation`.
+- Tipo incremento: `+0.1.0`.
+- Obiettivo: permettere all'autore di dettare testo nell'editor dei capitoli e nell'editor delle scene, con un provider remoto OpenAI e una strategia locale/offline da scegliere dopo una valutazione tecnica e progettuale esplicita.
+
+#### Gate di decisione progettuale obbligatorio
+
+La soluzione non deve essere scelta implicitamente durante l'implementazione. Prima di modificare il runtime, preparare un confronto breve e ottenere l'avallo del progettista sui seguenti punti:
+
+- OpenAI remoto: confrontare trascrizione di segmenti registrati e trascrizione realtime/streaming, verificando modelli disponibili, latenza, accuratezza, costi, limiti e formati supportati al momento dell'implementazione.
+- Whisper locale: confrontare almeno un motore locale mantenuto, per esempio `whisper.cpp` o un servizio compatibile, valutando CPU/GPU, memoria, velocita, dimensione dei modelli, licenza, aggiornamenti e packaging Windows/macOS.
+- Ollama: verificare se la versione e i modelli concretamente supportati offrono una funzione speech-to-text adatta. Non assumere che l'attuale integrazione testuale Ollama possa trascrivere audio; valutare se debba restare estranea al flusso oppure coordinare un motore Whisper separato.
+- Strategia provider: decidere se distribuire entrambi i provider nella prima versione, procedere per fasi o offrire un adapter locale configurabile.
+- Esperienza di dettatura: scegliere tra inserimento progressivo, registrazione a segmenti con trascrizione finale oppure anteprima modificabile prima dell'inserimento.
+- Fallback: stabilire quando sia manuale o automatico. Un errore del provider locale non deve mai inviare audio a OpenAI senza consenso remoto esplicito e visibile.
+- Distribuzione del modello locale: decidere tra modello incluso, download opzionale verificato con checksum o installazione esterna documentata.
+
+Criteri della decisione:
+
+- accuratezza in italiano e inglese, inclusi punteggiatura, pause, nomi propri e prosa narrativa;
+- latenza percepita e qualita delle trascrizioni parziali/finali;
+- funzionamento offline e comportamento in assenza di rete;
+- privacy, consenso, conservazione audio e dati inviati al provider;
+- costo OpenAI e controllo dei consumi;
+- requisiti CPU, memoria, GPU e spazio disco del provider locale;
+- complessita di dipendenze native, supply chain, licenze, aggiornamento e firma degli artifact;
+- supporto reale e testabile su Windows e macOS;
+- accessibilita e coerenza con i flussi esistenti dell'editor.
+
+Riferimento OpenAI da rivalidare all'avvio della milestone:
+
+- [API ufficiale per la creazione di trascrizioni](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create).
+
+Attivita principali:
+
+- [ ] Produrre il confronto tecnico e registrare la decisione approvata prima dell'implementazione.
+- [ ] Definire un'interfaccia condivisa `TranscriptionProvider` indipendente dagli editor e dai provider concreti.
+- [ ] Aggiungere configurazione centrale per provider, modello, lingua, timeout, durata massima, formato audio, limiti payload e fallback.
+- [ ] Implementare acquisizione microfono con stati espliciti: inattiva, richiesta permesso, registrazione, trascrizione, completata, annullata ed errore.
+- [ ] Gestire start, stop e annullamento dall'editor capitolo e dall'editor scena tramite componenti e logica condivisi.
+- [ ] Inserire il testo nella posizione corrente del cursore TipTap senza sovrascrivere contenuti non selezionati e mantenendo undo/redo coerente.
+- [ ] Integrare il provider OpenAI nel main process, riusando chiave protetta, timeout, cancellazione, sanitizzazione errori e consenso alle chiamate esterne.
+- [ ] Integrare il provider locale scelto o la prima fase approvata, isolando processo, modelli e file temporanei dall'interfaccia.
+- [ ] Rendere lingua di dettatura e provider configurabili, con default coerente con la lingua effettiva dell'interfaccia e override manuale.
+- [ ] Aggiungere testi italiano/inglese, stati accessibili, scorciatoie non conflittuali e resa corretta nei temi chiaro/scuro.
+- [ ] Documentare permessi microfono, dati inviati, requisiti locali, costi remoti, fallback e troubleshooting.
+
+Vincoli di sicurezza e privacy:
+
+- La dettatura deve essere disattivata finche l'utente non la avvia esplicitamente; nessuna registrazione in background.
+- L'invio remoto richiede consenso esplicito e deve rispettare `enabled`, provider, `allowApiCalls` e una policy dedicata ai contenuti audio se necessaria.
+- Audio e trascrizioni non devono comparire in log, crash report o telemetria.
+- L'audio deve restare in memoria quando possibile; eventuali file temporanei devono avere scope limitato, nome non sensibile, cancellazione garantita e testata anche su errore o arresto.
+- API key, accesso rete e processi locali privilegiati restano nel main process; il renderer riceve solo stato e testo risultante tramite IPC validato.
+- Limiti di durata e dimensione devono essere applicati prima dell'invio o dell'elaborazione locale.
+- Il fallback da locale a remoto non puo aggirare consenso, indicatore UI o scelta del provider.
+
+Criteri di accettazione:
+
+- Capitoli e scene espongono lo stesso flusso di dettatura, senza duplicazione sostanziale della logica.
+- Il testo trascritto viene inserito nel punto previsto ed e annullabile con il normale undo dell'editor.
+- Negazione del permesso microfono, assenza di dispositivo, timeout, cancellazione, provider indisponibile e risposta invalida non causano perdita del testo esistente.
+- Il provider remoto non riceve audio senza consenso; il provider locale scelto funziona senza rete secondo i requisiti approvati.
+- Il comportamento del fallback e sempre visibile e verificabile dall'utente.
+- UI, messaggi e documentazione sono completi in italiano e inglese e leggibili in entrambi i temi.
+- Le build Windows e macOS includono o individuano correttamente gli eventuali componenti locali approvati.
+
+Test richiesti:
+
+- unit test per macchina a stati, selezione provider, fallback, limiti, cancellazione e inserimento TipTap;
+- integration test IPC con provider finti, senza microfono, rete o credenziali reali;
+- test negativi per permessi negati, audio vuoto/corrotto, payload eccessivo, timeout, cleanup e assenza di leak nei log;
+- e2e browser con acquisizione e trascrizione simulate per entrambi gli editor;
+- e2e Electron e verifica manuale con microfono reale su Windows e macOS;
+- smoke test degli artifact pacchettizzati, soprattutto se includono binari o modelli locali;
+- `npm run docs:check`;
+- `npm run lint`;
+- `npm run typecheck`;
+- `npm run test`;
+- `npm run test:e2e`;
+- `npm run test:e2e:electron`;
+- `npm run build`;
+- `npm run pack`;
+- `npm run test:smoke:electron`.
+
+Documentazione interessata:
+
+- `README.md`
+- `ISTRUZIONI.md`
+- `INSTRUCTIONS.md`
+- `SECURITY_MODEL.md`
+- `MAPS.md`
+- `AGENTS.md` se vengono introdotte nuove regole operative per audio, modelli o processi locali;
+- `PLAN.md` con decisione provider, risultati dei test e stato finale.
+
+Decisione release:
+
+- La milestone e candidata a una release `6.1.0` dopo avallo, merge, CI necessaria, verifica artifact Windows/macOS e checksum SHA-256.
+- Tag e pubblicazione restano operazioni separate e richiedono conferma esplicita del progettista.
+
 ## Milestone future
 
 Le prossime milestone funzionali saranno aggiunte solo dopo una decisione progettuale esplicita. Non vengono introdotte roadmap speculative in questa patch.
