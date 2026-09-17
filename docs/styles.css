@@ -88,6 +88,45 @@ img {
   color: var(--teal);
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.main-site-link {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.main-site-link:hover,
+.main-site-link:focus-visible {
+  color: #ffffff;
+  border-color: var(--teal);
+  background: var(--teal);
+}
+
+.main-site-link svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .language-switcher {
   display: inline-flex;
   padding: 4px;

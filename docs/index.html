@@ -14,7 +14,9 @@
       content="Desktop app for narrative planning, rich text writing, visual canvases, local project memory, exports, and optional AI assistance."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://thenovelist.glaucosilvestri.it/" />
     <meta property="og:image" content="./assets/dashboard_en.png" />
+    <link rel="canonical" href="https://thenovelist.glaucosilvestri.it/" />
     <link rel="icon" href="./assets/icon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -31,9 +33,23 @@
         <a href="#privacy" data-i18n="nav.privacy">Privacy</a>
         <a href="#download" data-i18n="nav.download">Download</a>
       </nav>
-      <div class="language-switcher" aria-label="Language">
-        <button type="button" class="language-button is-active" data-language="it">IT</button>
-        <button type="button" class="language-button" data-language="en">EN</button>
+      <div class="header-actions">
+        <a
+          class="main-site-link"
+          href="https://glaucosilvestri.it/"
+          aria-label="Vai al sito principale di Glauco Silvestri"
+          data-i18n-aria-label="nav.mainSite"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 10.75 12 3l9 7.75" />
+            <path d="M5.5 9.5V21h13V9.5" />
+            <path d="M9.5 21v-6.5h5V21" />
+          </svg>
+        </a>
+        <div class="language-switcher" aria-label="Language">
+          <button type="button" class="language-button is-active" data-language="it">IT</button>
+          <button type="button" class="language-button" data-language="en">EN</button>
+        </div>
       </div>
     </header>
 

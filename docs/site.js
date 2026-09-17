@@ -7,6 +7,7 @@ const translations = {
     'nav.gallery': 'Immagini',
     'nav.privacy': 'Privacy',
     'nav.download': 'Download',
+    'nav.mainSite': 'Vai al sito principale di Glauco Silvestri',
     'hero.eyebrow': 'Desktop app open source',
     'hero.copy':
       'Progetta, scrivi, revisiona ed esporta romanzi con canvas narrativi, editor semplificato, memoria locale del progetto e assistenza AI opzionale.',
@@ -84,6 +85,7 @@ const translations = {
     'nav.gallery': 'Images',
     'nav.privacy': 'Privacy',
     'nav.download': 'Download',
+    'nav.mainSite': "Visit Glauco Silvestri's main website",
     'hero.eyebrow': 'Open source desktop app',
     'hero.copy':
       'Plan, write, revise, and export novels with narrative canvases, a streamlined editor, local project memory, and optional AI assistance.',
@@ -159,6 +161,7 @@ const translations = {
 
 const buttons = document.querySelectorAll('[data-language]');
 const translatable = document.querySelectorAll('[data-i18n]');
+const translatableAriaLabels = document.querySelectorAll('[data-i18n-aria-label]');
 const localizedImages = document.querySelectorAll('[data-src-it][data-src-en]');
 const localizedBackgrounds = document.querySelectorAll('[data-background-it][data-background-en]');
 const localizedLinks = document.querySelectorAll('[data-href-it][data-href-en]');
@@ -223,6 +226,12 @@ function setLanguage(language) {
     const key = element.getAttribute('data-i18n');
     if (key && dictionary[key]) {
       element.textContent = dictionary[key];
+    }
+  });
+  translatableAriaLabels.forEach((element) => {
+    const key = element.getAttribute('data-i18n-aria-label');
+    if (key && dictionary[key]) {
+      element.setAttribute('aria-label', dictionary[key]);
     }
   });
   localizedImages.forEach((image) => {
