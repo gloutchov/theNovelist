@@ -25,7 +25,7 @@ L'app nasce come progetto personale realizzato con assistenza AI. Il codice e op
 
 ### Download e distribuzione
 
-Le build pubblicate sono disponibili nella sezione GitHub Releases del repository.
+La versione corrente e [v6.2.0 su GitHub Releases](https://github.com/gloutchov/theNovelist/releases/tag/v6.2.0), con distributivi e checksum SHA-256.
 
 - Build supportate: macOS e Windows.
 - Build non firmate: su macOS puo comparire Gatekeeper; su Windows puo comparire SmartScreen o un avviso di autore sconosciuto.
@@ -74,7 +74,7 @@ La memoria locale viene inviata a provider esterni solo se il consenso dedicato 
 La dettatura OpenAI usa la chiave gia salvata nel progetto, indipendentemente dal provider dell'assistenza testuale. Whisper locale funziona senza chiave, consenso AI o rete. Quando OpenAI fallisce per connessione, servizio, modello o timeout, il fallback selezionato rielabora localmente il turno e mostra il provider utilizzato. L'audio locale passa per un WAV temporaneo privato, eliminato dopo la trascrizione o l'annullamento; non entra nel progetto. La trascrizione remota puo avere un costo secondo il modello. Il tag della milestone non pubblica automaticamente una release: il workflow `Release` richiede avvio manuale.
 
 Per Whisper installa [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-cli` v1.9.4 verificato su macOS) e un modello **multilingue** GGML. Su macOS puoi usare `brew install whisper.cpp` ([Homebrew](https://formulae.brew.sh/formula/whisper.cpp)) e trovare il percorso del binario con `command -v whisper-cli`. Da questo repository puoi scaricare e verificare il modello tiny (circa 75 MiB) con `node scripts/install-whisper-model.mjs`: lo script controlla SHA-1 `bd577a113a864445d4c299885e0cb97d4ba92b5f` e lo salva in `~/.the-novelist/whisper/ggml-tiny.bin`. Nella build installata puoi scaricare lo stesso modello dalla [raccolta ufficiale](https://huggingface.co/ggerganov/whisper.cpp) e controllare il checksum indicato nella [guida modelli](https://github.com/ggml-org/whisper.cpp/blob/master/models/README.md). Inserisci i percorsi assoluti di binario e modello in **Impostazioni > Dettatura**. Su macOS il binario puo anche essere compilato secondo il [README upstream](https://github.com/ggml-org/whisper.cpp/blob/master/README.md); su Windows consulta le [release upstream](https://github.com/ggml-org/whisper.cpp/releases). Il motore e distribuito con licenza [MIT](https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE); modello e binario non sono inclusi negli artifact dell'app. Consulta [ISTRUZIONI.md](./ISTRUZIONI.md) per la procedura completa.
-La prova automatica locale e stata eseguita su macOS arm64 con il binario Homebrew e il modello multilingue; il progettista ha inoltre confermato il funzionamento manuale della dettatura e del fallback sul proprio Mac. La build Windows e i suoi artifact devono essere verificati dal workflow di release.
+La prova automatica locale e stata eseguita su macOS arm64 con il binario Homebrew e il modello multilingue; il progettista ha inoltre confermato il funzionamento manuale della dettatura e del fallback sul proprio Mac. Il workflow di release ha costruito gli artifact macOS arm64 e Windows x64, e i nove checksum SHA-256 corrispondono ai digest degli asset pubblicati. Il microfono fisico su Windows resta da provare.
 
 ### Documentazione
 
@@ -134,7 +134,7 @@ The app started as a personal project built with AI assistance. The code is open
 
 ### Download and Distribution
 
-Published builds are available from the repository's GitHub Releases page.
+The current version is [v6.2.0 on GitHub Releases](https://github.com/gloutchov/theNovelist/releases/tag/v6.2.0), with distributables and SHA-256 checksums.
 
 - Supported builds: macOS and Windows.
 - Unsigned builds: macOS Gatekeeper or Windows SmartScreen may show first-run warnings.
@@ -183,7 +183,7 @@ Local memory is sent to external providers only when the dedicated consent is en
 OpenAI dictation reuses the key saved in project settings, independently of the text-assistance provider. Local Whisper works without a key, AI consent, or network. If OpenAI fails due to connection, service, model, or timeout, the selected fallback reprocesses the turn locally and shows which provider was used. Local audio is written to a private temporary WAV file and removed after transcription or cancellation; it is not saved in the project. Remote transcription may incur model-dependent costs. A milestone tag does not automatically publish a release: the `Release` workflow must be started manually.
 
 For Whisper, install [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-cli` v1.9.4 tested on macOS) and a **multilingual** GGML model. On macOS, use `brew install whisper.cpp` ([Homebrew](https://formulae.brew.sh/formula/whisper.cpp)) and find the binary path with `command -v whisper-cli`. From this repository, `node scripts/install-whisper-model.mjs` downloads and verifies the roughly 75 MiB tiny model (SHA-1 `bd577a113a864445d4c299885e0cb97d4ba92b5f`) at `~/.the-novelist/whisper/ggml-tiny.bin`. For an installed build, obtain the model from the [official collection](https://huggingface.co/ggerganov/whisper.cpp) and check the hash in the [model guide](https://github.com/ggml-org/whisper.cpp/blob/master/models/README.md). Enter the absolute binary and model paths in **Settings > Dictation**. On macOS, you can also build the binary using the [upstream README](https://github.com/ggml-org/whisper.cpp/blob/master/README.md); on Windows, see [upstream releases](https://github.com/ggml-org/whisper.cpp/releases). The engine uses the [MIT license](https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE); the app artifacts do not include the binary or model. See [INSTRUCTIONS.md](./INSTRUCTIONS.md) for setup details.
-Automated local validation ran on macOS arm64 with the Homebrew binary and multilingual model; the project owner also confirmed dictation and fallback manually on their Mac. The Windows build and its artifacts still need validation by the release workflow.
+Automated local validation ran on macOS arm64 with the Homebrew binary and multilingual model; the project owner also confirmed dictation and fallback manually on their Mac. The release workflow built macOS arm64 and Windows x64 artifacts, and all nine SHA-256 checksums match the published asset digests. Physical microphone operation on Windows still needs testing.
 
 ### Documentation
 

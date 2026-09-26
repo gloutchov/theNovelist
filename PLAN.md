@@ -1,10 +1,10 @@
 # Piano di sviluppo: dettatura negli editor
 
-Stato al 26 settembre 2026: C1 approvata e pubblicata come tag `v6.1.0`; M2 implementata sul branch `milestone/6.2.0-whisper-fallback` e approvata dal progettista per commit, merge, tag, push, release multipiattaforma e rimozione del branch dopo l'aggiornamento della landing page. La versione sorgente e `6.2.0`. Restano la verifica degli artifact Windows/macOS e dei checksum nel workflow di release prima di rinominare M2 in C2.
+Stato al 26 settembre 2026: C1 pubblicata come tag `v6.1.0`; C2 pubblicata come tag e GitHub Release [`v6.2.0`](https://github.com/gloutchov/theNovelist/releases/tag/v6.2.0). Il branch `milestone/6.2.0-whisper-fallback` e stato integrato in `main`; la versione sorgente e `6.2.0`. La prova del microfono fisico su Windows rimane un limite noto, registrato in P1.
 
 ## Regole di esecuzione
 
-- `C1` registra la milestone accettata e `M2` e la prossima milestone esecutiva. Dopo la checklist di chiusura, rinomina una voce `M` completata in `C`, mantenendo il numero. Eventuali idee future vanno in voci `P1`, `P2`, ecc. e non si eseguono senza riclassificazione esplicita del progettista.
+- `C1` e `C2` registrano le milestone accettate e rilasciate. Dopo la checklist di chiusura, rinomina una voce `M` completata in `C`, mantenendo il numero. Eventuali idee future vanno in voci `P1`, `P2`, ecc. e non si eseguono senza riclassificazione esplicita del progettista.
 - Ciascuna milestone parte da `main` aggiornato su un branch dedicato, cambia la versione sorgente e prevede un tag `vX.Y.Z`. Non riutilizzare o spostare tag esistenti.
 - Al completamento di **ogni** milestone, presentare al progettista diff, risultati dei test, documentazione, versione/tag e costo previsto della CI. **Fermarsi prima di commit, merge, creazione del tag, push e rimozione del branch**; eseguire questi passaggi solo dopo avallo esplicito. L'approvazione di questo piano non autorizza automaticamente tali operazioni future.
 - Eseguire localmente le verifiche applicabili prima di ogni push. Evitare push intermedi e workflow manuali non necessari. Le verifiche multipiattaforma restano obbligatorie quando microfono, motore locale o packaging non possono essere validati in modo affidabile su una sola piattaforma.
@@ -68,11 +68,11 @@ Verifica API reale del 26 settembre 2026: aperta soltanto una copia temporanea d
 
 Identita per il gate Git: account GitHub autenticato `gloutchov`, tag `v6.1.0` assente in locale e su `origin` prima dell'integrazione. Il progettista ha scelto `Gloutchov <gloutchov@gmail.com>` per commit, merge e tag, coerente con `AGENTS.md` e con l'ultima release `v6.0.5`.
 
-## M2 - Whisper offline e fallback selezionabile
+## C2 - Whisper offline e fallback selezionabile
 
-- **Stato:** implementazione approvata dal progettista; verifiche multipiattaforma e release in attesa.
-- **Branch:** `milestone/6.2.0-whisper-fallback`, da `main` aggiornato dopo M1.
-- **Versione/tag:** `6.1.0` → `6.2.0` (`+0.1.0`), tag previsto `v6.2.0` dopo avallo, merge e verifiche.
+- **Stato:** implementazione accettata e release multipiattaforma pubblicata; prova del microfono fisico Windows registrata come limite residuo in P1.
+- **Branch:** `milestone/6.2.0-whisper-fallback`, integrato in `main`.
+- **Versione/tag:** `6.1.0` → `6.2.0` (`+0.1.0`), tag e release `v6.2.0` pubblicati.
 - **Obiettivo:** completare la dettatura con modalita solo locale e fallback automatico OpenAI → Whisper locale selezionabile, funzionanti su macOS e Windows.
 
 Attivita principali:
@@ -99,9 +99,15 @@ Test e verifiche:
 
 Documentazione da aggiornare: `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md`, `PLAN.md`, `AGENTS.md` se cambiano regole, licenze dei componenti locali e istruzioni di packaging.
 
-Decisione release: dopo verifica completa, proporre GitHub Release `v6.2.0` con artifact macOS/Windows e checksum. Avvio manuale solo dopo approvazione esplicita.
+Decisione release: il progettista ha autorizzato commit, merge, tag, push, release per macOS e Windows e rimozione del branch. Il workflow `Release` e stato avviato una volta sul tag `v6.2.0` dopo la CI verde; la GitHub Release e pubblicata.
 
-Verifiche M2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistenti), 118 test unitari, 45 e2e browser e 5 e2e Electron passano. Altri 2 smoke test unitari con `whisper-cli` Homebrew v1.9.4 e modello tiny multilingue verificato passano, compresa la cancellazione senza WAV residui. Un turno reale con audio sintetico italiano passa tramite adapter, IPC e app macOS pacchettizzata senza chiave o consenso remoto. Il progettista riferisce una prova manuale positiva della dettatura e del fallback sul proprio Mac. Il download opzionale del modello ha verificato il checksum ufficiale. `npm run pack` nella cartella sincronizzata resta impedito dagli attributi Finder/FileProvider durante `codesign`; una copia temporanea pulita produce invece un'app macOS arm64 valida. La landing bilingue e stata aggiornata con screenshot reali dell'editor; il layout e stato verificato su desktop e mobile. Nessuna CI GitHub e stata usata. Restano verifica Windows/artefatti e checksum della release; M2 rimane quindi `M2`, non `C2`.
+Verifiche C2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistenti), 118 test unitari, 45 e2e browser e 5 e2e Electron passano in locale. Altri 2 smoke test unitari con `whisper-cli` Homebrew v1.9.4 e modello tiny multilingue verificato passano, compresa la cancellazione senza WAV residui. Un turno reale con audio sintetico italiano passa tramite adapter, IPC e app macOS pacchettizzata senza chiave o consenso remoto. Il progettista riferisce una prova manuale positiva della dettatura e del fallback sul proprio Mac. Il download opzionale del modello ha verificato il checksum ufficiale. `npm run pack` nella cartella sincronizzata resta impedito dagli attributi Finder/FileProvider durante `codesign`; una copia temporanea pulita produce invece un'app macOS arm64 valida. La landing bilingue e stata aggiornata con screenshot reali dell'editor e verificata su desktop e mobile; GitHub Pages ha pubblicato la pagina. La CI su `main` e verde. Il workflow Release ha costruito macOS arm64 e Windows x64 e pubblicato nove asset con SHA-256 corrispondenti ai digest GitHub. La prova del microfono fisico su Windows resta aperta ed e stata accettata come limite noto del rilascio.
+
+## P1 - Verifica della dettatura con microfono fisico su Windows
+
+- **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.
+- **Obiettivo:** provare sull'installer e sulla build portable Windows x64 la dettatura OpenAI, Whisper locale, fallback e permessi microfono con un dispositivo fisico.
+- **Esito atteso:** documentare risultati e eventuali correzioni in una successiva milestone o patch dedicata.
 
 ## Checklist di chiusura per ogni milestone
 
