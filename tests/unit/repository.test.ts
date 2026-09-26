@@ -128,6 +128,9 @@ describe('NovelistRepository', () => {
       expect(codexSettings.transcriptionAllowRemoteAudio).toBe(false);
       expect(codexSettings.transcriptionModel).toBe('gpt-live-transcribe');
       expect(codexSettings.transcriptionLanguage).toBe('auto');
+      expect(codexSettings.transcriptionProvider).toBe('openai_api');
+      expect(codexSettings.transcriptionFallbackProvider).toBe('none');
+      expect(codexSettings.transcriptionWhisperModelPath).toBe('');
 
       const updatedCodexSettings = repo.upsertCodexSettings(project.id, {
         enabled: true,
@@ -144,6 +147,10 @@ describe('NovelistRepository', () => {
         transcriptionAllowRemoteAudio: true,
         transcriptionModel: 'gpt-realtime-whisper',
         transcriptionLanguage: 'it',
+        transcriptionProvider: 'openai_api',
+        transcriptionFallbackProvider: 'whisper_local',
+        transcriptionWhisperExecutablePath: '/trusted/whisper-cli',
+        transcriptionWhisperModelPath: '/trusted/ggml-tiny.bin',
       });
       expect(updatedCodexSettings.enabled).toBe(true);
       expect(updatedCodexSettings.provider).toBe('openai_api');
@@ -158,6 +165,13 @@ describe('NovelistRepository', () => {
       expect(updatedCodexSettings.transcriptionAllowRemoteAudio).toBe(true);
       expect(updatedCodexSettings.transcriptionModel).toBe('gpt-realtime-whisper');
       expect(updatedCodexSettings.transcriptionLanguage).toBe('it');
+      expect(updatedCodexSettings.transcriptionFallbackProvider).toBe('whisper_local');
+      expect(updatedCodexSettings.transcriptionWhisperModelPath).toBe('/trusted/ggml-tiny.bin');
+      const localOnly = repo.upsertCodexSettings(project.id, {
+        transcriptionProvider: 'whisper_local', transcriptionFallbackProvider: 'whisper_local',
+      });
+      expect(localOnly.transcriptionProvider).toBe('whisper_local');
+      expect(localOnly.transcriptionFallbackProvider).toBe('none');
 
       repo.appendCodexChatMessage(project.id, {
         chapterNodeId: chapterNode.id,

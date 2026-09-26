@@ -384,9 +384,13 @@ const novelistApi = {
     transcriptionAllowRemoteAudio?: boolean;
     transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
     transcriptionLanguage?: 'auto' | 'it' | 'en';
+    transcriptionProvider?: 'openai_api' | 'whisper_local';
+    transcriptionFallbackProvider?: 'none' | 'whisper_local';
+    transcriptionWhisperExecutablePath?: string;
+    transcriptionWhisperModelPath?: string;
   }): Promise<CodexSettingsResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexUpdateSettings, payload),
-  transcriptionStart: (): Promise<{ sessionId: string }> =>
+  transcriptionStart: (): Promise<{ sessionId: string; provider: 'openai_api' | 'whisper_local'; usedFallback: boolean }> =>
     ipcRenderer.invoke(IPC_CHANNELS.transcriptionStart),
   transcriptionAppend: (payload: { sessionId: string; audio: string }): Promise<{ ok: true }> =>
     ipcRenderer.invoke(IPC_CHANNELS.transcriptionAppend, payload),

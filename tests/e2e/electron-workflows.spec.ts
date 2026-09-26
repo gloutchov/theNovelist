@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -81,6 +81,54 @@ test.describe('electron real e2e workflows', () => {
 
   test.afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  test('local Whisper transcribes through real IPC without remote AI consent', async () => {
+    const executablePath = process.env['NOVELIST_TEST_WHISPER_CLI'];
+    const modelPath = process.env['NOVELIST_TEST_WHISPER_MODEL'];
+    const audioPath = process.env['NOVELIST_TEST_WHISPER_AUDIO_PCM'];
+    test.skip(!executablePath || !modelPath || !audioPath,
+      'Provide the real Whisper binary, model and 24 kHz PCM test audio');
+    const rootPath = await createTempProjectRoot('novelist-electron-whisper-');
+    const pcm = await readFile(audioPath!);
+    const { app, window } = await launchBuiltElectronApp({
+      NOVELIST_TEST_PROJECT_DIRECTORY: rootPath,
+      OPENAI_API_KEY: '',
+    });
+    try {
+      await createProjectFromUi(window, rootPath, 'E2E Offline Whisper');
+      const transcript = await window.evaluate(async ({ binary, model, chunks }) => {
+        const api = globalThis.window.novelistApi;
+        await api.codexUpdateSettings({
+          enabled: false,
+          allowApiCalls: false,
+          transcriptionAllowRemoteAudio: false,
+          transcriptionEnabled: true,
+          transcriptionProvider: 'whisper_local',
+          transcriptionWhisperExecutablePath: binary,
+          transcriptionWhisperModelPath: model,
+        });
+        const started = await api.transcriptionStart();
+        if (started.provider !== 'whisper_local') throw new Error('wrong_provider');
+        const final = new Promise<string>((resolve, reject) => {
+          const unsubscribe = api.onTranscriptionEvent((event) => {
+            if (event.sessionId !== started.sessionId) return;
+            if (event.type === 'final') { unsubscribe(); resolve(event.text); }
+            if (event.type === 'error') { unsubscribe(); reject(new Error(event.code)); }
+          });
+        });
+        for (const audio of chunks) await api.transcriptionAppend({ sessionId: started.sessionId, audio });
+        await api.transcriptionStop({ sessionId: started.sessionId });
+        return final;
+      }, {
+        binary: executablePath!, model: modelPath!,
+        chunks: Array.from({ length: Math.ceil(pcm.length / 48_000) }, (_, index) =>
+          pcm.subarray(index * 48_000, Math.min((index + 1) * 48_000, pcm.length)).toString('base64')),
+      });
+      expect(transcript.toLowerCase()).toMatch(/buongiorno|prova|dettatura/);
+    } finally {
+      await app.close();
+    }
   });
 
   test('persists chapter node and document through real IPC/SQLite', async () => {

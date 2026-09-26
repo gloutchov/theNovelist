@@ -72,6 +72,15 @@ export function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettin
       row.transcription_language === 'it' || row.transcription_language === 'en'
         ? row.transcription_language
         : 'auto',
+    transcriptionProvider:
+      row.transcription_provider === 'whisper_local' ? 'whisper_local' : 'openai_api',
+    transcriptionFallbackProvider:
+      row.transcription_provider !== 'whisper_local' &&
+      row.transcription_fallback_provider === 'whisper_local'
+        ? 'whisper_local'
+        : 'none',
+    transcriptionWhisperExecutablePath: String(row.transcription_whisper_executable_path ?? ''),
+    transcriptionWhisperModelPath: String(row.transcription_whisper_model_path ?? ''),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };

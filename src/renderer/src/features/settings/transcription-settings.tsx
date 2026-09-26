@@ -36,30 +36,48 @@ export function TranscriptionSettings({
       </label>
       <label>
         {t('settings.dictation.provider')}
-        <select value="openai_api" disabled>
-          <option value="openai_api">OpenAI API</option>
-        </select>
-      </label>
-      <label>
-        {t('settings.dictation.model')}
         <select
-          value={settings?.transcriptionModel ?? 'gpt-live-transcribe'}
+          value={settings?.transcriptionProvider ?? 'openai_api'}
           disabled={!settings}
           onChange={(event) =>
             setSettings((previous) =>
               previous
                 ? {
                     ...previous,
-                    transcriptionModel: event.target.value as CodexSettings['transcriptionModel'],
+                    transcriptionProvider: event.target
+                      .value as CodexSettings['transcriptionProvider'],
+                    transcriptionFallbackProvider: 'none',
                   }
                 : previous,
             )
           }
         >
-          <option value="gpt-live-transcribe">gpt-live-transcribe</option>
-          <option value="gpt-realtime-whisper">gpt-realtime-whisper</option>
+          <option value="openai_api">OpenAI API</option>
+          <option value="whisper_local">{t('settings.dictation.localProvider')}</option>
         </select>
       </label>
+      {settings?.transcriptionProvider !== 'whisper_local' ? (
+        <label>
+          {t('settings.dictation.model')}
+          <select
+            value={settings?.transcriptionModel ?? 'gpt-live-transcribe'}
+            disabled={!settings}
+            onChange={(event) =>
+              setSettings((previous) =>
+                previous
+                  ? {
+                      ...previous,
+                      transcriptionModel: event.target.value as CodexSettings['transcriptionModel'],
+                    }
+                  : previous,
+              )
+            }
+          >
+            <option value="gpt-live-transcribe">gpt-live-transcribe</option>
+            <option value="gpt-realtime-whisper">gpt-realtime-whisper</option>
+          </select>
+        </label>
+      ) : null}
       <label>
         {t('settings.dictation.language')}
         <select
@@ -84,26 +102,89 @@ export function TranscriptionSettings({
       </label>
       <label>
         {t('settings.dictation.fallback')}
-        <select value="none" disabled>
-          <option value="none">{t('common.none')}</option>
-        </select>
-      </label>
-      <label className="checkbox-inline">
-        <input
-          type="checkbox"
-          checked={Boolean(settings?.transcriptionAllowRemoteAudio)}
-          disabled={!settings}
+        <select
+          value={settings?.transcriptionFallbackProvider ?? 'none'}
+          disabled={!settings || settings.transcriptionProvider === 'whisper_local'}
           onChange={(event) =>
             setSettings((previous) =>
               previous
-                ? { ...previous, transcriptionAllowRemoteAudio: event.target.checked }
+                ? {
+                    ...previous,
+                    transcriptionFallbackProvider: event.target
+                      .value as CodexSettings['transcriptionFallbackProvider'],
+                  }
                 : previous,
             )
           }
-        />
-        <span>{t('settings.dictation.audioConsent')}</span>
+        >
+          <option value="none">{t('common.none')}</option>
+          {settings?.transcriptionProvider !== 'whisper_local' ? (
+            <option value="whisper_local">{t('settings.dictation.localProvider')}</option>
+          ) : null}
+        </select>
       </label>
-      <p className="muted">{t('settings.dictation.audioConsentHelp')}</p>
+      {settings?.transcriptionProvider === 'whisper_local' ||
+      settings?.transcriptionFallbackProvider === 'whisper_local' ? (
+        <>
+          <label>
+            {t('settings.dictation.localExecutable')}
+            <input
+              type="text"
+              value={settings.transcriptionWhisperExecutablePath}
+              placeholder={t('settings.dictation.localExecutablePlaceholder')}
+              onChange={(event) =>
+                setSettings((previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        transcriptionWhisperExecutablePath: event.target.value,
+                      }
+                    : previous,
+                )
+              }
+            />
+          </label>
+          <label>
+            {t('settings.dictation.localModel')}
+            <input
+              type="text"
+              value={settings.transcriptionWhisperModelPath}
+              placeholder={t('settings.dictation.localModelPlaceholder')}
+              onChange={(event) =>
+                setSettings((previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        transcriptionWhisperModelPath: event.target.value,
+                      }
+                    : previous,
+                )
+              }
+            />
+          </label>
+          <p className="muted">{t('settings.dictation.localHelp')}</p>
+        </>
+      ) : null}
+      {settings?.transcriptionProvider !== 'whisper_local' ? (
+        <label className="checkbox-inline">
+          <input
+            type="checkbox"
+            checked={Boolean(settings?.transcriptionAllowRemoteAudio)}
+            disabled={!settings}
+            onChange={(event) =>
+              setSettings((previous) =>
+                previous
+                  ? { ...previous, transcriptionAllowRemoteAudio: event.target.checked }
+                  : previous,
+              )
+            }
+          />
+          <span>{t('settings.dictation.audioConsent')}</span>
+        </label>
+      ) : null}
+      {settings?.transcriptionProvider !== 'whisper_local' ? (
+        <p className="muted">{t('settings.dictation.audioConsentHelp')}</p>
+      ) : null}
       <div className="row-buttons">
         <button type="button" onClick={onSave} disabled={!settings || busy || !projectOpen}>
           {t('settings.ai.save')}

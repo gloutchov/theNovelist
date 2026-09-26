@@ -111,6 +111,10 @@ export interface CodexSettingsRecord {
   transcriptionAllowRemoteAudio: boolean;
   transcriptionModel: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
   transcriptionLanguage: 'auto' | 'it' | 'en';
+  transcriptionProvider: 'openai_api' | 'whisper_local';
+  transcriptionFallbackProvider: 'none' | 'whisper_local';
+  transcriptionWhisperExecutablePath: string;
+  transcriptionWhisperModelPath: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -338,6 +342,10 @@ export interface UpsertCodexSettingsInput {
   transcriptionAllowRemoteAudio?: boolean;
   transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
   transcriptionLanguage?: 'auto' | 'it' | 'en';
+  transcriptionProvider?: 'openai_api' | 'whisper_local';
+  transcriptionFallbackProvider?: 'none' | 'whisper_local';
+  transcriptionWhisperExecutablePath?: string;
+  transcriptionWhisperModelPath?: string;
 }
 
 export interface CreateCodexChatMessageInput {

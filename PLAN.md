@@ -1,6 +1,6 @@
 # Piano di sviluppo: dettatura negli editor
 
-Stato al 26 settembre 2026: C1 approvata dal progettista per la versione sorgente `6.1.0`; M2 resta pianificata. Il progettista ha autorizzato commit, merge, tag, push e rimozione del branch `milestone/6.1.0-openai-dictation`. Le verifiche non eseguite sono registrate sotto C1.
+Stato al 26 settembre 2026: C1 approvata e pubblicata come tag `v6.1.0`; M2 implementata sul branch `milestone/6.2.0-whisper-fallback` e approvata dal progettista per commit, merge, tag, push, release multipiattaforma e rimozione del branch dopo l'aggiornamento della landing page. La versione sorgente e `6.2.0`. Restano la verifica degli artifact Windows/macOS e dei checksum nel workflow di release prima di rinominare M2 in C2.
 
 ## Regole di esecuzione
 
@@ -23,8 +23,8 @@ Stato al 26 settembre 2026: C1 approvata dal progettista per la versione sorgent
 1. M1 usa anteprima live e inserimento del solo testo finale dopo **Termina e inserisci**. **Annulla** o chiusura dell'editor elimina il turno senza inserimento. Non e prevista pausa in M1: un nuovo turno richiede un nuovo avvio.
 2. Il menu C1 offre `gpt-live-transcribe` e `gpt-realtime-whisper`, documentati come modelli Realtime remoti. `gpt-transcribe` resta escluso perche usa un flusso a turno confermato diverso. Entrambi i modelli hanno prodotto un testo finale coerente con una breve frase sintetica italiana tramite l'API reale e la chiave gia salvata. Restano da verificare microfono fisico, inglese, latenza/accuratezza in uso reale e disponibilita su Windows; il progettista ha accettato la consegna con queste verifiche ancora aperte.
 3. Le impostazioni sono per progetto, distinte da provider testuale e immagini: attivazione e consenso audio remoto dedicato inizialmente disattivati, lingua `auto/it/en`, primario OpenAI, fallback `nessuno`. La chiave protetta esistente viene riusata; `enabled` e `allowApiCalls` restano prerequisiti.
-4. Motore Whisper locale, modello, distribuzione, licenze e requisiti hardware sono decisioni di M2 e richiedono prova macOS/Windows prima dell'integrazione.
-5. Il futuro fallback locale potra elaborare un turno remoto fallito solo se l'audio e ancora disponibile entro limiti in memoria e senza duplicare il testo. Il fallback locale non attivera mai un invio remoto implicito.
+4. M2 usa `whisper.cpp` v1.9.4 tramite `whisper-cli` esterno e modello GGML multilingue. Il pacchetto dell'app non incorpora binario o modello: l'utente indica percorsi assoluti nelle impostazioni. Uno script opzionale scarica il modello tiny (circa 75 MiB) da Hugging Face con SHA-1 verificato. L'adapter usa la CPU per evitare un crash Metal osservato nel test macOS. Restano da validare Windows, microfono fisico e distribuzione dell'eseguibile per gli utenti finali.
+5. Il fallback locale elabora un turno remoto fallito solo se l'audio e ancora disponibile entro limiti in memoria e senza duplicare il testo. La modalita locale non attiva mai un invio remoto implicito.
 
 ## C1 - Dettatura OpenAI negli editor
 
@@ -70,7 +70,7 @@ Identita per il gate Git: account GitHub autenticato `gloutchov`, tag `v6.1.0` a
 
 ## M2 - Whisper offline e fallback selezionabile
 
-- **Stato:** pianificata, dopo C1.
+- **Stato:** implementazione approvata dal progettista; verifiche multipiattaforma e release in attesa.
 - **Branch:** `milestone/6.2.0-whisper-fallback`, da `main` aggiornato dopo M1.
 - **Versione/tag:** `6.1.0` → `6.2.0` (`+0.1.0`), tag previsto `v6.2.0` dopo avallo, merge e verifiche.
 - **Obiettivo:** completare la dettatura con modalita solo locale e fallback automatico OpenAI → Whisper locale selezionabile, funzionanti su macOS e Windows.
@@ -100,6 +100,8 @@ Test e verifiche:
 Documentazione da aggiornare: `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md`, `PLAN.md`, `AGENTS.md` se cambiano regole, licenze dei componenti locali e istruzioni di packaging.
 
 Decisione release: dopo verifica completa, proporre GitHub Release `v6.2.0` con artifact macOS/Windows e checksum. Avvio manuale solo dopo approvazione esplicita.
+
+Verifiche M2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistenti), 118 test unitari, 45 e2e browser e 5 e2e Electron passano. Altri 2 smoke test unitari con `whisper-cli` Homebrew v1.9.4 e modello tiny multilingue verificato passano, compresa la cancellazione senza WAV residui. Un turno reale con audio sintetico italiano passa tramite adapter, IPC e app macOS pacchettizzata senza chiave o consenso remoto. Il progettista riferisce una prova manuale positiva della dettatura e del fallback sul proprio Mac. Il download opzionale del modello ha verificato il checksum ufficiale. `npm run pack` nella cartella sincronizzata resta impedito dagli attributi Finder/FileProvider durante `codesign`; una copia temporanea pulita produce invece un'app macOS arm64 valida. La landing bilingue e stata aggiornata con screenshot reali dell'editor; il layout e stato verificato su desktop e mobile. Nessuna CI GitHub e stata usata. Restano verifica Windows/artefatti e checksum della release; M2 rimane quindi `M2`, non `C2`.
 
 ## Checklist di chiusura per ogni milestone
 

@@ -202,11 +202,20 @@ It is also possible to create a scene in the same way. In this case, the scene w
 
 ### Dictation in chapters and scenes
 
-The **Dictate text** button appears below the toolbar in both editors. Place the cursor or select text to replace, press the button, and allow microphone access when your system asks. Partial speech appears as a preview; **Finish and insert** ends the turn and inserts only the final transcript at the selected position. The insertion can be undone with the usual Undo command. **Cancel** stops recording without changing the document. Closing the editor stops dictation.
+The **Dictate text** button appears below the toolbar in both editors. Place the cursor or select text to replace, press the button, and allow microphone access when your system asks. OpenAI shows partial speech as a preview; local Whisper shows only the final result. **Finish and insert** ends the turn and inserts one final transcript at the selected position. The provider used remains visible beside the control. The insertion can be undone with the usual Undo command. **Cancel** stops recording without changing the document. Closing the editor stops dictation.
 
-In **Settings > Dictation**, enable the feature for the project, choose `gpt-live-transcribe` or `gpt-realtime-whisper`, and select `Automatic detection`, `Italian`, or `English`. You also need the OpenAI key already configured for the project, **Enable AI features for this project**, **Enable external API calls**, and separate consent to send audio. The text-assistance provider may remain Ollama: dictation uses OpenAI independently. Fallback is **None** for this milestone; offline Whisper is planned for the next one. Each recording turn is limited to five minutes. Remote transcription may incur model-dependent costs.
+In **Settings > Dictation**, enable the feature for the project and choose **OpenAI API** or **Local Whisper** as the provider. For OpenAI, choose `gpt-live-transcribe` or `gpt-realtime-whisper`; you also need the project's OpenAI key, **Enable AI features for this project**, **Enable external API calls**, and separate consent to send audio. You can choose **Local Whisper** as fallback: it runs if OpenAI cannot connect, lacks the model, fails as a service, or times out; it does not run for invalid audio or recording limits. The text-assistance provider may remain Ollama. Local-only mode needs no key, AI consent, remote audio consent, or internet connection. `Automatic detection`, `Italian`, or `English` applies to both engines. Each recording turn is limited to five minutes; remote transcription may incur costs.
 
-If microphone access is denied, check macOS/Windows permissions for The Novelist and restart the app if needed. If the connection or transcription fails, existing text is unchanged. Audio is not saved in the project; the final text enters the document only after completion.
+For local mode, install a trusted `whisper-cli` from [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and a **multilingual** GGML model (for example `ggml-tiny.bin`, about 75 MiB; avoid `.en` variants for Italian). On macOS, install the program with [Homebrew](https://formulae.brew.sh/formula/whisper.cpp):
+
+```sh
+brew install whisper.cpp
+command -v whisper-cli
+```
+
+The second command prints the executable's absolute path. Alternatively, follow the [upstream build guide](https://github.com/ggml-org/whisper.cpp/blob/master/README.md); on Windows, check the [upstream releases](https://github.com/ggml-org/whisper.cpp/releases). Homebrew does not install the model. From the source checkout, `node scripts/install-whisper-model.mjs` downloads the tiny model to `~/.the-novelist/whisper/ggml-tiny.bin` only when you run it and verifies SHA-1 `bd577a113a864445d4c299885e0cb97d4ba92b5f`. To obtain its absolute path on macOS, run `echo "$HOME/.the-novelist/whisper/ggml-tiny.bin"`. With the installed app, obtain the model from the [official collection](https://huggingface.co/ggerganov/whisper.cpp) and check its hash against the [model guide](https://github.com/ggml-org/whisper.cpp/blob/master/models/README.md). Enter absolute paths to `whisper-cli` (`whisper-cli.exe` on Windows) and the `.bin` file in **Settings > Dictation**, then save. Update the paths if you move a project to another computer. The engine uses the [MIT license](https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE); the app distribution does not include its binary or model.
+
+If microphone access is denied, check macOS/Windows permissions for The Novelist and restart the app if needed. If connection or transcription fails, existing text is unchanged. Whisper processes audio in a private temporary WAV file, removed after the turn or cancellation; audio is not saved in the project. Local CPU processing can be slower on less powerful computers.
 
 ### Editor keyboard shortcuts
 
@@ -342,7 +351,7 @@ Warning: Ollama must be installed and running on the computer. Otherwise, the lo
 
 The settings menu also includes four important checkboxes:
 
-1. Enable AI features for this project: without this option, AI services, including dictation, cannot be used.
+1. Enable AI features for this project: without this option, remote or text AI services cannot be used; local-only dictation remains available when separately enabled.
 2. Enable external API calls: without this consent, the API key service cannot work.
 3. Auto-summary of block description on save: without this consent, automatic chapter summaries will not be added to the block description.
 4. Consent to send project memory to external providers: if disabled, AI will not receive the Wiki memory when the provider or fallback can send the prompt outside the computer.

@@ -101,6 +101,10 @@ export function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
     transcriptionAllowRemoteAudio?: boolean;
     transcriptionModel?: CodexSettings['transcriptionModel'];
     transcriptionLanguage?: CodexSettings['transcriptionLanguage'];
+    transcriptionProvider?: CodexSettings['transcriptionProvider'];
+    transcriptionFallbackProvider?: CodexSettings['transcriptionFallbackProvider'];
+    transcriptionWhisperExecutablePath?: string;
+    transcriptionWhisperModelPath?: string;
   };
   return {
     ...settings,
@@ -111,6 +115,10 @@ export function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
     transcriptionAllowRemoteAudio: maybeSettings.transcriptionAllowRemoteAudio ?? false,
     transcriptionModel: maybeSettings.transcriptionModel ?? 'gpt-live-transcribe',
     transcriptionLanguage: maybeSettings.transcriptionLanguage ?? 'auto',
+    transcriptionProvider: maybeSettings.transcriptionProvider ?? 'openai_api',
+    transcriptionFallbackProvider: maybeSettings.transcriptionFallbackProvider ?? 'none',
+    transcriptionWhisperExecutablePath: maybeSettings.transcriptionWhisperExecutablePath ?? '',
+    transcriptionWhisperModelPath: maybeSettings.transcriptionWhisperModelPath ?? '',
   };
 }
 
@@ -145,6 +153,14 @@ export function hasPendingAiSettingsChanges(
       normalizeCodexSettings(persistedSettings).transcriptionModel ||
     normalizeCodexSettings(localSettings).transcriptionLanguage !==
       normalizeCodexSettings(persistedSettings).transcriptionLanguage ||
+    normalizeCodexSettings(localSettings).transcriptionProvider !==
+      normalizeCodexSettings(persistedSettings).transcriptionProvider ||
+    normalizeCodexSettings(localSettings).transcriptionFallbackProvider !==
+      normalizeCodexSettings(persistedSettings).transcriptionFallbackProvider ||
+    normalizeCodexSettings(localSettings).transcriptionWhisperExecutablePath !==
+      normalizeCodexSettings(persistedSettings).transcriptionWhisperExecutablePath ||
+    normalizeCodexSettings(localSettings).transcriptionWhisperModelPath !==
+      normalizeCodexSettings(persistedSettings).transcriptionWhisperModelPath ||
     Boolean(apiKeyInput.trim()) ||
     clearStoredApiKey
   );
@@ -208,6 +224,13 @@ export function useAiSettingsState({
           normalizeCodexSettings(aiSettings).transcriptionAllowRemoteAudio,
         transcriptionModel: normalizeCodexSettings(aiSettings).transcriptionModel,
         transcriptionLanguage: normalizeCodexSettings(aiSettings).transcriptionLanguage,
+        transcriptionProvider: normalizeCodexSettings(aiSettings).transcriptionProvider,
+        transcriptionFallbackProvider:
+          normalizeCodexSettings(aiSettings).transcriptionFallbackProvider,
+        transcriptionWhisperExecutablePath:
+          normalizeCodexSettings(aiSettings).transcriptionWhisperExecutablePath,
+        transcriptionWhisperModelPath:
+          normalizeCodexSettings(aiSettings).transcriptionWhisperModelPath,
       });
       loadAiSettings(saved);
       setStatus(t('settings.status.aiSettingsSaved'));

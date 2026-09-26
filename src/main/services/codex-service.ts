@@ -39,6 +39,10 @@ export interface UpdateCodexSettingsInput {
   transcriptionAllowRemoteAudio?: boolean;
   transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
   transcriptionLanguage?: 'auto' | 'it' | 'en';
+  transcriptionProvider?: 'openai_api' | 'whisper_local';
+  transcriptionFallbackProvider?: 'none' | 'whisper_local';
+  transcriptionWhisperExecutablePath?: string;
+  transcriptionWhisperModelPath?: string;
 }
 
 export interface CodexAssistInput {
@@ -143,6 +147,10 @@ export class CodexApplicationService {
       transcriptionAllowRemoteAudio: input.transcriptionAllowRemoteAudio,
       transcriptionModel: input.transcriptionModel,
       transcriptionLanguage: input.transcriptionLanguage,
+      transcriptionProvider: input.transcriptionProvider,
+      transcriptionFallbackProvider: input.transcriptionFallbackProvider,
+      transcriptionWhisperExecutablePath: input.transcriptionWhisperExecutablePath,
+      transcriptionWhisperModelPath: input.transcriptionWhisperModelPath,
     });
 
     const resolved = await resolveCodexRuntime(repository, projectId);

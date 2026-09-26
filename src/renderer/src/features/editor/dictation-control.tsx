@@ -13,6 +13,7 @@ function errorKey(error: unknown): string {
   if (message.includes('consent')) return 'editor.dictation.consentRequired';
   if (message.includes('api_key')) return 'editor.dictation.keyRequired';
   if (message.includes('model_unavailable')) return 'editor.dictation.modelUnavailable';
+  if (message.includes('local_unavailable')) return 'editor.dictation.localUnavailable';
   if (
     name === 'NotAllowedError' ||
     name === 'SecurityError' ||
@@ -29,16 +30,24 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
   const [phase, setPhase] = useState<Phase>('idle');
   const [preview, setPreview] = useState('');
   const [error, setError] = useState('');
+  const [provider, setProvider] = useState<'openai_api' | 'whisper_local' | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
   const sessionId = useRef<string | null>(null);
   const media = useRef<Media | null>(null);
   const bookmark = useRef<SelectionBookmark | null>(null);
   const generation = useRef(0);
   const pendingAudio = useRef<Promise<unknown>>(Promise.resolve());
+  const queuedAudio = useRef<string[]>([]);
+  const queuedAudioChars = useRef(0);
 
   useEffect(() => {
     const off = window.novelistApi.onTranscriptionEvent((event) => {
       if (event.sessionId !== sessionId.current) return;
-      if (event.type === 'partial') {
+      if (event.type === 'provider') {
+        setProvider(event.provider);
+        setUsedFallback(event.reason === 'fallback');
+        setPreview('');
+      } else if (event.type === 'partial') {
         setPreview(event.text);
       } else if (event.type === 'final') {
         sessionId.current = null;
@@ -61,16 +70,20 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
         media.current?.stop();
         media.current = null;
         bookmark.current = null;
+        queuedAudio.current = [];
+        queuedAudioChars.current = 0;
         setPhase('error');
         setError(
           t(
             event.code === 'model_unavailable'
               ? 'editor.dictation.modelUnavailable'
-              : event.code === 'limit'
-                ? 'editor.dictation.limitReached'
-                : event.code === 'timeout'
-                  ? 'editor.dictation.timeout'
-                  : 'editor.dictation.error',
+              : event.code === 'local_unavailable' || event.code === 'local_failed'
+                ? 'editor.dictation.localFailed'
+                : event.code === 'limit'
+                  ? 'editor.dictation.limitReached'
+                  : event.code === 'timeout'
+                    ? 'editor.dictation.timeout'
+                    : 'editor.dictation.error',
           ),
         );
       }
@@ -97,6 +110,8 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
     return () => {
       generation.current += 1;
       media.current?.stop();
+      queuedAudio.current = [];
+      queuedAudioChars.current = 0;
       if (sessionId.current)
         void window.novelistApi.transcriptionCancel({ sessionId: sessionId.current });
       sessionId.current = null;
@@ -108,23 +123,30 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
     const currentGeneration = ++generation.current;
     setError('');
     setPreview('');
+    setProvider(null);
+    setUsedFallback(false);
+    queuedAudio.current = [];
+    queuedAudioChars.current = 0;
+    pendingAudio.current = Promise.resolve();
     try {
       const settings = await window.novelistApi.codexGetSettings();
       if (
-        !settings.enabled ||
-        !settings.allowApiCalls ||
         !settings.transcriptionEnabled ||
-        !settings.transcriptionAllowRemoteAudio
+        (settings.transcriptionProvider !== 'whisper_local' &&
+          (!settings.enabled || !settings.allowApiCalls || !settings.transcriptionAllowRemoteAudio))
       ) {
         throw new Error('transcription_consent_required');
       }
-      if (!settings.hasRuntimeApiKey) throw new Error('transcription_api_key_required');
+      if (
+        settings.transcriptionProvider !== 'whisper_local' &&
+        settings.transcriptionFallbackProvider !== 'whisper_local' &&
+        !settings.hasRuntimeApiKey
+      )
+        throw new Error('transcription_api_key_required');
       if (currentGeneration !== generation.current) return;
       bookmark.current = editor.state.selection.getBookmark();
       setPhase('permission');
-      const audio = await captureMicrophone((chunk) => {
-        if (!sessionId.current) return;
-        const id = sessionId.current;
+      const sendChunk = (chunk: string, id: string) => {
         pendingAudio.current = pendingAudio.current
           .then(() => window.novelistApi.transcriptionAppend({ sessionId: id, audio: chunk }))
           .catch((caught) => {
@@ -136,6 +158,26 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
             void window.novelistApi.transcriptionCancel({ sessionId: id });
             sessionId.current = null;
           });
+      };
+      const audio = await captureMicrophone((chunk) => {
+        if (currentGeneration !== generation.current) return;
+        if (!sessionId.current) {
+          if (queuedAudioChars.current + chunk.length > 2_800_000) {
+            generation.current += 1;
+            media.current?.stop();
+            media.current = null;
+            queuedAudio.current = [];
+            queuedAudioChars.current = 0;
+            bookmark.current = null;
+            setPhase('error');
+            setError(t('editor.dictation.limitReached'));
+            return;
+          }
+          queuedAudio.current.push(chunk);
+          queuedAudioChars.current += chunk.length;
+          return;
+        }
+        sendChunk(chunk, sessionId.current);
       });
       if (currentGeneration !== generation.current) {
         audio.stop();
@@ -150,12 +192,19 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
         return;
       }
       sessionId.current = started.sessionId;
+      for (const chunk of queuedAudio.current) sendChunk(chunk, started.sessionId);
+      queuedAudio.current = [];
+      queuedAudioChars.current = 0;
+      setProvider(started.provider);
+      setUsedFallback(started.usedFallback);
       setPhase('recording');
     } catch (caught) {
       if (currentGeneration !== generation.current) return;
       media.current?.stop();
       media.current = null;
       bookmark.current = null;
+      queuedAudio.current = [];
+      queuedAudioChars.current = 0;
       setPhase('error');
       setError(t(errorKey(caught)));
     }
@@ -171,6 +220,10 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
       if (sessionId.current)
         await window.novelistApi.transcriptionStop({ sessionId: sessionId.current });
     } catch (caught) {
+      if (sessionId.current)
+        void window.novelistApi.transcriptionCancel({ sessionId: sessionId.current });
+      sessionId.current = null;
+      bookmark.current = null;
       setError(t(errorKey(caught)));
       setPhase('error');
     }
@@ -181,11 +234,15 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
     media.current?.stop();
     media.current = null;
     bookmark.current = null;
+    queuedAudio.current = [];
+    queuedAudioChars.current = 0;
     if (sessionId.current)
       void window.novelistApi.transcriptionCancel({ sessionId: sessionId.current });
     sessionId.current = null;
     setPhase('idle');
     setPreview('');
+    setProvider(null);
+    setUsedFallback(false);
     setError('');
   }
 
@@ -222,6 +279,17 @@ export function DictationControl({ editor, t }: { editor: Editor | null; t: Tran
       {preview ? (
         <span className="dictation-preview" aria-live="polite">
           {preview}
+        </span>
+      ) : null}
+      {provider && phase !== 'error' ? (
+        <span className="muted" role="status">
+          {t(
+            usedFallback
+              ? 'editor.dictation.fallbackActive'
+              : provider === 'whisper_local'
+                ? 'editor.dictation.localActive'
+                : 'editor.dictation.openaiActive',
+          )}
         </span>
       ) : null}
       {error ? (

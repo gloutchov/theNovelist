@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.1.0, con dettatura OpenAI negli editor capitolo e scena.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.2.0, con dettatura OpenAI e Whisper locale negli editor capitolo e scena.
 
 ### Vista generale
 
@@ -76,7 +76,7 @@ checksums/
 `-- *.txt           # Checksum storici o di supporto alle release.
 
 docs/
-|-- assets/         # Icona e anteprime visuali scure/chiare del mini sito.
+|-- assets/         # Icona, anteprime visuali e screenshot bilingui della dettatura.
 |-- index.html      # Landing page bilingue pubblicabile via GitHub Pages.
 |-- site.js         # Switch lingua italiano/inglese.
 `-- styles.css      # Stili responsive del sito statico.
@@ -84,6 +84,7 @@ docs/
 scripts/
 |-- electron-builder-after-pack.cjs # Hook post-packaging Electron.
 |-- generate-checksums.mjs          # Genera SHA256SUMS.
+|-- install-whisper-model.mjs       # Download opzionale con checksum del modello tiny multilingue.
 |-- rebuild-electron-native.mjs     # Rebuild moduli nativi per Electron.
 |-- rebuild-node-native.mjs         # Rebuild moduli nativi per Node/Vitest.
 |-- run-electron-e2e.mjs            # Wrapper e2e Electron.
@@ -114,6 +115,7 @@ src/
 |   |-- projects/
 |   |-- security/
 |   |-- services/
+|   |-- transcription/
 |   `-- wiki/
 |-- preload/
 |   `-- index.ts
@@ -145,7 +147,7 @@ src/main/
 |-- security/                # Storage sicuro e policy debug/devtools.
 |-- services/                # Servizi di dominio sopra i repository.
 |-- sources/                 # Estrazione testo, OCR PDF e analisi XLSX opzionale per fonti esterne Appunti.
-|-- transcription/           # Sessione OpenAI Realtime e limiti audio.
+|-- transcription/           # Sessioni OpenAI/Whisper, fallback, conversione WAV e limiti audio.
 `-- wiki/                    # Bootstrap, sync, ricerca, export e path safety Wiki.
 ```
 
@@ -293,7 +295,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 6.1.0, with OpenAI dictation in chapter and scene editors.
+This map describes the main file layout and module responsibilities. It is updated for source version 6.2.0, with OpenAI and local Whisper dictation in chapter and scene editors.
 
 ### Overview
 
@@ -361,7 +363,7 @@ checksums/
 `-- *.txt           # Historical or release-support checksums.
 
 docs/
-|-- assets/         # Icon and dark/light visual previews for the mini site.
+|-- assets/         # Icon, visual previews and bilingual dictation screenshots.
 |-- index.html      # Bilingual landing page publishable through GitHub Pages.
 |-- site.js         # Italian/English language switcher.
 `-- styles.css      # Responsive styles for the static site.
@@ -369,6 +371,7 @@ docs/
 scripts/
 |-- electron-builder-after-pack.cjs # Electron post-packaging hook.
 |-- generate-checksums.mjs          # SHA256SUMS generation.
+|-- install-whisper-model.mjs       # Optional checksum-verified multilingual tiny model download.
 |-- rebuild-electron-native.mjs     # Native module rebuild for Electron.
 |-- rebuild-node-native.mjs         # Native module rebuild for Node/Vitest.
 |-- run-electron-e2e.mjs            # Electron e2e wrapper.
@@ -399,6 +402,7 @@ src/
 |   |-- projects/
 |   |-- security/
 |   |-- services/
+|   |-- transcription/
 |   `-- wiki/
 |-- preload/
 |   `-- index.ts
@@ -430,7 +434,7 @@ src/main/
 |-- security/                # Secure storage and debug/devtools policy.
 |-- services/                # Domain services above repositories.
 |-- sources/                 # Text extraction, optional PDF OCR, and optional XLSX analysis for external Notes sources.
-|-- transcription/           # OpenAI Realtime session and audio limits.
+|-- transcription/           # OpenAI/Whisper sessions, fallback, WAV conversion, and audio limits.
 `-- wiki/                    # Wiki bootstrap, sync, search, export, and path safety.
 ```
 

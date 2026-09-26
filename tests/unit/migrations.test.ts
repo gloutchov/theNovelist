@@ -72,6 +72,10 @@ describe('database migrations', () => {
       expect(codexSettingsColumns.map((row) => row.name)).toContain(
         'transcription_allow_remote_audio',
       );
+      expect(codexSettingsColumns.map((row) => row.name)).toEqual(expect.arrayContaining([
+        'transcription_provider', 'transcription_fallback_provider',
+        'transcription_whisper_executable_path', 'transcription_whisper_model_path',
+      ]));
 
       const projectColumns = db.prepare("PRAGMA table_info('projects')").all() as Array<{
         name: string;
