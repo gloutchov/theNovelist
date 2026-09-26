@@ -68,6 +68,10 @@ describe('database migrations', () => {
       ).toBe('0');
       expect(codexSettingsColumns.map((row) => row.name)).toContain('ollama_model');
       expect(codexSettingsColumns.map((row) => row.name)).toContain('api_image_model');
+      expect(codexSettingsColumns.map((row) => row.name)).toContain('transcription_enabled');
+      expect(codexSettingsColumns.map((row) => row.name)).toContain(
+        'transcription_allow_remote_audio',
+      );
 
       const projectColumns = db.prepare("PRAGMA table_info('projects')").all() as Array<{
         name: string;

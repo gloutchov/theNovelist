@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 6.0.5<br />
+  <strong>Versione sorgente / Source version:</strong> 6.1.0<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://thenovelist.glaucosilvestri.it/">thenovelist.glaucosilvestri.it</a>
@@ -42,6 +42,7 @@ Nota: la cartella locale `release/` puo contenere build precedenti o artefatti g
 - Canvas capitoli con nodi, connessioni e trame parallele colorate.
 - Canvas dedicati per trame, scene, personaggi, location e appunti esterni.
 - Editor capitolo/scena con formattazione, ricerca/sostituzione, riferimenti a `@personaggi`, `@location` e `#scene`, piu aggancio automatico dei riferimenti mancanti.
+- Dettatura OpenAI negli editor capitolo/scena: anteprima in tempo reale e inserimento annullabile del testo finale. Richiede consenso audio dedicato e chiave API; Whisper offline e previsto per M2.
 - Creazione rapida di schede da testo selezionato.
 - Timeline cronologica separata dall'ordine di lettura, con viste distinte per capitoli e scene.
 - Scaletta drag and drop per ordinare il manoscritto.
@@ -67,15 +68,20 @@ Consensi disponibili:
 - chiamate API esterne;
 - auto-riassunto delle descrizioni;
 - invio memoria progetto a provider esterni.
+- invio audio a OpenAI solo durante una dettatura avviata esplicitamente.
 
 La memoria locale viene inviata a provider esterni solo se il consenso dedicato e attivo. Ollama resta disponibile per chi vuole mantenere il testo sul proprio computer.
+La dettatura usa la chiave OpenAI gia salvata nelle impostazioni del progetto, indipendentemente dal provider dell'assistenza testuale. L'audio non viene salvato nel progetto. La trascrizione remota ha un costo secondo il modello selezionato; verifica i prezzi OpenAI prima dell'uso. Il tag della milestone non pubblica automaticamente una release: il workflow `Release` richiede avvio manuale.
 
-### Documentazione utente
+### Documentazione
 
 - [ISTRUZIONI.md](./ISTRUZIONI.md): manuale completo in italiano.
 - [INSTRUCTIONS.md](./INSTRUCTIONS.md): traduzione completa in inglese.
 - [SECURITY_MODEL.md](./SECURITY_MODEL.md): note tecniche su sicurezza, limiti residui e hardening.
 - [MAPS.md](./MAPS.md): mappa del repository.
+- [PLAN.md](./PLAN.md): milestone previste per la dettatura negli editor, versioni e criteri di verifica.
+- [AGENTS.md](./AGENTS.md): regole operative specifiche del progetto.
+- [STARTUP_PREFERENCES.md](./STARTUP_PREFERENCES.md): regole generali di sviluppo adottate per l'app.
 
 ### Sviluppo locale
 
@@ -142,6 +148,7 @@ Note: the local `release/` folder may contain older builds or artifacts produced
 - Chapter canvas with nodes, connections, and color-coded parallel plots.
 - Dedicated canvases for plots, scenes, characters, locations, and external notes.
 - Chapter/scene editor with formatting, search/replace, references to `@characters`, `@locations`, and `#scenes`, plus automatic linking for missing references.
+- OpenAI dictation in chapter and scene editors: live preview and undoable insertion of the final transcript. Requires separate audio consent and an API key; offline Whisper is planned for M2.
 - Quick card creation from selected text.
 - Chronological timeline independent from reading order, with separate chapter and scene views.
 - Drag-and-drop outline for manuscript ordering.
@@ -167,15 +174,20 @@ Available consents:
 - external API calls;
 - automatic description summaries;
 - sending project memory to external providers.
+- sending audio to OpenAI only during explicitly started dictation.
 
 Local memory is sent to external providers only when the dedicated consent is enabled. Ollama remains available for users who want to keep text on their own computer.
+Dictation reuses the OpenAI key saved in project settings, independently of the text-assistance provider. Audio is not saved in the project. Remote transcription incurs model-dependent costs; check OpenAI pricing before use. A milestone tag does not automatically publish a release: the `Release` workflow must be started manually.
 
-### User Documentation
+### Documentation
 
 - [ISTRUZIONI.md](./ISTRUZIONI.md): complete Italian manual.
 - [INSTRUCTIONS.md](./INSTRUCTIONS.md): complete English translation.
 - [SECURITY_MODEL.md](./SECURITY_MODEL.md): technical security notes, residual risks, and hardening.
 - [MAPS.md](./MAPS.md): repository map.
+- [PLAN.md](./PLAN.md): planned editor dictation milestones, versions, and acceptance criteria.
+- [AGENTS.md](./AGENTS.md): project-specific operating rules.
+- [STARTUP_PREFERENCES.md](./STARTUP_PREFERENCES.md): general development rules adopted for this app.
 
 ### Local Development
 

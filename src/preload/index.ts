@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
+import type { TranscriptionEvent } from '../main/transcription/realtime-session';
 import type {
   AppPreferencesResponse,
   StoryEdgeResponse,
@@ -379,8 +380,26 @@ const novelistApi = {
     apiModel?: string;
     apiImageModel?: string;
     ollamaModel?: string;
+    transcriptionEnabled?: boolean;
+    transcriptionAllowRemoteAudio?: boolean;
+    transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
+    transcriptionLanguage?: 'auto' | 'it' | 'en';
   }): Promise<CodexSettingsResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.codexUpdateSettings, payload),
+  transcriptionStart: (): Promise<{ sessionId: string }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.transcriptionStart),
+  transcriptionAppend: (payload: { sessionId: string; audio: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.transcriptionAppend, payload),
+  transcriptionStop: (payload: { sessionId: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.transcriptionStop, payload),
+  transcriptionCancel: (payload: { sessionId: string }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.transcriptionCancel, payload),
+  onTranscriptionEvent: (callback: (event: TranscriptionEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: TranscriptionEvent) =>
+      callback(payload);
+    ipcRenderer.on(IPC_CHANNELS.transcriptionEvent, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.transcriptionEvent, listener);
+  },
   codexAssist: (payload: {
     message: string;
     context?: string;

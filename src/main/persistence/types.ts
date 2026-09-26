@@ -107,6 +107,10 @@ export interface CodexSettingsRecord {
   apiModel: string;
   apiImageModel: string;
   ollamaModel: string;
+  transcriptionEnabled: boolean;
+  transcriptionAllowRemoteAudio: boolean;
+  transcriptionModel: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
+  transcriptionLanguage: 'auto' | 'it' | 'en';
   createdAt: string;
   updatedAt: string;
 }
@@ -330,6 +334,10 @@ export interface UpsertCodexSettingsInput {
   apiModel?: string;
   apiImageModel?: string;
   ollamaModel?: string;
+  transcriptionEnabled?: boolean;
+  transcriptionAllowRemoteAudio?: boolean;
+  transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
+  transcriptionLanguage?: 'auto' | 'it' | 'en';
 }
 
 export interface CreateCodexChatMessageInput {

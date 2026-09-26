@@ -200,7 +200,15 @@ If you want to create a new character or a new location without going through th
 In the text editor, of course, the selected text will remain present, and the badge for the newly created character or location will appear.
 It is also possible to create a scene in the same way. In this case, the scene will be marked with `#`.
 
-Editor keyboard shortcuts:
+### Dictation in chapters and scenes
+
+The **Dictate text** button appears below the toolbar in both editors. Place the cursor or select text to replace, press the button, and allow microphone access when your system asks. Partial speech appears as a preview; **Finish and insert** ends the turn and inserts only the final transcript at the selected position. The insertion can be undone with the usual Undo command. **Cancel** stops recording without changing the document. Closing the editor stops dictation.
+
+In **Settings > Dictation**, enable the feature for the project, choose `gpt-live-transcribe` or `gpt-realtime-whisper`, and select `Automatic detection`, `Italian`, or `English`. You also need the OpenAI key already configured for the project, **Enable AI features for this project**, **Enable external API calls**, and separate consent to send audio. The text-assistance provider may remain Ollama: dictation uses OpenAI independently. Fallback is **None** for this milestone; offline Whisper is planned for the next one. Each recording turn is limited to five minutes. Remote transcription may incur model-dependent costs.
+
+If microphone access is denied, check macOS/Windows permissions for The Novelist and restart the app if needed. If the connection or transcription fails, existing text is unchanged. Audio is not saved in the project; the final text enters the document only after completion.
+
+### Editor keyboard shortcuts
 
 | Action                     | Windows/Linux                     | macOS                            |
 | -------------------------- | --------------------------------- | -------------------------------- |
@@ -310,6 +318,10 @@ The program lets you choose between:
 
 Here you can choose the AI model to use (OpenAI API key or Ollama), the fallback in case the chosen AI has problems (including No AI), and set the models to which requests will be made. Before changing the defaults, check token costs.
 
+### Dictation
+
+Transcription options are separate from text-assistance and image models. The feature and audio consent are off for both existing and new projects until explicitly enabled.
+
 ### Consents
 
 This area contains the checkboxes used to enable the various AI features provided by the application.
@@ -330,7 +342,7 @@ Warning: Ollama must be installed and running on the computer. Otherwise, the lo
 
 The settings menu also includes four important checkboxes:
 
-1. Consent to send text to AI tools: without this consent, AI services cannot be used.
+1. Enable AI features for this project: without this option, AI services, including dictation, cannot be used.
 2. Enable external API calls: without this consent, the API key service cannot work.
 3. Auto-summary of block description on save: without this consent, automatic chapter summaries will not be added to the block description.
 4. Consent to send project memory to external providers: if disabled, AI will not receive the Wiki memory when the provider or fallback can send the prompt outside the computer.

@@ -199,7 +199,15 @@ Se si vuole creare un nuovo personaggio, o una nuova location, senza passare ai 
 Nell'editor di testo, ovviamente, il testo selezionato rimarrà presente, ed apparirà il badge relativo al personaggio, o alla location, appena creata.
 Allo stesso modo è possibile creare una scena. In questo caso la scena verrà evidenziata con il '#'.
 
-Scorciatoie da tastiera nell'editor:
+### Dettatura nei capitoli e nelle scene
+
+Il pulsante **Detta testo** compare sotto la barra degli strumenti in entrambi gli editor. Posiziona il cursore o seleziona il testo da sostituire, premi il pulsante e concedi l'accesso al microfono quando richiesto dal sistema. Il parlato parziale compare in anteprima; **Termina e inserisci** conclude il turno e inserisce solo la trascrizione finale nella posizione selezionata. Puoi annullare l'inserimento con il normale comando Annulla. **Annulla** interrompe la registrazione senza modificare il documento. Chiudere l'editor interrompe la dettatura.
+
+In **Impostazioni > Dettatura** abilita la funzione per il progetto, scegli `gpt-live-transcribe` oppure `gpt-realtime-whisper` e la lingua `Auto`, `Italiano` o `Inglese`. Occorrono anche la chiave OpenAI gia configurata per il progetto, **Abilita funzionalità AI**, **Abilita chiamate API esterne** e il consenso separato all'invio dell'audio. Il provider testuale puo restare Ollama: la dettatura usa OpenAI in modo indipendente. Il fallback e **Nessuno** in questa milestone; Whisper offline arrivera nella successiva. La registrazione dura al massimo cinque minuti per turno. La trascrizione remota puo avere un costo secondo il modello scelto.
+
+Se il microfono viene negato, controlla i permessi di macOS/Windows per The Novelist e riavvia l'app se necessario. Se la connessione o la trascrizione fallisce, il testo gia presente rimane invariato. L'audio non viene salvato nel progetto; il testo finale entra nel documento solo dopo il completamento.
+
+### Scorciatoie da tastiera nell'editor
 
 | Azione                          | Windows/Linux                      | macOS                             |
 | ------------------------------- | ---------------------------------- | --------------------------------- |
@@ -308,6 +316,10 @@ Il programma permette di scegliere tra:
 
 Qui si può scegliere il modello AI da usare (OpenAI API Key oppure Ollama), il fallback nel caso la AI scelta abbia problemi (tra cui anche No AI), e impostare i modelli a cui fare le richieste (prima di cambiare quelli di default, verificare i costi per token).
 
+### Dettatura
+
+Le opzioni di trascrizione sono separate dai modelli di assistenza testuale e immagini. L'attivazione e il consenso audio sono disattivati per i progetti esistenti e nuovi finche non vengono abilitati esplicitamente.
+
 ### Consensi
 
 Qui sono presenti le box per abilitare le varie funzionalità AI previste dall'applicazione.
@@ -328,7 +340,7 @@ Attenzione: Ollama deve essere installato e in esecuzione sul computer. In caso 
 
 Il menù impostazioni presenta anche quattro check box importanti:
 
-1. Consenso invio testo a strumenti AI: Senza questo consenso non si potranno usare i servizi AI.
+1. Abilita funzionalità AI per questo progetto: Senza questa opzione non si potranno usare i servizi AI, inclusa la dettatura.
 2. Abilita chiamate API esterne: Senza questo consenso non potrà funzionare il servizio tramite API KEY.
 3. Auto-riassunto della descrizione blocco al salvataggio: Senza questo consenso non si avrà il riassunto automatico dei capitoli in descrizione al blocco.
 4. Consenso invio memoria progetto a provider esterni: se disattivato, la AI non riceverà la memoria Wiki quando il provider o il fallback possono inviare il prompt fuori dal computer.

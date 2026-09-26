@@ -123,6 +123,10 @@ export async function installNovelistApiMock(
         apiModel: 'gpt-5-mini',
         apiImageModel: 'gpt-image-1',
         ollamaModel: 'gemma4:e4b-it-q4_K_M',
+        transcriptionEnabled: false,
+        transcriptionAllowRemoteAudio: false,
+        transcriptionModel: 'gpt-live-transcribe' as 'gpt-live-transcribe' | 'gpt-realtime-whisper',
+        transcriptionLanguage: 'auto' as 'auto' | 'it' | 'en',
         createdAt: nowIso(),
         updatedAt: nowIso(),
       },
@@ -285,6 +289,9 @@ export async function installNovelistApiMock(
         createdAt: string;
       }>,
     };
+    const transcriptionListeners = new Set<
+      (event: { sessionId: string; type: 'partial' | 'final'; text: string }) => void
+    >();
 
     const ensureProject = () => {
       if (!state.currentProject) {
@@ -1308,9 +1315,7 @@ export async function installNovelistApiMock(
       },
 
       getDroppedFilePaths: (files: File[]) =>
-        files
-          .map((file) => (file as File & { path?: string }).path ?? file.name)
-          .filter(Boolean),
+        files.map((file) => (file as File & { path?: string }).path ?? file.name).filter(Boolean),
 
       getExternalSourcesState: async () => ({
         sources: clone(state.externalSources),
@@ -1367,7 +1372,11 @@ export async function installNovelistApiMock(
         return clone(created);
       },
 
-      updateExternalSource: async (payload: { id: string; positionX: number; positionY: number }) => {
+      updateExternalSource: async (payload: {
+        id: string;
+        positionX: number;
+        positionY: number;
+      }) => {
         const source = state.externalSources.find((item) => item.id === payload.id);
         if (!source) {
           throw new Error('External source not found');
@@ -1413,7 +1422,9 @@ export async function installNovelistApiMock(
       },
 
       deleteExternalSourceEdge: async (payload: { id: string }) => {
-        state.externalSourceEdges = state.externalSourceEdges.filter((edge) => edge.id !== payload.id);
+        state.externalSourceEdges = state.externalSourceEdges.filter(
+          (edge) => edge.id !== payload.id,
+        );
         return { ok: true as const };
       },
 
@@ -1607,6 +1618,34 @@ export async function installNovelistApiMock(
       }),
 
       codexGetSettings: async () => clone(state.codexSettings),
+      transcriptionStart: async () => {
+        if (
+          !state.codexSettings.enabled ||
+          !state.codexSettings.allowApiCalls ||
+          !state.codexSettings.transcriptionEnabled ||
+          !state.codexSettings.transcriptionAllowRemoteAudio ||
+          !state.codexSettings.hasRuntimeApiKey
+        ) {
+          throw new Error('transcription_consent_required');
+        }
+        return { sessionId: nextId('transcription') };
+      },
+      transcriptionAppend: async () => ({ ok: true as const }),
+      transcriptionStop: async (payload: { sessionId: string }) => {
+        window.setTimeout(() => {
+          for (const listener of transcriptionListeners) {
+            listener({ sessionId: payload.sessionId, type: 'final', text: 'Testo dettato.' });
+          }
+        }, 0);
+        return { ok: true as const };
+      },
+      transcriptionCancel: async () => ({ ok: true as const }),
+      onTranscriptionEvent: (
+        callback: (event: { sessionId: string; type: 'partial' | 'final'; text: string }) => void,
+      ) => {
+        transcriptionListeners.add(callback);
+        return () => transcriptionListeners.delete(callback);
+      },
 
       codexUpdateSettings: async (payload: {
         enabled?: boolean;
@@ -1620,6 +1659,10 @@ export async function installNovelistApiMock(
         apiModel?: string;
         apiImageModel?: string;
         ollamaModel?: string;
+        transcriptionEnabled?: boolean;
+        transcriptionAllowRemoteAudio?: boolean;
+        transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
+        transcriptionLanguage?: 'auto' | 'it' | 'en';
       }) => {
         if (payload.enabled !== undefined) {
           state.codexSettings.enabled = payload.enabled;
@@ -1653,6 +1696,18 @@ export async function installNovelistApiMock(
         }
         if (payload.ollamaModel !== undefined && payload.ollamaModel.trim()) {
           state.codexSettings.ollamaModel = payload.ollamaModel.trim();
+        }
+        if (payload.transcriptionEnabled !== undefined) {
+          state.codexSettings.transcriptionEnabled = payload.transcriptionEnabled;
+        }
+        if (payload.transcriptionAllowRemoteAudio !== undefined) {
+          state.codexSettings.transcriptionAllowRemoteAudio = payload.transcriptionAllowRemoteAudio;
+        }
+        if (payload.transcriptionModel !== undefined) {
+          state.codexSettings.transcriptionModel = payload.transcriptionModel;
+        }
+        if (payload.transcriptionLanguage !== undefined) {
+          state.codexSettings.transcriptionLanguage = payload.transcriptionLanguage;
         }
         if (payload.clearStoredApiKey || payload.apiKey === null) {
           state.codexSettings.hasStoredApiKey = false;

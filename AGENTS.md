@@ -14,9 +14,18 @@ The Novelist e una app desktop Electron + React + TypeScript per la scrittura na
 - Playwright per e2e browser ed Electron.
 - Vitest per test unitari.
 
+## Regole del progetto
+
+- Leggi `AGENTS.md`, `STARTUP_PREFERENCES.md`, `PLAN.md` e, per le aree pertinenti, `SECURITY_MODEL.md` prima di avviare una milestone.
+- `STARTUP_PREFERENCES.md` e un file di regole applicabile allo sviluppo di questa app. Adattane le direttive generali all'architettura esistente; le eccezioni specifiche documentate qui prevalgono solo dove i due file differiscono.
+- Il nome della mappa del repository resta `MAPS.md` al posto del generico `MAP.md` indicato nelle preferenze.
+- La Wiki attuale e derivata dal database e dalle fonti del progetto. Le direttive sulla Wiki mantenuta da LLM valgono solo per un'eventuale funzionalita futura, dopo decisione progettuale, consenso e aggiornamento del modello di sicurezza.
+- Le istruzioni esplicite dell'utente per il task corrente prevalgono sulle regole operative dei file.
+
 ## Regole operative
 
 - Prima di modificare, controlla lo stato del worktree con `git status --short`.
+- Prima di commit, push, PR, tag, release o workflow manuali verifica identita Git, remote e account GitHub autenticato; la predefinita e `Gloutchov <gloutchov@gmail.com>` sull'account privato `gloutchov`. Se l'identita non e verificabile o non coincide, fermati prima dell'operazione e chiedi indicazioni.
 - Non revertire modifiche non tue. Il repo puo essere sporco per lavoro utente in corso.
 - Mantieni gli interventi piccoli e coerenti con i pattern esistenti.
 - Usa `apply_patch` per edit manuali.
@@ -31,6 +40,8 @@ The Novelist e una app desktop Electron + React + TypeScript per la scrittura na
 - Mantieni i file leggibili e di dimensioni ragionevoli. Quando una modifica rende un file difficile da seguire, estrai responsabilita coese in file separati.
 - Separa logica di dominio, accesso ai dati, stato UI e presentazione quando la separazione riduce complessita o duplicazione.
 - Non creare astrazioni premature: estrai solo quando migliora concretamente manutenzione, testabilita o chiarezza del codice.
+- Centralizza default, modelli, timeout, limiti e policy configurabili in `src/main/config/app-config.ts` o nella configurazione persistita appropriata; valida i valori ai confini IPC, filesystem e rete.
+- Mantieni segreti e operazioni privilegiate nel main process, usando lo storage protetto gia previsto. Il renderer non deve ricevere API key o accesso diretto al filesystem privilegiato.
 
 ## Comandi principali
 
@@ -123,6 +134,8 @@ Le funzionalita AI supportano OpenAI API e Ollama. Rispetta le impostazioni di c
 
 Non inviare contenuti esterni o introdurre nuove chiamate di rete senza passare dalle impostazioni esistenti.
 
+Per la dettatura, tratta l'audio come contenuto sensibile: microfono solo su richiesta, consenso dedicato prima dell'invio remoto, limiti di durata e dimensione, cancellazione effettiva e nessun audio o trascrizione nei log. Il fallback locale non puo attivare un invio remoto senza consenso. Ollama e il fallback attuale per l'assistenza testuale; non va considerato automaticamente un motore di trascrizione. Mantieni separate le impostazioni della dettatura da quelle dei provider testuali e delle immagini.
+
 ## Documentazione
 
 - `README.md`: pagina principale GitHub bilingue, con riepilogo prodotto, distribuzione, sviluppo e release corrente.
@@ -130,6 +143,8 @@ Non inviare contenuti esterni o introdurre nuove chiamate di rete senza passare 
 - `INSTRUCTIONS.md`: traduzione inglese completa del manuale.
 - `SECURITY_MODEL.md`: modello di sicurezza bilingue e limiti residui.
 - `MAPS.md`: mappa bilingue della struttura del repository.
+- `STARTUP_PREFERENCES.md`: regole generali del progettista applicate a questa app.
+- `PLAN.md`: milestone ordinate, branch, versioni, criteri di accettazione e stato.
 - `AGENTS.md`: queste istruzioni operative.
 - Mantieni sempre aggiornati questi file quando cambi comportamento utente, struttura del repository, sicurezza, release, packaging, i18n, test o workflow operativi.
 - Non ricreare `RELEASE_NOTES.md`: le note sintetiche della release corrente sono integrate nel README.
@@ -146,19 +161,32 @@ npm run dist:mac
 
 Le build non sono firmate. Su Windows `signAndEditExecutable` e disabilitato.
 
+## Milestone e branch
+
+- Registra in `PLAN.md` le milestone esecutive come `M1`, `M2`, ecc. e svolgile in ordine. Rinomina una milestone completata `C1`, `C2`, ecc. solo dopo la checklist di chiusura; usa `P1`, `P2`, ecc. per idee future non eseguibili senza una decisione esplicita del progettista.
+- Ogni milestone usa un branch dedicato `milestone/<versione>-<slug>` creato da `main` aggiornato. Una patch autonoma usa `patch/<versione>-<slug>`.
+- Per ogni milestone definisci in anticipo incremento SemVer, versione sorgente e tag previsto `vX.Y.Z`. Usa `+0.0.1` per patch circoscritte, `+0.1.0` per funzionalita minori e `+1.0.0` per cambi maggiori. Quando cambi versione, allinea `package.json`, `package-lock.json`, README, mappa, piano e ogni altro riferimento canonico.
+- Al termine di **ogni** milestone, fermati prima di commit, merge, creazione del tag, push e rimozione del branch. Presenta diff, test, documentazione, versione/tag previsti e impatto CI; attendi l'avallo esplicito del progettista per procedere. Non anticipare queste operazioni in base a un'approvazione generica del piano.
+- Non spostare tag pubblicati e non eliminare un branch prima di merge e verifiche previsti, salvo richiesta esplicita del progettista.
+
+## CI e budget GitHub
+
+- Esegui prima in locale test, lint, typecheck, build e controlli di sicurezza pertinenti. Raggruppa le modifiche in push revisionabili ed evita run intermedi, manuali o ripetuti senza una verifica necessaria.
+- Usa CI multipiattaforma e packaging quando il rischio della milestone lo richiede; non ridurre le verifiche necessarie per microfono, moduli nativi, IPC o distribuzione. Dopo un push approvato che avvia CI necessaria, controllane l'esito.
+- Il workflow `Release` parte solo su `workflow_dispatch` con un tag esplicito: il push di un tag `v*` non avvia build o pubblicazione. Avvialo solo dopo l'avallo previsto e quando serve una release scaricabile.
+
 ## Rilascio
 
-- Quando un branch validato viene mergiato su `main` per una nuova versione, chiedi esplicitamente se creare e pushare il tag Git corrispondente, per esempio `v5.0.0`.
-- Crea il tag solo dopo test e merge completati, preferibilmente sul commit validato che deve diventare release.
-- Il push di un tag `v*` avvia il workflow GitHub Actions `Release`, che builda gli artifact macOS/Windows e pubblica la GitHub Release.
-- Prima di creare un tag, verifica che non esista gia in locale o su remoto.
+- Versione sorgente, tag e GitHub Release sono passaggi distinti. Prevedi il tag per ogni milestone, ma esegui commit, merge, tag e push solo dopo l'avallo richiesto sopra e dopo aver verificato che il tag non esista gia in locale o sul remoto.
+- Pubblica una GitHub Release per una versione funzionale quando serve distribuire la nuova funzione o una correzione di sicurezza grave. Per patch minori o documentali chiedi se pubblicarla. Verifica artifact macOS/Windows applicabili, checksum SHA-256 e limiti delle build non firmate.
 
 ## Checklist prima di chiudere un task
 
 - `npm run typecheck`
 - Test mirati legati alla modifica.
+- `npm run lint` e `npm run build` quando pertinenti al cambiamento.
 - `npm run test:e2e` se tocchi renderer, layout, editor, canvas o workflow browser.
 - `npm run test:e2e:electron` se tocchi IPC, main process, persistenza, packaging runtime, native modules o wrapper Electron.
-- Verifica e aggiorna `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md` e `AGENTS.md` quando il task cambia contenuti che li riguardano.
-- Se il task chiude una versione, chiedi se creare/pushare il tag di release prima della chiusura.
+- Verifica e aggiorna `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md`, `PLAN.md`, `STARTUP_PREFERENCES.md` e `AGENTS.md` quando il task cambia contenuti che li riguardano.
+- Se il task chiude una milestone, presenta la verifica e fermati prima delle operazioni Git indicate sopra.
 - Riporta sempre eventuali test non eseguiti e il motivo.

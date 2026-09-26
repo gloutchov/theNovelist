@@ -85,6 +85,26 @@
   background: var(--surface-secondary);
 }
 
+.dictation-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--surface-secondary);
+}
+
+.dictation-control button {
+  flex: 0 0 auto;
+}
+
+.dictation-preview {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-style: italic;
+}
+
 .editor-toolbar button {
   flex: 0 0 auto;
   padding: 0.32rem 0.5rem;

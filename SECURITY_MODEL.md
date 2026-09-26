@@ -1,8 +1,8 @@
 # Sicurezza / Security - The Novelist
 
-Stato documentato al **19 maggio 2026**.
+Stato documentato al **26 settembre 2026**.
 
-Documented status as of **May 19, 2026**.
+Documented status as of **September 26, 2026**.
 
 ---
 
@@ -130,6 +130,9 @@ Riferimenti:
   - e, se provider o fallback possono uscire dal computer, `allowExternalMemorySharing` è attivo.
 - Se `allowExternalMemorySharing` è disattivato, la chat può continuare a funzionare, ma senza allegare la wiki a provider esterni.
 - Le impostazioni AI sono salvate per progetto. Le preferenze autosave, lingua e tema interfaccia sono preferenze utente globali.
+- La dettatura OpenAI richiede inoltre `transcriptionEnabled` e il consenso separato `transcriptionAllowRemoteAudio`, entrambi disattivati per default. Il provider testuale puo rimanere Ollama: la trascrizione usa solo OpenAI in questa milestone.
+- Il renderer chiede il microfono solo dopo il comando dell'utente. I permessi Electron sono limitati all'audio nella finestra principale. Il renderer invia chunk PCM16 limitati e validati al main tramite IPC; il main usa la chiave protetta per la sessione Realtime e limita durata, dimensione e timeout. La chiave non entra nel renderer. Audio e anteprima non sono salvati in file o log dall'app; la trascrizione finale viene inserita nel documento solo dopo completamento.
+- Un errore o l'annullamento non inseriscono testo. Entrambi i modelli sono stati verificati con API reale e audio sintetico italiano nella build macOS. Non sono state documentate prove con microfono fisico o su Windows; permessi e qualita del parlato su quelle configurazioni restano da validare. Whisper locale e il fallback appartengono alla milestone successiva.
 - I semafori del Cruscotto per memoria, AI e fallback leggono solo stato locale già disponibile nel renderer (`wikiStatus` e impostazioni AI) e non introducono nuove sonde di rete o nuovi invii di contenuto.
 
 Riferimenti:
@@ -411,6 +414,9 @@ References:
   - and, when provider or fallback may leave the computer, `allowExternalMemorySharing` is enabled.
 - If `allowExternalMemorySharing` is disabled, chat can continue to work, but without attaching the wiki to external providers.
 - AI settings are saved per project. Autosave, language, and interface theme preferences are global user preferences.
+- OpenAI dictation additionally requires `transcriptionEnabled` and separate `transcriptionAllowRemoteAudio` consent, both off by default. The text provider may remain Ollama: transcription uses only OpenAI in this milestone.
+- The renderer requests microphone access only after a user action. Electron permissions are restricted to audio in the main window. The renderer sends limited, validated PCM16 chunks to the main process over IPC; main uses the protected key for the Realtime session and enforces duration, size, and timeout limits. The key never reaches the renderer. The app does not save audio or previews to files or logs; only the completed transcript is inserted into the document.
+- Errors and cancellation do not insert text. Both models were verified with the real API and synthetic Italian audio in the packaged macOS app. Physical microphone and Windows tests have not been documented; permissions and speech quality on those configurations remain to be validated. Local Whisper and fallback belong to the next milestone.
 - The Dashboard traffic lights for memory, AI, and fallback only read local state already available in the renderer (`wikiStatus` and AI settings) and do not introduce new network probes or new content sharing.
 
 References:

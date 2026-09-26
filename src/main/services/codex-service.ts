@@ -35,6 +35,10 @@ export interface UpdateCodexSettingsInput {
   apiModel?: string;
   apiImageModel?: string;
   ollamaModel?: string;
+  transcriptionEnabled?: boolean;
+  transcriptionAllowRemoteAudio?: boolean;
+  transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
+  transcriptionLanguage?: 'auto' | 'it' | 'en';
 }
 
 export interface CodexAssistInput {
@@ -135,6 +139,10 @@ export class CodexApplicationService {
       apiModel: input.apiModel,
       apiImageModel: input.apiImageModel,
       ollamaModel: input.ollamaModel,
+      transcriptionEnabled: input.transcriptionEnabled,
+      transcriptionAllowRemoteAudio: input.transcriptionAllowRemoteAudio,
+      transcriptionModel: input.transcriptionModel,
+      transcriptionLanguage: input.transcriptionLanguage,
     });
 
     const resolved = await resolveCodexRuntime(repository, projectId);

@@ -1,6 +1,6 @@
 {
   "name": "the-novelist",
-  "version": "6.0.5",
+  "version": "6.1.0",
   "copyright": "Copyright © 2026 Gloutchov",
   "private": true,
   "license": "Apache-2.0",
@@ -59,6 +59,14 @@
       {
         "from": "build/icon.png",
         "to": "icon.png"
+      },
+      {
+        "from": "build/it.lproj",
+        "to": "it.lproj"
+      },
+      {
+        "from": "build/en.lproj",
+        "to": "en.lproj"
       }
     ],
     "afterPack": "scripts/electron-builder-after-pack.cjs",
@@ -68,6 +76,9 @@
     },
     "mac": {
       "identity": "-",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "The Novelist uses the microphone only when you start dictation in a chapter or scene."
+      },
       "icon": "build/icon.icns",
       "target": [
         "dmg",
@@ -104,6 +115,7 @@
     "jszip": "^3.10.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "ws": "^8.22.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -113,6 +125,7 @@
     "@types/node": "^25.3.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "cross-env": "^10.1.0",

@@ -7,6 +7,7 @@ import { registerAppIpcHandlers } from './handlers/app';
 import { registerChapterIpcHandlers } from './handlers/chapter';
 import { registerCharacterIpcHandlers } from './handlers/character';
 import { registerCodexIpcHandlers } from './handlers/codex';
+import { registerTranscriptionIpcHandlers } from './handlers/transcription';
 import { registerExternalSourceIpcHandlers } from './handlers/external-sources';
 import { registerLocationIpcHandlers } from './handlers/location';
 import { registerProjectIpcHandlers } from './handlers/project';
@@ -80,4 +81,5 @@ export function registerIpcHandlers(ipcMain: IpcMain, sessionManager: ProjectSes
     resolveCodexRuntime,
   });
   registerCodexIpcHandlers(ipcMain, sessionManager, codexService);
+  registerTranscriptionIpcHandlers(ipcMain, sessionManager);
 }

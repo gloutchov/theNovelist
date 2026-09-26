@@ -301,6 +301,23 @@ function createWindow(): void {
       devTools: debugToolsEnabled,
     },
   });
+  mainWindow.webContents.session.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      callback(
+        webContents.id === mainWindow.webContents.id &&
+          permission === 'media' &&
+          'mediaTypes' in details &&
+          details.mediaTypes?.includes('audio') === true &&
+          details.mediaTypes?.includes('video') !== true,
+      );
+    },
+  );
+  mainWindow.webContents.session.setPermissionCheckHandler(
+    (webContents, permission, _requestingOrigin, details) =>
+      webContents?.id === mainWindow.webContents.id &&
+      permission === 'media' &&
+      details.mediaType === 'audio',
+  );
 
   mainWindow.on('close', (event) => {
     if (!projectSessionManager.hasActiveExternalSourceImport() || activeImportAppCloseConfirmed) {
