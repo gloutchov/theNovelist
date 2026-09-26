@@ -308,8 +308,7 @@ export const en: TranslationDictionary = {
     'Do you want this document to be permanently deleted from Memory?',
   'externalSources.aiOcrConfirm':
     'Use OpenAI OCR for {count} PDF if local extraction finds no text? The PDF will be sent to the AI provider only for files that need it.',
-  'externalSources.aiAnalysisConfirm':
-    'Do you want the document to be analyzed by AI?',
+  'externalSources.aiAnalysisConfirm': 'Do you want the document to be analyzed by AI?',
   'externalSources.aiProcessing.title': 'Document processing...',
   'externalSources.dropOverlay.body':
     'TXT, Markdown, JSON, XML, YAML, CSV, RTF, DOCX, PDF, and XLSX are copied into the project and indexed as external sources.',
@@ -409,6 +408,23 @@ export const en: TranslationDictionary = {
   'editor.toolbar.showReplace': 'Show replacement',
   'editor.toolbar.next': 'Next',
   'editor.toolbar.undo': 'Undo',
+  'editor.dictation.title': 'Dictation',
+  'editor.dictation.start': 'Dictate text',
+  'editor.dictation.stop': 'Finish and insert',
+  'editor.dictation.permission': 'Requesting microphone access...',
+  'editor.dictation.connecting': 'Connecting to transcription...',
+  'editor.dictation.recording': 'Recording',
+  'editor.dictation.transcribing': 'Waiting for final transcript...',
+  'editor.dictation.consentRequired':
+    'Enable dictation, API calls, AI consent, and remote audio sharing in Settings.',
+  'editor.dictation.keyRequired': 'Configure your OpenAI key in AI Settings.',
+  'editor.dictation.modelUnavailable':
+    'This transcription model is unavailable for this key. Choose another model in Settings.',
+  'editor.dictation.permissionDenied': 'Microphone access denied. Check system permissions.',
+  'editor.dictation.limitReached': 'Recording limit reached. Try a shorter turn.',
+  'editor.dictation.timeout': 'Transcription timed out. The document was not changed.',
+  'editor.dictation.error': 'Transcription failed. The document was not changed.',
+  'editor.dictation.noSpeech': 'No speech recognized.',
   'entity.actions.createCard': 'Create Card',
   'entity.actions.saveCard': 'Save Card',
   'entity.ai.suggestWith': 'Suggest With {assistant}',
@@ -700,6 +716,18 @@ export const en: TranslationDictionary = {
   'settings.ai.primaryProvider': 'Primary provider: {provider}. Fallback: {fallback}.',
   'settings.ai.provider': 'Provider',
   'settings.ai.save': 'Save AI Settings',
+  'settings.dictation.title': 'Dictation',
+  'settings.dictation.description':
+    'Dictation uses the OpenAI key already saved for this project. The microphone starts only when you begin dictation. Local Whisper is planned for the next milestone.',
+  'settings.dictation.enabled': 'Enable dictation for this project',
+  'settings.dictation.provider': 'Transcription provider',
+  'settings.dictation.model': 'Transcription model',
+  'settings.dictation.language': 'Spoken language',
+  'settings.dictation.languageAuto': 'Automatic detection',
+  'settings.dictation.fallback': 'Fallback',
+  'settings.dictation.audioConsent': 'Allow audio to be sent to OpenAI during dictation',
+  'settings.dictation.audioConsentHelp':
+    'Audio is sent only after you explicitly start. The final transcript is inserted in the document; audio is not saved in the project.',
   'settings.autosave.auto': 'Auto (on every change)',
   'settings.autosave.description':
     'In auto mode, persistent changes are saved with debounce. Creation drafts remain manual.',
@@ -710,7 +738,7 @@ export const en: TranslationDictionary = {
   'settings.consents.allowApiCalls': 'Enable external API calls',
   'settings.consents.allowApiCallsHelp':
     "Required for OpenAI API and Ollama's local HTTP endpoint.",
-  'settings.consents.aiEnabled': 'Consent to send text to AI tools',
+  'settings.consents.aiEnabled': 'Enable AI features for this project',
   'settings.consents.autoSummary': 'Auto-summary of block description on save',
   'settings.consents.memoryHelp':
     'If disabled, AI chat does not attach the project wiki when the provider or fallback may send the prompt outside this computer.',

@@ -29,6 +29,7 @@ import { AiChatSidebar } from './features/editor/ai-chat-sidebar';
 import { CloseEditorConfirmModal } from './features/editor/close-editor-confirm-modal';
 import { CreateReferenceModal } from './features/editor/create-reference-modal';
 import { EditorToolbar } from './features/editor/editor-toolbar';
+import { DictationControl } from './features/editor/dictation-control';
 import { FindReplacePanel } from './features/editor/find-replace-panel';
 import { MentionMenu } from './features/editor/mention-menu';
 import { ReferencePanel } from './features/editor/reference-panel';
@@ -2326,7 +2327,9 @@ export default function ChapterEditor({
 
           const activeChapter =
             chapterRecord ??
-            (await window.novelistApi.getStoryState()).nodes.find((node) => node.id === chapterNodeId) ??
+            (await window.novelistApi.getStoryState()).nodes.find(
+              (node) => node.id === chapterNodeId,
+            ) ??
             null;
           if (activeChapter && trimmedTitle && trimmedTitle !== activeChapter.title) {
             const updatedChapter = await window.novelistApi.updateStoryNode({
@@ -3317,7 +3320,9 @@ export default function ChapterEditor({
           <div className="editor-title-fields">
             <h3>{editorHeading}</h3>
             <label>
-              <span>{isSceneEditor ? t('editor.header.sceneTitle') : t('editor.header.chapterTitle')}</span>
+              <span>
+                {isSceneEditor ? t('editor.header.sceneTitle') : t('editor.header.chapterTitle')}
+              </span>
               <input
                 type="text"
                 value={documentTitleDraft}
@@ -3376,6 +3381,7 @@ export default function ChapterEditor({
           onUndo={() => editor?.chain().focus().undo().run()}
           t={t}
         />
+        <DictationControl editor={editor} t={t} />
 
         {findPanelOpen ? (
           <FindReplacePanel

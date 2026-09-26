@@ -97,12 +97,20 @@ export function normalizeCodexSettings(settings: CodexSettings): CodexSettings {
     allowExternalMemorySharing?: boolean;
     apiImageModel?: string;
     ollamaModel?: string;
+    transcriptionEnabled?: boolean;
+    transcriptionAllowRemoteAudio?: boolean;
+    transcriptionModel?: CodexSettings['transcriptionModel'];
+    transcriptionLanguage?: CodexSettings['transcriptionLanguage'];
   };
   return {
     ...settings,
     allowExternalMemorySharing: maybeSettings.allowExternalMemorySharing ?? false,
     apiImageModel: maybeSettings.apiImageModel?.trim() || DEFAULT_API_IMAGE_MODEL,
     ollamaModel: maybeSettings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL,
+    transcriptionEnabled: maybeSettings.transcriptionEnabled ?? false,
+    transcriptionAllowRemoteAudio: maybeSettings.transcriptionAllowRemoteAudio ?? false,
+    transcriptionModel: maybeSettings.transcriptionModel ?? 'gpt-live-transcribe',
+    transcriptionLanguage: maybeSettings.transcriptionLanguage ?? 'auto',
   };
 }
 
@@ -129,6 +137,14 @@ export function hasPendingAiSettingsChanges(
       normalizeCodexSettings(persistedSettings).apiImageModel ||
     normalizeCodexSettings(localSettings).ollamaModel !==
       normalizeCodexSettings(persistedSettings).ollamaModel ||
+    normalizeCodexSettings(localSettings).transcriptionEnabled !==
+      normalizeCodexSettings(persistedSettings).transcriptionEnabled ||
+    normalizeCodexSettings(localSettings).transcriptionAllowRemoteAudio !==
+      normalizeCodexSettings(persistedSettings).transcriptionAllowRemoteAudio ||
+    normalizeCodexSettings(localSettings).transcriptionModel !==
+      normalizeCodexSettings(persistedSettings).transcriptionModel ||
+    normalizeCodexSettings(localSettings).transcriptionLanguage !==
+      normalizeCodexSettings(persistedSettings).transcriptionLanguage ||
     Boolean(apiKeyInput.trim()) ||
     clearStoredApiKey
   );
@@ -187,6 +203,11 @@ export function useAiSettingsState({
         apiModel: aiSettings.apiModel,
         apiImageModel: normalizeCodexSettings(aiSettings).apiImageModel,
         ollamaModel: normalizeCodexSettings(aiSettings).ollamaModel,
+        transcriptionEnabled: normalizeCodexSettings(aiSettings).transcriptionEnabled,
+        transcriptionAllowRemoteAudio:
+          normalizeCodexSettings(aiSettings).transcriptionAllowRemoteAudio,
+        transcriptionModel: normalizeCodexSettings(aiSettings).transcriptionModel,
+        transcriptionLanguage: normalizeCodexSettings(aiSettings).transcriptionLanguage,
       });
       loadAiSettings(saved);
       setStatus(t('settings.status.aiSettingsSaved'));

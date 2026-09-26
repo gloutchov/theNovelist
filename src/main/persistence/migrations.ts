@@ -571,6 +571,15 @@ const MIGRATIONS: Migration[] = [
       `,
     ],
   },
+  {
+    version: 24,
+    statements: [
+      `ALTER TABLE codex_settings ADD COLUMN transcription_enabled INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE codex_settings ADD COLUMN transcription_allow_remote_audio INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE codex_settings ADD COLUMN transcription_model TEXT NOT NULL DEFAULT 'gpt-live-transcribe';`,
+      `ALTER TABLE codex_settings ADD COLUMN transcription_language TEXT NOT NULL DEFAULT 'auto';`,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

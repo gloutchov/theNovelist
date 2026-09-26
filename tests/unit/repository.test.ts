@@ -124,6 +124,10 @@ describe('NovelistRepository', () => {
       expect(codexSettings.apiModel).toBe('gpt-5-mini');
       expect(codexSettings.apiImageModel).toBe('gpt-image-1');
       expect(codexSettings.ollamaModel).toBe('gemma4:e4b-it-q4_K_M');
+      expect(codexSettings.transcriptionEnabled).toBe(false);
+      expect(codexSettings.transcriptionAllowRemoteAudio).toBe(false);
+      expect(codexSettings.transcriptionModel).toBe('gpt-live-transcribe');
+      expect(codexSettings.transcriptionLanguage).toBe('auto');
 
       const updatedCodexSettings = repo.upsertCodexSettings(project.id, {
         enabled: true,
@@ -136,6 +140,10 @@ describe('NovelistRepository', () => {
         apiModel: 'gpt-5-mini',
         apiImageModel: 'gpt-image-1',
         ollamaModel: 'gemma3:4b-it-q4_K_M',
+        transcriptionEnabled: true,
+        transcriptionAllowRemoteAudio: true,
+        transcriptionModel: 'gpt-realtime-whisper',
+        transcriptionLanguage: 'it',
       });
       expect(updatedCodexSettings.enabled).toBe(true);
       expect(updatedCodexSettings.provider).toBe('openai_api');
@@ -146,6 +154,10 @@ describe('NovelistRepository', () => {
       expect(updatedCodexSettings.apiKey).toBe('test-key');
       expect(updatedCodexSettings.apiImageModel).toBe('gpt-image-1');
       expect(updatedCodexSettings.ollamaModel).toBe('gemma3:4b-it-q4_K_M');
+      expect(updatedCodexSettings.transcriptionEnabled).toBe(true);
+      expect(updatedCodexSettings.transcriptionAllowRemoteAudio).toBe(true);
+      expect(updatedCodexSettings.transcriptionModel).toBe('gpt-realtime-whisper');
+      expect(updatedCodexSettings.transcriptionLanguage).toBe('it');
 
       repo.appendCodexChatMessage(project.id, {
         chapterNodeId: chapterNode.id,

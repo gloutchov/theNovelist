@@ -350,6 +350,10 @@ export const codexUpdateSettingsRequestSchema = z.object({
   apiModel: z.string().trim().max(120).optional(),
   apiImageModel: z.string().trim().max(120).optional(),
   ollamaModel: z.string().trim().max(120).optional(),
+  transcriptionEnabled: z.boolean().optional(),
+  transcriptionAllowRemoteAudio: z.boolean().optional(),
+  transcriptionModel: z.enum(['gpt-live-transcribe', 'gpt-realtime-whisper']).optional(),
+  transcriptionLanguage: z.enum(['auto', 'it', 'en']).optional(),
 });
 
 export const codexChatHistoryRequestSchema = z.object({
@@ -660,6 +664,10 @@ export const codexSettingsResponseSchema = z.object({
   apiModel: z.string(),
   apiImageModel: z.string(),
   ollamaModel: z.string(),
+  transcriptionEnabled: z.boolean(),
+  transcriptionAllowRemoteAudio: z.boolean(),
+  transcriptionModel: z.enum(['gpt-live-transcribe', 'gpt-realtime-whisper']),
+  transcriptionLanguage: z.enum(['auto', 'it', 'en']),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

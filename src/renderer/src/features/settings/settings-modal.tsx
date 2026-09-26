@@ -18,6 +18,7 @@ import {
   type AppPreferences,
 } from './app-preferences';
 import { createTranslator, resolveRendererLanguage } from '../../i18n';
+import { TranscriptionSettings } from './transcription-settings';
 
 interface SettingsModalProps {
   aiApiKeyInput: string;
@@ -319,6 +320,15 @@ export function SettingsModal({
             </button>
           </div>
         </details>
+
+        <TranscriptionSettings
+          settings={aiSettings}
+          busy={aiSettingsBusy}
+          projectOpen={currentProjectOpen}
+          setSettings={setAiSettings}
+          onSave={onSaveAiSettings}
+          t={t}
+        />
 
         <details className="panel panel-subsection settings-section" open>
           <summary>{t('settings.consents.title')}</summary>

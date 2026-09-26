@@ -36,9 +36,7 @@ export function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettin
   const normalizedProvider =
     provider === 'openai_api' || provider === 'ollama' ? provider : APP_CONFIG.ai.defaultProvider;
   const normalizedFallbackProvider =
-    fallbackProvider === 'openai_api' || fallbackProvider === 'ollama'
-      ? fallbackProvider
-      : 'none';
+    fallbackProvider === 'openai_api' || fallbackProvider === 'ollama' ? fallbackProvider : 'none';
 
   return {
     projectId: String(row.project_id),
@@ -64,6 +62,16 @@ export function toCodexSettingsRecord(row: Record<string, unknown>): CodexSettin
       typeof ollamaModel === 'string' && ollamaModel.trim()
         ? ollamaModel
         : APP_CONFIG.ai.defaultOllamaModel,
+    transcriptionEnabled: Number(row.transcription_enabled ?? 0) === 1,
+    transcriptionAllowRemoteAudio: Number(row.transcription_allow_remote_audio ?? 0) === 1,
+    transcriptionModel:
+      row.transcription_model === 'gpt-realtime-whisper'
+        ? 'gpt-realtime-whisper'
+        : 'gpt-live-transcribe',
+    transcriptionLanguage:
+      row.transcription_language === 'it' || row.transcription_language === 'en'
+        ? row.transcription_language
+        : 'auto',
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -191,9 +199,7 @@ export function toExternalSourceRecord(row: Record<string, unknown>): ExternalSo
   };
 }
 
-export function toExternalSourceEdgeRecord(
-  row: Record<string, unknown>,
-): ExternalSourceEdgeRecord {
+export function toExternalSourceEdgeRecord(row: Record<string, unknown>): ExternalSourceEdgeRecord {
   return {
     id: String(row.id),
     projectId: String(row.project_id),

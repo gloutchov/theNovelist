@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.0.5, con il canvas Appunti per fonti esterne importate, indicizzate localmente e AI opzionale per PDF/Excel.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.1.0, con dettatura OpenAI negli editor capitolo e scena.
 
 ### Vista generale
 
@@ -21,7 +21,9 @@ theNovelist/
 |       `-- release.yml
 |-- build/
 |   |-- icon.ico
-|   `-- icon.png
+|   |-- icon.png
+|   |-- it.lproj/InfoPlist.strings
+|   `-- en.lproj/InfoPlist.strings
 |-- checksums/
 |   `-- SHA256SUMS-*.txt
 |-- docs/
@@ -43,8 +45,10 @@ theNovelist/
 |-- ISTRUZIONI.md
 |-- LICENSE
 |-- MAPS.md
+|-- PLAN.md
 |-- README.md
 |-- SECURITY_MODEL.md
+|-- STARTUP_PREFERENCES.md
 |-- package.json
 |-- package-lock.json
 |-- electron.vite.config.ts
@@ -62,7 +66,7 @@ theNovelist/
 .github/workflows/
 |-- ci.yml          # CI automatica.
 |-- pages.yml       # Pubblicazione GitHub Pages del mini sito statico.
-`-- release.yml     # Build e pubblicazione release GitHub.
+`-- release.yml     # Build e pubblicazione release GitHub su avvio manuale.
 
 build/
 |-- icon.ico        # Icona Windows.
@@ -141,6 +145,7 @@ src/main/
 |-- security/                # Storage sicuro e policy debug/devtools.
 |-- services/                # Servizi di dominio sopra i repository.
 |-- sources/                 # Estrazione testo, OCR PDF e analisi XLSX opzionale per fonti esterne Appunti.
+|-- transcription/           # Sessione OpenAI Realtime e limiti audio.
 `-- wiki/                    # Bootstrap, sync, ricerca, export e path safety Wiki.
 ```
 
@@ -188,14 +193,14 @@ src/renderer/
 features/
 |-- ai/          # Stato e salvataggio impostazioni AI.
 |-- dashboard/   # Stato e workspace dashboard.
-|-- editor/      # Toolbar, chat AI, find/replace, riferimenti e modali.
+|-- editor/      # Toolbar, dettatura, chat AI, find/replace, riferimenti e modali.
 |-- entities/    # Pannelli comuni per schede narrative.
 |-- memory/      # Memoria Wiki, ricerca, risultati e sintesi.
 |-- outline/     # Scaletta, vista lettura e parsing documento.
 |-- plot/        # Flusso, modali e struttura trama.
 |-- project/     # Sessione e modali progetto.
 |-- revisions/   # Diff locale e helper per confronto revisioni.
-|-- settings/    # Preferenze utente e modale impostazioni.
+|-- settings/    # Preferenze utente, dettatura e modale impostazioni.
 `-- story/       # Modali nodi capitolo.
 ```
 
@@ -266,6 +271,8 @@ ISTRUZIONI.md     # Manuale utente completo in italiano.
 INSTRUCTIONS.md   # Traduzione inglese completa del manuale.
 SECURITY_MODEL.md # Note di sicurezza bilingue.
 MAPS.md           # Questa mappa bilingue.
+PLAN.md           # Milestone della dettatura, branch, versioni e criteri di verifica.
+STARTUP_PREFERENCES.md # Regole generali di sviluppo adottate per l'app.
 LICENSE           # Licenza Apache 2.0.
 ```
 
@@ -286,7 +293,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 6.0.5, with the Notes canvas for imported external sources indexed locally and optional AI for PDFs/Excel files.
+This map describes the main file layout and module responsibilities. It is updated for source version 6.1.0, with OpenAI dictation in chapter and scene editors.
 
 ### Overview
 
@@ -299,7 +306,9 @@ theNovelist/
 |       `-- release.yml
 |-- build/
 |   |-- icon.ico
-|   `-- icon.png
+|   |-- icon.png
+|   |-- it.lproj/InfoPlist.strings
+|   `-- en.lproj/InfoPlist.strings
 |-- checksums/
 |   `-- SHA256SUMS-*.txt
 |-- docs/
@@ -321,8 +330,10 @@ theNovelist/
 |-- ISTRUZIONI.md
 |-- LICENSE
 |-- MAPS.md
+|-- PLAN.md
 |-- README.md
 |-- SECURITY_MODEL.md
+|-- STARTUP_PREFERENCES.md
 |-- package.json
 |-- package-lock.json
 |-- electron.vite.config.ts
@@ -340,7 +351,7 @@ theNovelist/
 .github/workflows/
 |-- ci.yml          # Automated CI.
 |-- pages.yml       # GitHub Pages publishing workflow for the static mini site.
-`-- release.yml     # GitHub release build and publishing workflow.
+`-- release.yml     # Manually started GitHub release build and publishing workflow.
 
 build/
 |-- icon.ico        # Windows icon.
@@ -419,6 +430,7 @@ src/main/
 |-- security/                # Secure storage and debug/devtools policy.
 |-- services/                # Domain services above repositories.
 |-- sources/                 # Text extraction, optional PDF OCR, and optional XLSX analysis for external Notes sources.
+|-- transcription/           # OpenAI Realtime session and audio limits.
 `-- wiki/                    # Wiki bootstrap, sync, search, export, and path safety.
 ```
 
@@ -466,14 +478,14 @@ src/renderer/
 features/
 |-- ai/          # Renderer-side AI settings state.
 |-- dashboard/   # Dashboard state and workspace.
-|-- editor/      # Toolbar, AI chat, find/replace, references, and modals.
+|-- editor/      # Toolbar, dictation, AI chat, find/replace, references, and modals.
 |-- entities/    # Common panels for narrative entities.
 |-- memory/      # Wiki memory, search, results, and summary.
 |-- outline/     # Outline, reading view, and document parsing.
 |-- plot/        # Plot flow, modals, and structure generation.
 |-- project/     # Project session and modals.
 |-- revisions/   # Local diff and helpers for revision comparison.
-|-- settings/    # User preferences and settings modal.
+|-- settings/    # User preferences, dictation, and settings modal.
 `-- story/       # Chapter node modals.
 ```
 
@@ -544,6 +556,8 @@ ISTRUZIONI.md     # Complete Italian user manual.
 INSTRUCTIONS.md   # Complete English translation of the manual.
 SECURITY_MODEL.md # Bilingual security notes.
 MAPS.md           # This bilingual repository map.
+PLAN.md           # Dictation milestones, branches, versions, and acceptance criteria.
+STARTUP_PREFERENCES.md # General development rules adopted for the app.
 LICENSE           # Apache 2.0 license.
 ```
 

@@ -37,6 +37,10 @@ export class CodexRepository {
           api_model,
           api_image_model,
           ollama_model,
+          transcription_enabled,
+          transcription_allow_remote_audio,
+          transcription_model,
+          transcription_language,
           created_at,
           updated_at
         )
@@ -52,6 +56,10 @@ export class CodexRepository {
           @apiModel,
           @apiImageModel,
           @ollamaModel,
+          0,
+          0,
+          @transcriptionModel,
+          'auto',
           @createdAt,
           @updatedAt
         )
@@ -68,6 +76,7 @@ export class CodexRepository {
         apiModel: APP_CONFIG.ai.defaultApiModel,
         apiImageModel: APP_CONFIG.ai.defaultImageModel,
         ollamaModel: APP_CONFIG.ai.defaultOllamaModel,
+        transcriptionModel: APP_CONFIG.transcription.defaultModel,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -101,6 +110,11 @@ export class CodexRepository {
         ? input.apiImageModel.trim()
         : current.apiImageModel,
       ollamaModel: input.ollamaModel?.trim() ? input.ollamaModel.trim() : current.ollamaModel,
+      transcriptionEnabled: input.transcriptionEnabled ?? current.transcriptionEnabled,
+      transcriptionAllowRemoteAudio:
+        input.transcriptionAllowRemoteAudio ?? current.transcriptionAllowRemoteAudio,
+      transcriptionModel: input.transcriptionModel ?? current.transcriptionModel,
+      transcriptionLanguage: input.transcriptionLanguage ?? current.transcriptionLanguage,
       updatedAt: nowIso(),
     };
     if (next.fallbackProvider === next.provider) {
@@ -123,6 +137,10 @@ export class CodexRepository {
           api_model,
           api_image_model,
           ollama_model,
+          transcription_enabled,
+          transcription_allow_remote_audio,
+          transcription_model,
+          transcription_language,
           created_at,
           updated_at
         )
@@ -138,6 +156,10 @@ export class CodexRepository {
           @apiModel,
           @apiImageModel,
           @ollamaModel,
+          @transcriptionEnabled,
+          @transcriptionAllowRemoteAudio,
+          @transcriptionModel,
+          @transcriptionLanguage,
           @createdAt,
           @updatedAt
         )
@@ -152,6 +174,10 @@ export class CodexRepository {
           api_model = excluded.api_model,
           api_image_model = excluded.api_image_model,
           ollama_model = excluded.ollama_model,
+          transcription_enabled = excluded.transcription_enabled,
+          transcription_allow_remote_audio = excluded.transcription_allow_remote_audio,
+          transcription_model = excluded.transcription_model,
+          transcription_language = excluded.transcription_language,
           updated_at = excluded.updated_at
         `,
       )
@@ -167,6 +193,10 @@ export class CodexRepository {
         apiModel: next.apiModel,
         apiImageModel: next.apiImageModel,
         ollamaModel: next.ollamaModel,
+        transcriptionEnabled: next.transcriptionEnabled ? 1 : 0,
+        transcriptionAllowRemoteAudio: next.transcriptionAllowRemoteAudio ? 1 : 0,
+        transcriptionModel: next.transcriptionModel,
+        transcriptionLanguage: next.transcriptionLanguage,
         createdAt: timestamp,
         updatedAt: timestamp,
       });

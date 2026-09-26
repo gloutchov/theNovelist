@@ -309,8 +309,7 @@ export const it: TranslationDictionary = {
     'Vuoi che il documento sia cancellato definitivamente dalla Memoria?',
   'externalSources.aiOcrConfirm':
     'Vuoi usare OpenAI OCR per {count} PDF se l’estrazione locale non trova testo? Il PDF verra inviato al provider AI solo per i file che ne hanno bisogno.',
-  'externalSources.aiAnalysisConfirm':
-    'Vuoi che il documento sia analizzato dalla AI?',
+  'externalSources.aiAnalysisConfirm': 'Vuoi che il documento sia analizzato dalla AI?',
   'externalSources.aiProcessing.title': 'Documento in elaborazione...',
   'externalSources.dropOverlay.body':
     'TXT, Markdown, JSON, XML, YAML, CSV, RTF, DOCX, PDF e XLSX vengono copiati nel progetto e indicizzati come fonti esterne.',
@@ -410,6 +409,25 @@ export const it: TranslationDictionary = {
   'editor.toolbar.showReplace': 'Mostra sostituzione',
   'editor.toolbar.next': 'Successivo',
   'editor.toolbar.undo': 'Annulla',
+  'editor.dictation.title': 'Dettatura',
+  'editor.dictation.start': 'Detta testo',
+  'editor.dictation.stop': 'Termina e inserisci',
+  'editor.dictation.permission': 'Richiesta accesso al microfono...',
+  'editor.dictation.connecting': 'Connessione alla trascrizione...',
+  'editor.dictation.recording': 'Registrazione in corso',
+  'editor.dictation.transcribing': 'Trascrizione finale in corso...',
+  'editor.dictation.consentRequired':
+    'Abilita dettatura, chiamate API, consenso AI e invio audio nelle Impostazioni.',
+  'editor.dictation.keyRequired': 'Configura la chiave OpenAI nelle Impostazioni AI.',
+  'editor.dictation.modelUnavailable':
+    'Modello di trascrizione non disponibile per questa chiave. Scegli un altro modello nelle Impostazioni.',
+  'editor.dictation.permissionDenied':
+    'Accesso al microfono negato. Controlla i permessi di sistema.',
+  'editor.dictation.limitReached':
+    'Limite di registrazione raggiunto. Riprova con un turno più breve.',
+  'editor.dictation.timeout': 'Tempo di trascrizione scaduto. Il testo non è stato modificato.',
+  'editor.dictation.error': 'Trascrizione non riuscita. Il testo non è stato modificato.',
+  'editor.dictation.noSpeech': 'Nessun parlato riconosciuto.',
   'entity.actions.createCard': 'Crea Scheda',
   'entity.actions.saveCard': 'Salva Scheda',
   'entity.ai.suggestWith': 'Suggerisci Con {assistant}',
@@ -709,6 +727,18 @@ export const it: TranslationDictionary = {
   'settings.ai.primaryProvider': 'Provider primario: {provider}. Fallback: {fallback}.',
   'settings.ai.provider': 'Provider',
   'settings.ai.save': 'Salva Impostazioni AI',
+  'settings.dictation.title': 'Dettatura',
+  'settings.dictation.description':
+    'La dettatura usa la chiave OpenAI già salvata per questo progetto. Il microfono si attiva solo quando avvii la dettatura. Whisper locale arriverà nella milestone successiva.',
+  'settings.dictation.enabled': 'Abilita dettatura per questo progetto',
+  'settings.dictation.provider': 'Provider di trascrizione',
+  'settings.dictation.model': 'Modello di trascrizione',
+  'settings.dictation.language': 'Lingua parlata',
+  'settings.dictation.languageAuto': 'Rilevamento automatico',
+  'settings.dictation.fallback': 'Fallback',
+  'settings.dictation.audioConsent': 'Consento l’invio dell’audio a OpenAI durante la dettatura',
+  'settings.dictation.audioConsentHelp':
+    'L’audio viene inviato solo dopo un tuo avvio esplicito. La trascrizione finale viene inserita nel testo; l’audio non viene salvato nel progetto.',
   'settings.autosave.auto': 'Auto (a ogni modifica)',
   'settings.autosave.description':
     'In modalità auto le modifiche persistenti vengono salvate con debounce. Le bozze di creazione restano manuali.',
@@ -719,7 +749,7 @@ export const it: TranslationDictionary = {
   'settings.consents.allowApiCalls': 'Abilita chiamate API esterne',
   'settings.consents.allowApiCallsHelp':
     "Richiesto per OpenAI API e per l'endpoint HTTP locale di Ollama.",
-  'settings.consents.aiEnabled': 'Consenso invio testo a strumenti AI',
+  'settings.consents.aiEnabled': 'Abilita funzionalità AI per questo progetto',
   'settings.consents.autoSummary': 'Auto-riassunto descrizione blocco al salvataggio',
   'settings.consents.memoryHelp':
     'Se disattivato, la chat AI non allega la wiki del progetto quando il provider o il fallback possono inviare il prompt fuori dal computer.',

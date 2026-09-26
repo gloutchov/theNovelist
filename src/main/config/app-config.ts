@@ -52,6 +52,14 @@ export const APP_CONFIG = {
     timeoutEnvVar: 'NOVELIST_CODEX_TIMEOUT_MS',
     imageModelEnvVar: 'NOVELIST_IMAGE_MODEL',
   },
+  transcription: {
+    defaultModel: 'gpt-live-transcribe',
+    maxDurationMs: 5 * 60_000,
+    maxChunkBytes: 48_000,
+    maxAudioBytes: 5 * 60 * 24_000 * 2,
+    connectTimeoutMs: 15_000,
+    finalTimeoutMs: 30_000,
+  },
   images: {
     defaultGenerationTimeoutMs: 120_000,
     defaultGeneratedSize: '1024x1024',

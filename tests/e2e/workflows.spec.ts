@@ -55,19 +55,27 @@ async function openChapterEditorWithText(
   await expect(editorContent).toContainText(chapterText);
 }
 
-test('dashboard groups projection actions and status lights in a separate panel', async ({ page }) => {
+test('dashboard groups projection actions and status lights in a separate panel', async ({
+  page,
+}) => {
   await createProject(page, 'E2E Dashboard Status Lights');
 
   const operationsPanel = page.locator('.dashboard-operations-panel');
   await expect(operationsPanel).toBeVisible();
   await expect(operationsPanel.locator('.dashboard-delivery-status')).toBeVisible();
-  await expect(operationsPanel.getByRole('button', { name: /Aggiorna Cruscotto|Aggiorno/ })).toBeVisible();
-  await expect(operationsPanel.getByRole('button', { name: /Aggiorna Memoria|Aggiorno Memoria/ })).toBeVisible();
+  await expect(
+    operationsPanel.getByRole('button', { name: /Aggiorna Cruscotto|Aggiorno/ }),
+  ).toBeVisible();
+  await expect(
+    operationsPanel.getByRole('button', { name: /Aggiorna Memoria|Aggiorno Memoria/ }),
+  ).toBeVisible();
   await expect(operationsPanel.locator('.dashboard-status-light')).toHaveCount(3);
   await expect(operationsPanel).toContainText('Memoria');
   await expect(operationsPanel).toContainText('AI');
   await expect(operationsPanel).toContainText('Fallback AI');
-  await expect(page.locator('.dashboard-goals-panel header')).not.toContainText('Aggiorna Cruscotto');
+  await expect(page.locator('.dashboard-goals-panel header')).not.toContainText(
+    'Aggiorna Cruscotto',
+  );
   await expect(page.locator('.dashboard-goals-panel header')).not.toContainText('Aggiorna Memoria');
 });
 
@@ -265,6 +273,75 @@ test('chapter editor toolbar undo and redo text changes', async ({ page }) => {
   await expect(editorContent).toContainText('Testo base. Aggiunta.');
 });
 
+for (const context of ['chapter', 'scene'] as const) {
+  test(`${context} editor inserts dictated text once and can undo it`, async ({ page }) => {
+    if (context === 'chapter') {
+      await openSeededChapterEditor(page, 'E2E Chapter Dictation', 'Testo base.');
+    } else {
+      await openSceneEditorWithSeededText(page, 'E2E Scene Dictation', 'Testo base.');
+    }
+    await page.evaluate(async () => {
+      const audioContext = new AudioContext();
+      const oscillator = audioContext.createOscillator();
+      const destination = audioContext.createMediaStreamDestination();
+      oscillator.connect(destination);
+      oscillator.start();
+      navigator.mediaDevices.getUserMedia = async () => destination.stream;
+      await window.novelistApi.codexUpdateSettings({
+        enabled: true,
+        allowApiCalls: true,
+        transcriptionEnabled: true,
+        transcriptionAllowRemoteAudio: true,
+        apiKey: 'fake-test-key',
+      });
+    });
+
+    const editorContent = page.locator('.novelist-editor-content');
+    await editorContent.click();
+    await editorContent.press(context === 'chapter' ? selectAllShortcut : 'End');
+    await page.getByRole('button', { name: 'Detta testo' }).click();
+    await expect(page.getByText('Registrazione in corso')).toBeVisible();
+    await page.getByRole('button', { name: 'Termina e inserisci' }).click();
+    await expect(editorContent).toHaveText(
+      context === 'chapter' ? 'Testo dettato.' : 'Testo base.Testo dettato.',
+    );
+    await page.locator('.editor-toolbar').getByRole('button', { name: 'Annulla' }).click();
+    await expect(editorContent).toContainText('Testo base.');
+    await expect(editorContent).not.toContainText('Testo dettato.');
+  });
+}
+
+test('dictation requires audio consent and cancellation preserves chapter text', async ({
+  page,
+}) => {
+  await openSeededChapterEditor(page, 'E2E Dictation Consent', 'Testo base.');
+  const editorContent = page.locator('.novelist-editor-content');
+  await page.getByRole('button', { name: 'Detta testo' }).click();
+  await expect(page.getByRole('alert')).toContainText('Abilita dettatura');
+  await expect(editorContent).toHaveText('Testo base.');
+
+  await page.evaluate(async () => {
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const destination = audioContext.createMediaStreamDestination();
+    oscillator.connect(destination);
+    oscillator.start();
+    navigator.mediaDevices.getUserMedia = async () => destination.stream;
+    await window.novelistApi.codexUpdateSettings({
+      enabled: true,
+      allowApiCalls: true,
+      transcriptionEnabled: true,
+      transcriptionAllowRemoteAudio: true,
+      apiKey: 'fake-test-key',
+    });
+  });
+  await page.getByRole('button', { name: 'Detta testo' }).click();
+  await expect(page.getByText('Registrazione in corso')).toBeVisible();
+  await page.locator('.dictation-control').getByRole('button', { name: 'Annulla' }).click();
+  await expect(editorContent).toHaveText('Testo base.');
+  await expect(page.getByRole('button', { name: 'Detta testo' })).toBeVisible();
+});
+
 test('chapter editor autosave refresh does not overwrite text typed during save', async ({
   page,
 }) => {
@@ -309,7 +386,9 @@ test('scene editor toolbar undo and redo text changes', async ({ page }) => {
   await expect(editorContent).toContainText('Scena base. Dettaglio.');
 });
 
-test('scene editor autosave refresh does not overwrite text typed during save', async ({ page }) => {
+test('scene editor autosave refresh does not overwrite text typed during save', async ({
+  page,
+}) => {
   await installNovelistApiMock(page, { sceneSaveDelayMs: 900 });
   await page.goto('/');
 
@@ -600,20 +679,29 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   await expect(aiSection.getByLabel('Modello Ollama', { exact: true })).toHaveValue(
     'gemma4:e4b-it-q4_K_M',
   );
-  await expect(aiSection.getByLabel('Consenso invio testo a strumenti AI')).toHaveCount(0);
+  await expect(aiSection.getByLabel('Abilita funzionalità AI per questo progetto')).toHaveCount(0);
   await expect(aiSection.getByLabel('Abilita chiamate API esterne')).toHaveCount(0);
   await expect(
     aiSection.getByLabel('Auto-riassunto descrizione blocco al salvataggio'),
   ).toHaveCount(0);
 
-  const consentSection = settingsModal.locator('details.settings-section').nth(2);
+  const dictationSection = settingsModal.locator('details.settings-section').nth(2);
+  await dictationSection.locator('summary').click();
+  await expect(dictationSection.getByLabel('Modello di trascrizione')).toHaveValue(
+    'gpt-live-transcribe',
+  );
+  await expect(dictationSection.getByLabel('Fallback')).toHaveValue('none');
+
+  const consentSection = settingsModal.locator('details.settings-section').nth(3);
   await expect(consentSection.getByLabel('Abilita chiamate API esterne')).toBeVisible();
-  await expect(consentSection.getByLabel('Consenso invio testo a strumenti AI')).toBeVisible();
+  await expect(
+    consentSection.getByLabel('Abilita funzionalità AI per questo progetto'),
+  ).toBeVisible();
   await expect(
     consentSection.getByLabel('Auto-riassunto descrizione blocco al salvataggio'),
   ).toBeVisible();
 
-  const secretsSection = settingsModal.locator('details.settings-section').nth(3);
+  const secretsSection = settingsModal.locator('details.settings-section').nth(4);
   await expect(secretsSection.getByText('Segreti', { exact: true })).toBeVisible();
   await expect(settingsModal.getByText('API Key (opzionale)')).toHaveCount(0);
   await secretsSection.locator('summary').click();
@@ -763,7 +851,10 @@ test('English interface smoke covers primary creation surfaces', async ({ page }
   await expect(page.locator('.scene-flow-node-title').first()).toHaveText('Scene English');
   await expect(page.locator('.canvas-wrap')).not.toContainText('#Scene English');
   await page.locator('.canvas-wrap .react-flow__node').filter({ hasText: 'Scene English' }).click();
-  const sceneSelectionPanel = page.locator('.sidebar .panel').filter({ hasText: 'Selection' }).first();
+  const sceneSelectionPanel = page
+    .locator('.sidebar .panel')
+    .filter({ hasText: 'Selection' })
+    .first();
   await expect(sceneSelectionPanel).toContainText('Scene English');
   await expect(sceneSelectionPanel).not.toContainText('#Scene English');
   await expect(page.locator('.canvas-wrap')).not.toContainText('Trama 1');
