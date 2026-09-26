@@ -135,6 +135,7 @@ Le funzionalita AI supportano OpenAI API e Ollama. Rispetta le impostazioni di c
 Non inviare contenuti esterni o introdurre nuove chiamate di rete senza passare dalle impostazioni esistenti.
 
 Per la dettatura, tratta l'audio come contenuto sensibile: microfono solo su richiesta, consenso dedicato prima dell'invio remoto, limiti di durata e dimensione, cancellazione effettiva e nessun audio o trascrizione nei log. Il fallback locale non puo attivare un invio remoto senza consenso. Ollama e il fallback attuale per l'assistenza testuale; non va considerato automaticamente un motore di trascrizione. Mantieni separate le impostazioni della dettatura da quelle dei provider testuali e delle immagini.
+Il motore `whisper-cli` locale e un eseguibile esterno scelto dall'utente: non avviarlo all'apertura di un progetto e non includere audio, modelli o binari nei commit. Il modello tiny si installa opzionalmente tramite `scripts/install-whisper-model.mjs` con checksum verificato. Quando tocchi questo percorso, prova cancellazione, pulizia dei WAV temporanei e assenza di chiamate OpenAI nella modalita solo locale.
 
 ## Documentazione
 

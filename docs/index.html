@@ -84,7 +84,7 @@
           <div class="hero-actions">
             <a
               class="button primary"
-              href="https://github.com/gloutchov/theNovelist/releases/tag/v6.0.3"
+              href="https://github.com/gloutchov/theNovelist/releases"
               data-i18n="hero.download"
             >
               Download
@@ -100,7 +100,7 @@
           <dl class="release-strip" aria-label="Release facts">
             <div>
               <dt data-i18n="facts.versionLabel">Versione</dt>
-              <dd>6.0.3</dd>
+              <dd>6.2.0</dd>
             </div>
             <div>
               <dt data-i18n="facts.platformsLabel">Piattaforme</dt>
@@ -132,37 +132,29 @@
       <section id="news" class="news-section" aria-labelledby="news-title">
         <div class="section-heading">
           <p class="eyebrow" data-i18n="news.eyebrow">Novità</p>
-          <h2 id="news-title" data-i18n="news.title">
-            E' arrivata la funzione Appunti!
-          </h2>
+          <h2 id="news-title" data-i18n="news.title">Ora puoi dettare il tuo romanzo.</h2>
         </div>
         <div class="news-grid">
           <article class="feature-card news-card">
-            <h3 data-i18n="news.notes.title">Appunti</h3>
-            <p data-i18n="news.notes.body">
-              Hai bisogno di documenti specifici per lavorare al tuo romanzo? Vorresti avere tutti
-              i files nello stesso ambiente di lavoro? Caricali nel Canvas Appunti. I documenti
-              vengono memorizzati, indicizzati, e resi disponibili sia tramite la memoria, sia
-              chiedendo direttamente alla AI dall'Editor di Testo. E se vuoi leggerli ed esaminarli
-              da solo, ti basta cliccarci sopra. Il Canvas Appunti permette inoltre di collegare i
-              documenti tra loro, in modo da rendere evidenti le potenziali relazioni.
+            <h3 data-i18n="news.dictation.title">Dettatura nell'editor</h3>
+            <p data-i18n="news.dictation.body">
+              Nei capitoli e nelle scene puoi dettare il testo invece di digitarlo. Scegli la
+              trascrizione OpenAI oppure Whisper locale, che funziona anche senza Internet. Se
+              OpenAI non è disponibile, il fallback locale configurato riprende la dettatura. Il
+              testo finale entra nel punto scelto dell'editor e puoi annullare l'inserimento.
             </p>
           </article>
           <figure class="news-preview">
             <img
-              src="./assets/appunti_it.png"
-              data-src-it="./assets/appunti_it.png"
-              data-src-en="./assets/appunti_en.png"
-              data-light-src-it="./assets/appunti_it_white.png"
-              data-light-src-en="./assets/appunti_en_white.png"
-              data-animated-src-it="./assets/appunti_it.gif"
-              data-animated-src-en="./assets/appunti_en.gif"
-              alt="Canvas Appunti con documenti importati"
-              data-alt-it="Canvas Appunti con documenti importati"
-              data-alt-en="Notes canvas with imported documents"
+              src="./assets/dictation_it.png"
+              data-src-it="./assets/dictation_it.png"
+              data-src-en="./assets/dictation_en.png"
+              alt="Editor capitolo con comando di dettatura"
+              data-alt-it="Editor capitolo con comando di dettatura"
+              data-alt-en="Chapter editor with dictation control"
             />
-            <figcaption data-i18n="news.notes.caption">
-              Il Canvas Appunti organizza fonti esterne e materiali utili alla scrittura.
+            <figcaption data-i18n="news.dictation.caption">
+              La dettatura è disponibile nell'editor dei capitoli e delle scene.
             </figcaption>
           </figure>
         </div>
@@ -223,6 +215,29 @@
               Il testo può essere esportato nei formati principali: ePub, Word, e stampato su carta
               o in PDF. Ciò vale sia per il singolo capitolo, sia per l'intero romanzo.
             </p>
+          </article>
+          <article class="feature-card feature-card-notes">
+            <div>
+              <h3 data-i18n="features.notes.title">Appunti</h3>
+              <p data-i18n="features.notes.body">
+                Carica nel Canvas Appunti i documenti utili al romanzo. Puoi leggerli nell'app,
+                collegarli tra loro e ritrovarli nella memoria del progetto o tramite l'assistente
+                AI dall'editor.
+              </p>
+            </div>
+            <img
+              src="./assets/appunti_it.png"
+              data-src-it="./assets/appunti_it.png"
+              data-src-en="./assets/appunti_en.png"
+              data-light-src-it="./assets/appunti_it_white.png"
+              data-light-src-en="./assets/appunti_en_white.png"
+              data-animated-src-it="./assets/appunti_it.gif"
+              data-animated-src-en="./assets/appunti_en.gif"
+              alt="Canvas Appunti con documenti importati"
+              data-alt-it="Canvas Appunti con documenti importati"
+              data-alt-en="Notes canvas with imported documents"
+              loading="lazy"
+            />
           </article>
         </div>
       </section>

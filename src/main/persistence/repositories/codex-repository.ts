@@ -115,10 +115,20 @@ export class CodexRepository {
         input.transcriptionAllowRemoteAudio ?? current.transcriptionAllowRemoteAudio,
       transcriptionModel: input.transcriptionModel ?? current.transcriptionModel,
       transcriptionLanguage: input.transcriptionLanguage ?? current.transcriptionLanguage,
+      transcriptionProvider: input.transcriptionProvider ?? current.transcriptionProvider,
+      transcriptionFallbackProvider:
+        input.transcriptionFallbackProvider ?? current.transcriptionFallbackProvider,
+      transcriptionWhisperExecutablePath:
+        input.transcriptionWhisperExecutablePath?.trim() ?? current.transcriptionWhisperExecutablePath,
+      transcriptionWhisperModelPath:
+        input.transcriptionWhisperModelPath?.trim() ?? current.transcriptionWhisperModelPath,
       updatedAt: nowIso(),
     };
     if (next.fallbackProvider === next.provider) {
       next.fallbackProvider = 'none';
+    }
+    if (next.transcriptionProvider === 'whisper_local') {
+      next.transcriptionFallbackProvider = 'none';
     }
     const timestamp = nowIso();
 
@@ -141,6 +151,10 @@ export class CodexRepository {
           transcription_allow_remote_audio,
           transcription_model,
           transcription_language,
+          transcription_provider,
+          transcription_fallback_provider,
+          transcription_whisper_executable_path,
+          transcription_whisper_model_path,
           created_at,
           updated_at
         )
@@ -160,6 +174,10 @@ export class CodexRepository {
           @transcriptionAllowRemoteAudio,
           @transcriptionModel,
           @transcriptionLanguage,
+          @transcriptionProvider,
+          @transcriptionFallbackProvider,
+          @transcriptionWhisperExecutablePath,
+          @transcriptionWhisperModelPath,
           @createdAt,
           @updatedAt
         )
@@ -178,6 +196,10 @@ export class CodexRepository {
           transcription_allow_remote_audio = excluded.transcription_allow_remote_audio,
           transcription_model = excluded.transcription_model,
           transcription_language = excluded.transcription_language,
+          transcription_provider = excluded.transcription_provider,
+          transcription_fallback_provider = excluded.transcription_fallback_provider,
+          transcription_whisper_executable_path = excluded.transcription_whisper_executable_path,
+          transcription_whisper_model_path = excluded.transcription_whisper_model_path,
           updated_at = excluded.updated_at
         `,
       )
@@ -197,6 +219,10 @@ export class CodexRepository {
         transcriptionAllowRemoteAudio: next.transcriptionAllowRemoteAudio ? 1 : 0,
         transcriptionModel: next.transcriptionModel,
         transcriptionLanguage: next.transcriptionLanguage,
+        transcriptionProvider: next.transcriptionProvider,
+        transcriptionFallbackProvider: next.transcriptionFallbackProvider,
+        transcriptionWhisperExecutablePath: next.transcriptionWhisperExecutablePath,
+        transcriptionWhisperModelPath: next.transcriptionWhisperModelPath,
         createdAt: timestamp,
         updatedAt: timestamp,
       });

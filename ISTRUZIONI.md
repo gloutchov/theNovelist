@@ -201,11 +201,20 @@ Allo stesso modo è possibile creare una scena. In questo caso la scena verrà e
 
 ### Dettatura nei capitoli e nelle scene
 
-Il pulsante **Detta testo** compare sotto la barra degli strumenti in entrambi gli editor. Posiziona il cursore o seleziona il testo da sostituire, premi il pulsante e concedi l'accesso al microfono quando richiesto dal sistema. Il parlato parziale compare in anteprima; **Termina e inserisci** conclude il turno e inserisce solo la trascrizione finale nella posizione selezionata. Puoi annullare l'inserimento con il normale comando Annulla. **Annulla** interrompe la registrazione senza modificare il documento. Chiudere l'editor interrompe la dettatura.
+Il pulsante **Detta testo** compare sotto la barra degli strumenti in entrambi gli editor. Posiziona il cursore o seleziona il testo da sostituire, premi il pulsante e concedi l'accesso al microfono quando richiesto dal sistema. Con OpenAI il parlato parziale compare in anteprima; Whisper locale mostra soltanto il risultato finale. **Termina e inserisci** conclude il turno e inserisce una sola trascrizione finale nella posizione selezionata. Il provider usato resta visibile accanto al controllo. Puoi annullare l'inserimento con il normale comando Annulla. **Annulla** interrompe la registrazione senza modificare il documento. Chiudere l'editor interrompe la dettatura.
 
-In **Impostazioni > Dettatura** abilita la funzione per il progetto, scegli `gpt-live-transcribe` oppure `gpt-realtime-whisper` e la lingua `Auto`, `Italiano` o `Inglese`. Occorrono anche la chiave OpenAI gia configurata per il progetto, **Abilita funzionalità AI**, **Abilita chiamate API esterne** e il consenso separato all'invio dell'audio. Il provider testuale puo restare Ollama: la dettatura usa OpenAI in modo indipendente. Il fallback e **Nessuno** in questa milestone; Whisper offline arrivera nella successiva. La registrazione dura al massimo cinque minuti per turno. La trascrizione remota puo avere un costo secondo il modello scelto.
+In **Impostazioni > Dettatura** abilita la funzione per il progetto e scegli come provider **OpenAI API** o **Whisper locale**. Per OpenAI scegli `gpt-live-transcribe` oppure `gpt-realtime-whisper`; servono anche la chiave OpenAI del progetto, **Abilita funzionalità AI**, **Abilita chiamate API esterne** e il consenso separato all'invio dell'audio. Puoi selezionare **Whisper locale** come fallback: interviene se OpenAI non si connette, non trova il modello, fallisce come servizio o scade il tempo; non interviene per audio non valido o limite di registrazione. Il provider testuale puo restare Ollama. In modalita solo locale non servono chiave, consenso AI, consenso audio remoto o connessione Internet. La lingua `Auto`, `Italiano` o `Inglese` vale per entrambi i motori. La registrazione dura al massimo cinque minuti per turno; la trascrizione remota puo avere un costo.
 
-Se il microfono viene negato, controlla i permessi di macOS/Windows per The Novelist e riavvia l'app se necessario. Se la connessione o la trascrizione fallisce, il testo gia presente rimane invariato. L'audio non viene salvato nel progetto; il testo finale entra nel documento solo dopo il completamento.
+Per la modalita locale installa un `whisper-cli` affidabile da [whisper.cpp](https://github.com/ggml-org/whisper.cpp) e un modello GGML **multilingue** (per esempio `ggml-tiny.bin`, circa 75 MiB; non usare la variante `.en` per l'italiano). Su macOS puoi installare il programma tramite [Homebrew](https://formulae.brew.sh/formula/whisper.cpp):
+
+```sh
+brew install whisper.cpp
+command -v whisper-cli
+```
+
+Il secondo comando mostra il percorso assoluto dell'eseguibile. In alternativa puoi compilarlo seguendo il [README upstream](https://github.com/ggml-org/whisper.cpp/blob/master/README.md); su Windows verifica gli eseguibili nelle [release upstream](https://github.com/ggml-org/whisper.cpp/releases). Homebrew non installa il modello. Se lavori dal codice sorgente, `node scripts/install-whisper-model.mjs` scarica il modello tiny in `~/.the-novelist/whisper/ggml-tiny.bin` solo dopo un tuo comando e ne verifica SHA-1 `bd577a113a864445d4c299885e0cb97d4ba92b5f`. Per ottenere il percorso assoluto del modello su macOS usa `echo "$HOME/.the-novelist/whisper/ggml-tiny.bin"`. Nell'app installata puoi ottenere il modello dalla [raccolta ufficiale](https://huggingface.co/ggerganov/whisper.cpp) e verificare il checksum nella [guida modelli](https://github.com/ggml-org/whisper.cpp/blob/master/models/README.md). Inserisci in **Impostazioni > Dettatura** i percorsi assoluti di `whisper-cli` (su Windows `whisper-cli.exe`) e del file `.bin`, poi salva. Se sposti il progetto su un altro computer, aggiorna i percorsi. Il motore e sotto [licenza MIT](https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE); binario e modello non sono inclusi nella distribuzione di The Novelist.
+
+Se il microfono viene negato, controlla i permessi di macOS/Windows per The Novelist e riavvia l'app se necessario. Se la connessione o la trascrizione fallisce, il testo gia presente rimane invariato. Whisper elabora l'audio in un WAV temporaneo privato, che viene eliminato dopo il turno o l'annullamento; l'audio non viene salvato nel progetto. L'elaborazione locale usa la CPU e puo essere piu lenta su computer poco potenti.
 
 ### Scorciatoie da tastiera nell'editor
 
@@ -340,7 +349,7 @@ Attenzione: Ollama deve essere installato e in esecuzione sul computer. In caso 
 
 Il menù impostazioni presenta anche quattro check box importanti:
 
-1. Abilita funzionalità AI per questo progetto: Senza questa opzione non si potranno usare i servizi AI, inclusa la dettatura.
+1. Abilita funzionalità AI per questo progetto: Senza questa opzione non si potranno usare i servizi AI remoti o testuali; la dettatura solo locale resta disponibile se abilitata separatamente.
 2. Abilita chiamate API esterne: Senza questo consenso non potrà funzionare il servizio tramite API KEY.
 3. Auto-riassunto della descrizione blocco al salvataggio: Senza questo consenso non si avrà il riassunto automatico dei capitoli in descrizione al blocco.
 4. Consenso invio memoria progetto a provider esterni: se disattivato, la AI non riceverà la memoria Wiki quando il provider o il fallback possono inviare il prompt fuori dal computer.

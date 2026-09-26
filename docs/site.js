@@ -21,12 +21,11 @@ const translations = {
     'intro.body':
       "The Novelist offre una scrivania adatta allo sviluppo delle trame, alla gestione della timeline, all'organizzazione di personaggi e locations. Offre una potente gestione degli Appunti, permettendo di caricare files ed averli sempre a disposizione quando si ha bisogno di riferimenti specifici. Ogni storia ha la sua memoria, così che l'autore possa avere sempre consapevolezza di ciò che scrive, ed essere aiutato dalla AI quando e se è necessario, con analisi approfondite del testo.",
     'news.eyebrow': 'Novità',
-    'news.title': "E' arrivata la funzione Appunti!",
-    'news.notes.title': 'Appunti',
-    'news.notes.body':
-      "Hai bisogno di documenti specifici per lavorare al tuo romanzo? Vorresti avere tutti i files nello stesso ambiente di lavoro? Caricali nel Canvas Appunti. I documenti vengono memorizzati, indicizzati, e resi disponibili sia tramite la memoria, sia chiedendo direttamente alla AI dall'Editor di Testo. E se vuoi leggerli ed esaminarli da solo, ti basta cliccarci sopra. Il Canvas Appunti permette inoltre di collegare i documenti tra loro, in modo da rendere evidenti le potenziali relazioni.",
-    'news.notes.caption':
-      'Il Canvas Appunti organizza fonti esterne e materiali utili alla scrittura.',
+    'news.title': 'Ora puoi dettare il tuo romanzo.',
+    'news.dictation.title': "Dettatura nell'editor",
+    'news.dictation.body':
+      "Nei capitoli e nelle scene puoi dettare il testo invece di digitarlo. Scegli la trascrizione OpenAI oppure Whisper locale, che funziona anche senza Internet. Se OpenAI non è disponibile, il fallback locale configurato riprende la dettatura. Il testo finale entra nel punto scelto dell'editor e puoi annullare l'inserimento.",
+    'news.dictation.caption': "La dettatura è disponibile nell'editor dei capitoli e delle scene.",
     'features.eyebrow': 'Funzionalità principali',
     'features.title': 'Dalla mappa narrativa al manoscritto completo.',
     'features.dashboard.title': 'Cruscotto progetto',
@@ -47,6 +46,9 @@ const translations = {
     'features.export.title': 'Export',
     'features.export.body':
       "Il testo può essere esportato nei formati principali: ePub, Word, e stampato su carta o in PDF. Ciò vale sia per il singolo capitolo, sia per l'intero romanzo.",
+    'features.notes.title': 'Appunti',
+    'features.notes.body':
+      "Carica nel Canvas Appunti i documenti utili al romanzo. Puoi leggerli nell'app, collegarli tra loro e ritrovarli nella memoria del progetto o tramite l'assistente AI dall'editor.",
     'gallery.eyebrow': "Immagini dell'app",
     'gallery.title': "Anteprime dell'interfaccia.",
     'gallery.dashboard': 'Il Cruscotto offre controlli e stato di avanzamento del progetto.',
@@ -99,12 +101,11 @@ const translations = {
     'intro.body':
       'The Novelist offers a writing desk for developing plots, managing the timeline, and organizing characters and locations. It also provides powerful Notes management, letting you upload files and keep them available whenever you need specific references. Every story has its own memory, so the author can always stay aware of what has been written and receive AI help when, and only when, it is needed, with in-depth text analysis.',
     'news.eyebrow': 'News',
-    'news.title': 'The Notes feature is here!',
-    'news.notes.title': 'Notes',
-    'news.notes.body':
-      'Need specific documents while working on your novel? Would you like to keep all your files in the same workspace? Load them into the Notes Canvas. Documents are stored, indexed, and made available both through memory and by asking the AI directly from the Text Editor. And if you want to read and review them yourself, just click on them. The Notes Canvas also lets you connect documents to each other, making potential relationships visible.',
-    'news.notes.caption':
-      'The Notes Canvas organizes external sources and useful writing material.',
+    'news.title': 'Now you can dictate your novel.',
+    'news.dictation.title': 'Dictation in the editor',
+    'news.dictation.body':
+      'Dictate text in chapters and scenes instead of typing it. Choose OpenAI transcription or local Whisper, which also works offline. If OpenAI is unavailable, the configured local fallback takes over. The final text is inserted at the chosen position in the editor, and you can undo it.',
+    'news.dictation.caption': 'Dictation is available in chapter and scene editors.',
     'features.eyebrow': 'Main features',
     'features.title': 'From narrative map to complete manuscript.',
     'features.dashboard.title': 'Project dashboard',
@@ -125,6 +126,9 @@ const translations = {
     'features.export.title': 'Export',
     'features.export.body':
       'Text can be exported to the main formats: ePub, Word, and print on paper or to PDF. This applies to both a single chapter and the entire novel.',
+    'features.notes.title': 'Notes',
+    'features.notes.body':
+      'Load useful documents for your novel into the Notes Canvas. Read them in the app, link them to each other, and find them through project memory or the AI assistant in the editor.',
     'gallery.eyebrow': 'App images',
     'gallery.title': 'Interface previews.',
     'gallery.dashboard': 'The Dashboard provides checks and project progress status.',
@@ -259,7 +263,9 @@ function setLanguage(language) {
 
 function getSystemLanguage() {
   const systemLanguages =
-    navigator.languages && navigator.languages.length > 0 ? navigator.languages : [navigator.language];
+    navigator.languages && navigator.languages.length > 0
+      ? navigator.languages
+      : [navigator.language];
   return systemLanguages.some((language) => language?.toLowerCase().startsWith('it')) ? 'it' : 'en';
 }
 

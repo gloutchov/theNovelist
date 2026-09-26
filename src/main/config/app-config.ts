@@ -59,6 +59,7 @@ export const APP_CONFIG = {
     maxAudioBytes: 5 * 60 * 24_000 * 2,
     connectTimeoutMs: 15_000,
     finalTimeoutMs: 30_000,
+    localTimeoutMs: 3 * 60_000,
   },
   images: {
     defaultGenerationTimeoutMs: 120_000,

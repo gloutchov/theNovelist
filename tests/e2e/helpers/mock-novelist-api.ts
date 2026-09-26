@@ -14,6 +14,8 @@ export interface NovelistApiMockOptions {
   chapterSaveDelayMs?: number;
   sceneSaveDelayMs?: number;
   wikiSyncDelayMs?: number;
+  transcriptionRemoteFails?: boolean;
+  transcriptionStartDelayMs?: number;
 }
 
 export async function installNovelistApiMock(
@@ -127,6 +129,10 @@ export async function installNovelistApiMock(
         transcriptionAllowRemoteAudio: false,
         transcriptionModel: 'gpt-live-transcribe' as 'gpt-live-transcribe' | 'gpt-realtime-whisper',
         transcriptionLanguage: 'auto' as 'auto' | 'it' | 'en',
+        transcriptionProvider: 'openai_api' as 'openai_api' | 'whisper_local',
+        transcriptionFallbackProvider: 'none' as 'none' | 'whisper_local',
+        transcriptionWhisperExecutablePath: '',
+        transcriptionWhisperModelPath: '',
         createdAt: nowIso(),
         updatedAt: nowIso(),
       },
@@ -290,7 +296,7 @@ export async function installNovelistApiMock(
       }>,
     };
     const transcriptionListeners = new Set<
-      (event: { sessionId: string; type: 'partial' | 'final'; text: string }) => void
+      (event: import('../../../src/main/transcription/realtime-session').TranscriptionEvent) => void
     >();
 
     const ensureProject = () => {
@@ -1619,20 +1625,31 @@ export async function installNovelistApiMock(
 
       codexGetSettings: async () => clone(state.codexSettings),
       transcriptionStart: async () => {
-        if (
-          !state.codexSettings.enabled ||
-          !state.codexSettings.allowApiCalls ||
-          !state.codexSettings.transcriptionEnabled ||
+        if (inputOptions.transcriptionStartDelayMs)
+          await delay(inputOptions.transcriptionStartDelayMs);
+        if (!state.codexSettings.transcriptionEnabled || (
+          state.codexSettings.transcriptionProvider === 'openai_api' &&
+          (!state.codexSettings.enabled || !state.codexSettings.allowApiCalls ||
           !state.codexSettings.transcriptionAllowRemoteAudio ||
-          !state.codexSettings.hasRuntimeApiKey
-        ) {
+          (!state.codexSettings.hasRuntimeApiKey &&
+            state.codexSettings.transcriptionFallbackProvider === 'none'))
+        )) {
           throw new Error('transcription_consent_required');
         }
-        return { sessionId: nextId('transcription') };
+        return { sessionId: nextId('transcription'),
+          provider: state.codexSettings.transcriptionProvider, usedFallback: false };
       },
       transcriptionAppend: async () => ({ ok: true as const }),
       transcriptionStop: async (payload: { sessionId: string }) => {
         window.setTimeout(() => {
+          if (inputOptions.transcriptionRemoteFails &&
+            state.codexSettings.transcriptionProvider === 'openai_api' &&
+            state.codexSettings.transcriptionFallbackProvider === 'whisper_local') {
+            for (const listener of transcriptionListeners) {
+              listener({ sessionId: payload.sessionId, type: 'provider',
+                provider: 'whisper_local', reason: 'fallback' });
+            }
+          }
           for (const listener of transcriptionListeners) {
             listener({ sessionId: payload.sessionId, type: 'final', text: 'Testo dettato.' });
           }
@@ -1641,7 +1658,7 @@ export async function installNovelistApiMock(
       },
       transcriptionCancel: async () => ({ ok: true as const }),
       onTranscriptionEvent: (
-        callback: (event: { sessionId: string; type: 'partial' | 'final'; text: string }) => void,
+        callback: (event: import('../../../src/main/transcription/realtime-session').TranscriptionEvent) => void,
       ) => {
         transcriptionListeners.add(callback);
         return () => transcriptionListeners.delete(callback);
@@ -1663,6 +1680,10 @@ export async function installNovelistApiMock(
         transcriptionAllowRemoteAudio?: boolean;
         transcriptionModel?: 'gpt-live-transcribe' | 'gpt-realtime-whisper';
         transcriptionLanguage?: 'auto' | 'it' | 'en';
+        transcriptionProvider?: 'openai_api' | 'whisper_local';
+        transcriptionFallbackProvider?: 'none' | 'whisper_local';
+        transcriptionWhisperExecutablePath?: string;
+        transcriptionWhisperModelPath?: string;
       }) => {
         if (payload.enabled !== undefined) {
           state.codexSettings.enabled = payload.enabled;
@@ -1709,6 +1730,19 @@ export async function installNovelistApiMock(
         if (payload.transcriptionLanguage !== undefined) {
           state.codexSettings.transcriptionLanguage = payload.transcriptionLanguage;
         }
+        if (payload.transcriptionProvider !== undefined) {
+          state.codexSettings.transcriptionProvider = payload.transcriptionProvider;
+          if (payload.transcriptionProvider === 'whisper_local')
+            state.codexSettings.transcriptionFallbackProvider = 'none';
+        }
+        if (payload.transcriptionFallbackProvider !== undefined) {
+          state.codexSettings.transcriptionFallbackProvider =
+            state.codexSettings.transcriptionProvider === 'whisper_local' ? 'none' : payload.transcriptionFallbackProvider;
+        }
+        if (payload.transcriptionWhisperExecutablePath !== undefined)
+          state.codexSettings.transcriptionWhisperExecutablePath = payload.transcriptionWhisperExecutablePath;
+        if (payload.transcriptionWhisperModelPath !== undefined)
+          state.codexSettings.transcriptionWhisperModelPath = payload.transcriptionWhisperModelPath;
         if (payload.clearStoredApiKey || payload.apiKey === null) {
           state.codexSettings.hasStoredApiKey = false;
           state.codexSettings.hasRuntimeApiKey = false;

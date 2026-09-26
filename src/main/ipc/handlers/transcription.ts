@@ -6,7 +6,7 @@ import { APP_CONFIG } from '../../config/app-config';
 import type { ProjectSessionManager } from '../../projects/session';
 import { resolveCodexRuntime } from '../../services/codex-runtime';
 import { getStoryContext } from '../../services/project-context';
-import { RealtimeTranscriptionSession } from '../../transcription/realtime-session';
+import { TranscriptionSession } from '../../transcription/session';
 
 const sessionRequest = z.object({ sessionId: z.string().uuid() });
 const appendRequest = sessionRequest.extend({
@@ -15,7 +15,7 @@ const appendRequest = sessionRequest.extend({
 
 interface ActiveSession {
   projectId: string;
-  session: RealtimeTranscriptionSession;
+  session: TranscriptionSession;
   sender: WebContents;
   onDestroyed: () => void;
 }
@@ -35,7 +35,7 @@ export function registerTranscriptionIpcHandlers(
     active.delete(senderId);
   }
 
-  function requireSession(sender: WebContents, sessionId: string): RealtimeTranscriptionSession {
+  function requireSession(sender: WebContents, sessionId: string): TranscriptionSession {
     const current = active.get(sender.id);
     if (!current || current.session.id !== sessionId)
       throw new Error('transcription_session_not_found');
@@ -52,10 +52,9 @@ export function registerTranscriptionIpcHandlers(
     }
     const settings = sessionManager.getRepository().getOrCreateCodexSettings(projectId);
     if (
-      !settings.enabled ||
-      !settings.allowApiCalls ||
       !settings.transcriptionEnabled ||
-      !settings.transcriptionAllowRemoteAudio
+      (settings.transcriptionProvider !== 'whisper_local' &&
+        (!settings.enabled || !settings.allowApiCalls || !settings.transcriptionAllowRemoteAudio))
     ) {
       clear(sender.id);
       throw new Error('transcription_consent_required');
@@ -66,25 +65,42 @@ export function registerTranscriptionIpcHandlers(
   ipcMain.handle(IPC_CHANNELS.transcriptionStart, async (event) => {
     if (active.has(event.sender.id)) throw new Error('transcription_already_active');
     const { repository, projectId } = getStoryContext(sessionManager);
-    const runtime = await resolveCodexRuntime(repository, projectId);
-    const settings = runtime.settings;
+    const settings = repository.getOrCreateCodexSettings(projectId);
     if (
-      !settings.enabled ||
-      !settings.allowApiCalls ||
       !settings.transcriptionEnabled ||
-      !settings.transcriptionAllowRemoteAudio
+      (settings.transcriptionProvider !== 'whisper_local' &&
+        (!settings.enabled || !settings.allowApiCalls || !settings.transcriptionAllowRemoteAudio))
     ) {
       throw new Error('transcription_consent_required');
     }
-    const apiKey = runtime.runtimeApiKey?.trim() || process.env['OPENAI_API_KEY']?.trim();
-    if (!apiKey) throw new Error('transcription_api_key_required');
+    let apiKey: string | null = null;
+    if (settings.transcriptionProvider !== 'whisper_local') {
+      try {
+        apiKey =
+          (await resolveCodexRuntime(repository, projectId)).runtimeApiKey?.trim() ||
+          process.env['OPENAI_API_KEY']?.trim() ||
+          null;
+      } catch {
+        if (settings.transcriptionFallbackProvider !== 'whisper_local')
+          throw new Error('transcription_connection_failed');
+      }
+    }
 
     const sessionId = randomUUID();
     const sender = event.sender;
-    const session = new RealtimeTranscriptionSession(
+    const session = new TranscriptionSession(
       sessionId,
-      settings.transcriptionModel,
-      settings.transcriptionLanguage,
+      {
+        provider: settings.transcriptionProvider,
+        fallbackProvider: settings.transcriptionFallbackProvider,
+        model: settings.transcriptionModel,
+        language: settings.transcriptionLanguage,
+        local: {
+          executablePath: settings.transcriptionWhisperExecutablePath,
+          modelPath: settings.transcriptionWhisperModelPath,
+          language: settings.transcriptionLanguage,
+        },
+      },
       (update) => {
         if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.transcriptionEvent, update);
         if (update.type === 'final' || update.type === 'error') clear(sender.id);
@@ -95,10 +111,18 @@ export function registerTranscriptionIpcHandlers(
     sender.once('destroyed', onDestroyed);
     try {
       await session.start(apiKey);
-      return { sessionId };
+      return { sessionId, provider: session.activeProvider, usedFallback: session.usedFallback };
     } catch (caught) {
       clear(sender.id);
-      if (caught instanceof Error && caught.message === 'transcription_model_unavailable') {
+      if (
+        caught instanceof Error &&
+        [
+          'transcription_model_unavailable',
+          'transcription_local_unavailable',
+          'transcription_api_key_required',
+          'transcription_cancelled',
+        ].includes(caught.message)
+      ) {
         throw caught;
       }
       throw new Error('transcription_connection_failed');

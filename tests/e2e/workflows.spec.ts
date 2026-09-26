@@ -342,6 +342,82 @@ test('dictation requires audio consent and cancellation preserves chapter text',
   await expect(page.getByRole('button', { name: 'Detta testo' })).toBeVisible();
 });
 
+test('local dictation works without AI consent or an API key', async ({ page }) => {
+  await openSeededChapterEditor(page, 'E2E Local Dictation', 'Testo base.');
+  await page.evaluate(async () => {
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const destination = audioContext.createMediaStreamDestination();
+    oscillator.connect(destination);
+    oscillator.start();
+    navigator.mediaDevices.getUserMedia = async () => destination.stream;
+    await window.novelistApi.codexUpdateSettings({
+      enabled: false, allowApiCalls: false, transcriptionAllowRemoteAudio: false,
+      transcriptionEnabled: true, transcriptionProvider: 'whisper_local',
+    });
+  });
+  await page.getByRole('button', { name: 'Detta testo' }).click();
+  await expect(page.getByText('Provider: Whisper locale')).toBeVisible();
+  await page.getByRole('button', { name: 'Termina e inserisci' }).click();
+  await expect(page.locator('.novelist-editor-content')).toContainText('Testo dettato.');
+  await expect(page.getByText('Provider: Whisper locale')).toBeVisible();
+});
+
+test('remote failure switches provider and inserts one final transcript', async ({ page }) => {
+  await installNovelistApiMock(page, { transcriptionRemoteFails: true });
+  await page.goto('/');
+  await openSeededChapterEditor(page, 'E2E Whisper Fallback', 'Testo base.');
+  await page.evaluate(async () => {
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const destination = audioContext.createMediaStreamDestination();
+    oscillator.connect(destination);
+    oscillator.start();
+    navigator.mediaDevices.getUserMedia = async () => destination.stream;
+    await window.novelistApi.codexUpdateSettings({
+      enabled: true, allowApiCalls: true, transcriptionAllowRemoteAudio: true,
+      transcriptionEnabled: true, transcriptionProvider: 'openai_api',
+      transcriptionFallbackProvider: 'whisper_local', apiKey: 'fake-test-key',
+    });
+  });
+  await page.getByRole('button', { name: 'Detta testo' }).click();
+  await page.getByRole('button', { name: 'Termina e inserisci' }).click();
+  await expect(page.getByText('OpenAI non disponibile: trascrizione con Whisper locale')).toBeVisible();
+  await expect(page.locator('.novelist-editor-content')).toContainText('Testo dettato.');
+  await expect(page.locator('.novelist-editor-content')).not.toContainText('Testo dettato.Testo dettato.');
+});
+
+test('dictation keeps microphone audio captured while the provider connects', async ({ page }) => {
+  await installNovelistApiMock(page, { transcriptionStartDelayMs: 500 });
+  await page.goto('/');
+  await openSeededChapterEditor(page, 'E2E Buffered Dictation', 'Testo base.');
+  await page.evaluate(async () => {
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const destination = audioContext.createMediaStreamDestination();
+    oscillator.connect(destination);
+    oscillator.start();
+    navigator.mediaDevices.getUserMedia = async () => destination.stream;
+    await window.novelistApi.codexUpdateSettings({
+      enabled: true, allowApiCalls: true, transcriptionAllowRemoteAudio: true,
+      transcriptionEnabled: true, apiKey: 'fake-test-key',
+    });
+    const api = window.novelistApi;
+    const append = api.transcriptionAppend;
+    (globalThis as typeof globalThis & { dictationChunkCount?: number }).dictationChunkCount = 0;
+    api.transcriptionAppend = async (payload) => {
+      (globalThis as typeof globalThis & { dictationChunkCount?: number }).dictationChunkCount! += 1;
+      return append(payload);
+    };
+  });
+  await page.getByRole('button', { name: 'Detta testo' }).click();
+  await expect(page.getByText('Registrazione in corso')).toBeVisible();
+  const count = await page.evaluate(() =>
+    (globalThis as typeof globalThis & { dictationChunkCount?: number }).dictationChunkCount ?? 0);
+  expect(count).toBeGreaterThan(0);
+  await page.locator('.dictation-control').getByRole('button', { name: 'Annulla' }).click();
+});
+
 test('chapter editor autosave refresh does not overwrite text typed during save', async ({
   page,
 }) => {
@@ -731,6 +807,27 @@ test('settings separates AI options, consents and secrets', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Project Editorial Checks' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Narrative Coherence' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Run Test' }).first()).toBeVisible();
+});
+
+test('local dictation settings stay inside the modal on a narrow viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createProject(page, 'E2E Mobile Dictation Settings');
+  await page.getByRole('button', { name: 'Impostazioni' }).click();
+  const modal = page.locator('.settings-modal-card');
+  const dictation = modal.locator('details.settings-section').nth(2);
+  await dictation.locator('summary').click();
+  await dictation.getByLabel('Provider di trascrizione').selectOption('whisper_local');
+  await dictation.getByLabel('Percorso di whisper-cli').fill('/a/long/path/to/whisper-cli');
+  await dictation.getByLabel('Percorso del modello Whisper multilingue').fill('/a/long/path/to/ggml-tiny.bin');
+  const bounds = await modal.evaluate((element) => ({
+    modalWidth: element.clientWidth,
+    contentWidth: element.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+    rootWidth: document.documentElement.scrollWidth,
+  }));
+  expect(bounds.contentWidth).toBeLessThanOrEqual(bounds.modalWidth + 2);
+  expect(bounds.rootWidth).toBeLessThanOrEqual(bounds.viewportWidth + 2);
+  await expect(dictation.getByRole('button', { name: 'Salva Impostazioni AI' })).toBeVisible();
 });
 
 test('English interface smoke covers primary creation surfaces', async ({ page }) => {

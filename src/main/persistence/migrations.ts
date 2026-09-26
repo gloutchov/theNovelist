@@ -580,6 +580,15 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE codex_settings ADD COLUMN transcription_language TEXT NOT NULL DEFAULT 'auto';`,
     ],
   },
+  {
+    version: 25,
+    statements: [
+      `ALTER TABLE codex_settings ADD COLUMN transcription_provider TEXT NOT NULL DEFAULT 'openai_api';`,
+      `ALTER TABLE codex_settings ADD COLUMN transcription_fallback_provider TEXT NOT NULL DEFAULT 'none';`,
+      `ALTER TABLE codex_settings ADD COLUMN transcription_whisper_executable_path TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE codex_settings ADD COLUMN transcription_whisper_model_path TEXT NOT NULL DEFAULT '';`,
+    ],
+  },
 ];
 
 export function applyMigrations(db: Database.Database): void {

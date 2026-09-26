@@ -2,12 +2,13 @@ import WebSocket from 'ws';
 import { APP_CONFIG } from '../config/app-config';
 
 export type TranscriptionEvent =
+  | { sessionId: string; type: 'provider'; provider: 'openai_api' | 'whisper_local'; reason: 'primary' | 'fallback' }
   | { sessionId: string; type: 'partial'; text: string }
   | { sessionId: string; type: 'final'; text: string }
   | {
       sessionId: string;
       type: 'error';
-      code: 'connection' | 'service' | 'timeout' | 'limit' | 'invalid_audio' | 'model_unavailable';
+      code: 'connection' | 'service' | 'timeout' | 'limit' | 'invalid_audio' | 'model_unavailable' | 'local_unavailable' | 'local_failed';
     };
 
 type TranscriptionModel = 'gpt-live-transcribe' | 'gpt-realtime-whisper';

@@ -354,6 +354,10 @@ export const codexUpdateSettingsRequestSchema = z.object({
   transcriptionAllowRemoteAudio: z.boolean().optional(),
   transcriptionModel: z.enum(['gpt-live-transcribe', 'gpt-realtime-whisper']).optional(),
   transcriptionLanguage: z.enum(['auto', 'it', 'en']).optional(),
+  transcriptionProvider: z.enum(['openai_api', 'whisper_local']).optional(),
+  transcriptionFallbackProvider: z.enum(['none', 'whisper_local']).optional(),
+  transcriptionWhisperExecutablePath: z.string().trim().max(1024).optional(),
+  transcriptionWhisperModelPath: z.string().trim().max(1024).optional(),
 });
 
 export const codexChatHistoryRequestSchema = z.object({
@@ -668,6 +672,10 @@ export const codexSettingsResponseSchema = z.object({
   transcriptionAllowRemoteAudio: z.boolean(),
   transcriptionModel: z.enum(['gpt-live-transcribe', 'gpt-realtime-whisper']),
   transcriptionLanguage: z.enum(['auto', 'it', 'en']),
+  transcriptionProvider: z.enum(['openai_api', 'whisper_local']),
+  transcriptionFallbackProvider: z.enum(['none', 'whisper_local']),
+  transcriptionWhisperExecutablePath: z.string(),
+  transcriptionWhisperModelPath: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
