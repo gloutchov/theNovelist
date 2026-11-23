@@ -152,7 +152,7 @@ Limiti residui di questa milestone: `minimatch` (PR Dependabot #147) non e chius
 
 ## Patch 6.3.1 - Dipendenze dev e runtime
 
-- **Stato:** pubblicata come PR #22, approvata da Glauco il 23/11, in attesa della chiusura. Nessun merge, nessun tag, nessuna release.
+- **Stato:** pubblicata come PR #22, approvata da Glauco il 23/11. La correzione locale del test e2e sul trascinamento multiplo dei capitoli aspetta la revisione di Vesta prima del push. Nessun merge, nessun tag, nessuna release.
 - **Branch:** `patch/6.3.1-deps`, da `main` `6faaace`.
 - **Versione/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Tag previsto `v6.3.1`, non creato. La release e prevista perche il gruppo runtime cambia, e resta al progettista. `docs/index.html` resta `6.3.0` fino a quella release.
 - **Obiettivo:** assorbire le PR Dependabot #19 (dev, 6 pacchetti) e #20 (runtime minor/patch) senza cambiare il comportamento. La major `eslint` 10 della PR #12 non entra: con `eslint-plugin-react-hooks` 7.1.1 il peer accetta gia `eslint` 10, quindi il conflitto di peer di prima non c'e piu; resta una decisione separata.
@@ -161,7 +161,7 @@ Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo
 
 ### English
 
-- **Status:** published as PR #22, approved by Glauco on 23/11, waiting for closure. No merge, no tag, no release.
+- **Status:** published as PR #22, approved by Glauco on 23/11. The local e2e fix for chapter multi-select dragging is waiting for Vesta's review before the push. No merge, no tag, no release.
 - **Version/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Proposed tag `v6.3.1`, not created. A release is expected because runtime dependencies change, and it stays with the designer. `docs/index.html` stays `6.3.0` until that release.
 - **Goal:** absorb Dependabot PRs #19 and #20 without changing behavior. ESLint 10 from PR #12 is not included. `eslint-plugin-react-hooks` 7.1.1 already accepts ESLint 10, so the previous peer conflict is gone; moving to ESLint 10 remains a separate decision. `@tiptap/core` and `@tiptap/pm` move down from `3.35.0` to `3.34.0`, aligned with the other TipTap `3.34.0` packages.
 
