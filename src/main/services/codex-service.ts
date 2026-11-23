@@ -130,7 +130,7 @@ export class CodexApplicationService {
 
     const preserveLegacyApiKey =
       runtime.apiKeyStorage === 'legacy_db' &&
-      !isSecureStorageAvailable() &&
+      !(await isSecureStorageAvailable()) &&
       !shouldClearStoredApiKey;
     const updated = repository.upsertCodexSettings(projectId, {
       enabled: input.enabled,
