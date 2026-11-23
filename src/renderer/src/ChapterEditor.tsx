@@ -1195,7 +1195,9 @@ export default function ChapterEditor({
   const [availableLocations, setAvailableLocations] = useState<LocationCard[]>([]);
   const [availableScenes, setAvailableScenes] = useState<SceneCard[]>([]);
   const [chapterRecord, setChapterRecord] = useState<StoryChapterNode | null>(null);
-  const [documentTitleDraft, setDocumentTitleDraft] = useState<string>(chapterTitle);
+  const [documentTitleDraft, setDocumentTitleDraft] = useState<string>(
+    sceneCard?.name ?? chapterTitle,
+  );
   const [mentionedIds, setMentionedIds] = useState<MentionIds>({
     characterIds: [],
     locationIds: [],
@@ -1478,10 +1480,12 @@ export default function ChapterEditor({
     editor?.setEditable(true);
   }, [editor]);
 
-  useEffect(() => {
+  const [editorSubject, setEditorSubject] = useState({ chapterTitle, sceneCardId });
+  if (editorSubject.chapterTitle !== chapterTitle || editorSubject.sceneCardId !== sceneCardId) {
+    setEditorSubject({ chapterTitle, sceneCardId });
     setSceneRecord(sceneCard ?? null);
     setDocumentTitleDraft(sceneCard?.name ?? chapterTitle);
-  }, [chapterTitle, sceneCardId]);
+  }
 
   useEffect(() => {
     mentionMenuRef.current = mentionMenu;
@@ -1495,11 +1499,17 @@ export default function ChapterEditor({
     sceneMapRef.current = sceneMap;
   }, [sceneMap]);
 
-  useEffect(() => {
-    if (!editor) {
-      return;
-    }
-
+  const [mentionMenuSource, setMentionMenuSource] = useState<{
+    editor: typeof editor;
+    referenceOptions: typeof referenceOptions;
+  } | null>(null);
+  if (
+    editor &&
+    (!mentionMenuSource ||
+      mentionMenuSource.editor !== editor ||
+      mentionMenuSource.referenceOptions !== referenceOptions)
+  ) {
+    setMentionMenuSource({ editor, referenceOptions });
     setMentionMenu((previous) => {
       const previousSelectedId =
         previous && previous.items.length > 0
@@ -1507,7 +1517,7 @@ export default function ChapterEditor({
           : null;
       return buildMentionMenuState(editor, referenceOptions, previousSelectedId);
     });
-  }, [editor, referenceOptions]);
+  }
 
   useEffect(() => {
     return () => {
@@ -1830,14 +1840,8 @@ export default function ChapterEditor({
     window.setTimeout(() => findInputRef.current?.focus(), 0);
   }, [findPanelOpen]);
 
-  useEffect(() => {
-    if (findMatches.length === 0) {
-      setActiveFindIndex(-1);
-      return;
-    }
-
-    setActiveFindIndex((previous) => Math.min(Math.max(previous, -1), findMatches.length - 1));
-  }, [findMatches.length]);
+  const visibleFindIndex =
+    findMatches.length === 0 ? -1 : Math.min(Math.max(activeFindIndex, -1), findMatches.length - 1);
 
   useEffect(() => {
     function handleEditorShortcuts(event: KeyboardEvent): void {
@@ -1973,7 +1977,7 @@ export default function ChapterEditor({
       return;
     }
 
-    selectFindMatch(activeFindIndex + (direction === 'next' ? 1 : -1));
+    selectFindMatch(visibleFindIndex + (direction === 'next' ? 1 : -1));
   }
 
   function handleReplaceCurrent(): void {
@@ -1984,7 +1988,7 @@ export default function ChapterEditor({
       return;
     }
 
-    const match = findMatches[activeFindIndex] ?? findMatches[0];
+    const match = findMatches[visibleFindIndex] ?? findMatches[0];
     if (!match) {
       return;
     }
@@ -3385,7 +3389,7 @@ export default function ChapterEditor({
 
         {findPanelOpen ? (
           <FindReplacePanel
-            activeFindIndex={activeFindIndex}
+            activeFindIndex={visibleFindIndex}
             findInputRef={findInputRef}
             findMatchCount={findMatches.length}
             findQuery={findQuery}

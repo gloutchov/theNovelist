@@ -440,14 +440,9 @@ export default function App() {
       editBlockNumber !== currentEditNode.data.blockNumber
     );
   }, [currentEditNode, editBlockNumber, editDescription, editPlotNumber, editTitle]);
-  useEffect(() => {
-    if (plots.length === 0) {
-      return;
-    }
-    if (!plots.some((plot) => plot.number === newNodePlotNumber)) {
-      setNewNodePlotNumber(plots[0]?.number ?? 1);
-    }
-  }, [newNodePlotNumber, plots]);
+  if (plots.length > 0 && !plots.some((plot) => plot.number === newNodePlotNumber)) {
+    setNewNodePlotNumber(plots[0]?.number ?? 1);
+  }
   const canOpenStoryCreationTools = Boolean(currentProject) && !busy;
   const hasUnsavedChanges =
     isStoryEditDirty ||
@@ -520,9 +515,21 @@ export default function App() {
     void syncProjectWikiAfterWorkspaceChange();
   }, [chapterEditorDirty, syncProjectWikiAfterWorkspaceChange]);
 
-  useEffect(() => {
-    setPlotNodes((prev) => syncPlotFlowNodes(plots, prev, selectedPlotId, t('common.plot')));
-  }, [plots, selectedPlotId, t]);
+  const plotFlowLabel = t('common.plot');
+  const [plotFlowSync, setPlotFlowSync] = useState<{
+    plots: typeof plots;
+    selectedPlotId: string | null;
+    plotFlowLabel: string;
+  } | null>(null);
+  if (
+    !plotFlowSync ||
+    plotFlowSync.plots !== plots ||
+    plotFlowSync.selectedPlotId !== selectedPlotId ||
+    plotFlowSync.plotFlowLabel !== plotFlowLabel
+  ) {
+    setPlotFlowSync({ plots, selectedPlotId, plotFlowLabel });
+    setPlotNodes((prev) => syncPlotFlowNodes(plots, prev, selectedPlotId, plotFlowLabel));
+  }
 
   useEffect(() => {
     return () => {
@@ -975,14 +982,21 @@ export default function App() {
     void syncOutlineOrder(nextChapters);
   }
 
+  const emptyDashboardState = useMemo(() => createEmptyDashboardState(), []);
+  const emptyOutlineState = useMemo(() => createEmptyOutlineState(), []);
+  if (!currentProject && (dashboard !== emptyDashboardState || outline !== emptyOutlineState)) {
+    setDashboard(emptyDashboardState);
+    setOutline(emptyOutlineState);
+  }
+
   useEffect(() => {
     if (!currentProject) {
-      setDashboard(createEmptyDashboardState());
-      setOutline(createEmptyOutlineState());
       return;
     }
 
     if (activeTab === 'dashboard') {
+      // Dashboard data comes from IPC. Refresh sets its loading flag before the first await.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- IPC refresh of the dashboard
       void refreshDashboardData();
     }
     if (activeTab === 'outline') {
@@ -1095,13 +1109,7 @@ export default function App() {
       setStatus(statusMessage);
       void refreshDashboardData();
     },
-    [
-      chapterFlowLabels,
-      loadAiSettings,
-      refreshDashboardData,
-      resetStoryWorkspace,
-      resetWikiSearch,
-    ],
+    [chapterFlowLabels, loadAiSettings, refreshDashboardData, resetStoryWorkspace, resetWikiSearch],
   );
 
   async function handleCreateProject(): Promise<void> {
@@ -1800,7 +1808,9 @@ export default function App() {
         setEditPlotNumber(updated.plotNumber);
         setEditBlockNumber(updated.blockNumber);
         if (!options?.silent) {
-          setStatus(options?.successStatus ?? t('story.status.blockSaved', { title: updated.title }));
+          setStatus(
+            options?.successStatus ?? t('story.status.blockSaved', { title: updated.title }),
+          );
         }
         if (options?.closeAfterSave) {
           setEditNodeId(null);
@@ -1836,7 +1846,8 @@ export default function App() {
 
   async function handleDeleteSelectedNode(): Promise<void> {
     const selectedNodeIds = nodes.filter((node) => node.selected).map((node) => node.id);
-    const nodeIdsToDelete = selectedNodeIds.length > 0 ? selectedNodeIds : selectedNodeId ? [selectedNodeId] : [];
+    const nodeIdsToDelete =
+      selectedNodeIds.length > 0 ? selectedNodeIds : selectedNodeId ? [selectedNodeId] : [];
 
     if (nodeIdsToDelete.length === 0) {
       return;
@@ -1869,7 +1880,8 @@ export default function App() {
 
   async function handleDeleteSelectedEdge(): Promise<void> {
     const selectedEdgeIds = edges.filter((edge) => edge.selected).map((edge) => edge.id);
-    const edgeIdsToDelete = selectedEdgeIds.length > 0 ? selectedEdgeIds : selectedEdgeId ? [selectedEdgeId] : [];
+    const edgeIdsToDelete =
+      selectedEdgeIds.length > 0 ? selectedEdgeIds : selectedEdgeId ? [selectedEdgeId] : [];
 
     if (edgeIdsToDelete.length === 0) {
       return;
@@ -2019,7 +2031,7 @@ export default function App() {
     setPlotNodes((prev) => applyNodeChanges(changes, prev));
   }, []);
 
-  const onPlotNodeDragStop: NodeMouseHandler<PlotCanvasNode> = useCallback(
+  const onPlotNodeDragStop: OnNodeDrag<PlotCanvasNode> = useCallback(
     async (_event, node) => {
       const plot = plotsById.get(node.id);
       if (!plot) {

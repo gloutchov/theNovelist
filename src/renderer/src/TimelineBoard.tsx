@@ -429,10 +429,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
   );
 
   const selectedItem = useMemo(
-    () =>
-      selectedKey
-        ? (visibleItems.find((item) => item.key === selectedKey) ?? null)
-        : null,
+    () => (selectedKey ? (visibleItems.find((item) => item.key === selectedKey) ?? null) : null),
     [selectedKey, visibleItems],
   );
 
@@ -452,7 +449,11 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
   );
 
   const minimapScale = useMemo(
-    () => Math.min(TIMELINE_MINIMAP_MAX_WIDTH / canvasWidth, TIMELINE_MINIMAP_MAX_HEIGHT / canvasHeight),
+    () =>
+      Math.min(
+        TIMELINE_MINIMAP_MAX_WIDTH / canvasWidth,
+        TIMELINE_MINIMAP_MAX_HEIGHT / canvasHeight,
+      ),
     [canvasHeight, canvasWidth],
   );
   const minimapWidth = Math.max(120, Math.round(canvasWidth * minimapScale));
@@ -521,14 +522,14 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
   }, [onStatus, t]);
 
   useEffect(() => {
+    // Timeline layout is loaded from IPC and local storage. Refresh sets state before awaiting.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- IPC fetch of the timeline
     void refreshTimeline();
   }, [refreshTimeline]);
 
-  useEffect(() => {
-    if (selectedKey && !visibleItems.some((item) => item.key === selectedKey)) {
-      setSelectedKey(null);
-    }
-  }, [selectedKey, visibleItems]);
+  if (selectedKey && !visibleItems.some((item) => item.key === selectedKey)) {
+    setSelectedKey(null);
+  }
 
   const persistSettings = useCallback(
     async (override?: { timelineEndX?: number }): Promise<void> => {
@@ -580,7 +581,8 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         setSettings(saved);
         onStatus(t('timeline.statusUpdated'));
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         const projectId = projectIdRef.current;
         const fallbackSettings = {
           ...(settings ?? createEmptyTimelineState(projectId).settings),
@@ -663,7 +665,8 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
         writeLocalTimelineState(projectIdRef.current, localTimelineStateRef.current);
         onStatus(t('timeline.statusUpdated'));
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         const projectId = projectIdRef.current;
         const saved = upsertLocalTimelineItem(projectId, item, localTimelineStateRef.current);
         const nextState = {
@@ -881,11 +884,7 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
       const shell = scrollShellRef.current;
       if (!shell) {
         setTimelineZoom((current) =>
-          clamp(
-            current + direction * TIMELINE_ZOOM_STEP,
-            TIMELINE_ZOOM_MIN,
-            TIMELINE_ZOOM_MAX,
-          ),
+          clamp(current + direction * TIMELINE_ZOOM_STEP, TIMELINE_ZOOM_MIN, TIMELINE_ZOOM_MAX),
         );
         return;
       }
@@ -971,44 +970,47 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
     updateTimelineViewport();
   }
 
-  const handleTimelineWheel = useCallback((event: WheelEvent): void => {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target || target.closest('input, textarea, select')) {
-      return;
-    }
-
-    const shell = scrollShellRef.current;
-    if (!shell) {
-      return;
-    }
-
-    event.preventDefault();
-    const rect = shell.getBoundingClientRect();
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    const deltaY = event.deltaY;
-
-    setTimelineZoom((currentZoom) => {
-      const direction = deltaY > 0 ? -1 : 1;
-      const nextZoom = clamp(
-        currentZoom + direction * TIMELINE_ZOOM_STEP,
-        TIMELINE_ZOOM_MIN,
-        TIMELINE_ZOOM_MAX,
-      );
-      if (nextZoom === currentZoom) {
-        return currentZoom;
+  const handleTimelineWheel = useCallback(
+    (event: WheelEvent): void => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target || target.closest('input, textarea, select')) {
+        return;
       }
 
-      const contentX = (shell.scrollLeft + pointerX) / currentZoom;
-      const contentY = (shell.scrollTop + pointerY) / currentZoom;
-      window.requestAnimationFrame(() => {
-        shell.scrollLeft = contentX * nextZoom - pointerX;
-        shell.scrollTop = contentY * nextZoom - pointerY;
-        updateTimelineViewport();
+      const shell = scrollShellRef.current;
+      if (!shell) {
+        return;
+      }
+
+      event.preventDefault();
+      const rect = shell.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const deltaY = event.deltaY;
+
+      setTimelineZoom((currentZoom) => {
+        const direction = deltaY > 0 ? -1 : 1;
+        const nextZoom = clamp(
+          currentZoom + direction * TIMELINE_ZOOM_STEP,
+          TIMELINE_ZOOM_MIN,
+          TIMELINE_ZOOM_MAX,
+        );
+        if (nextZoom === currentZoom) {
+          return currentZoom;
+        }
+
+        const contentX = (shell.scrollLeft + pointerX) / currentZoom;
+        const contentY = (shell.scrollTop + pointerY) / currentZoom;
+        window.requestAnimationFrame(() => {
+          shell.scrollLeft = contentX * nextZoom - pointerX;
+          shell.scrollTop = contentY * nextZoom - pointerY;
+          updateTimelineViewport();
+        });
+        return nextZoom;
       });
-      return nextZoom;
-    });
-  }, [updateTimelineViewport]);
+    },
+    [updateTimelineViewport],
+  );
 
   useEffect(() => {
     const shell = scrollShellRef.current;
@@ -1228,7 +1230,9 @@ export default function TimelineBoard({ onStatus, t }: TimelineBoardProps) {
                     key={item.key}
                     className={[
                       'timeline-block',
-                      item.itemType === 'chapter' ? 'timeline-block-chapter' : 'timeline-block-scene',
+                      item.itemType === 'chapter'
+                        ? 'timeline-block-chapter'
+                        : 'timeline-block-scene',
                       isSelected ? 'is-selected' : '',
                     ]
                       .filter(Boolean)

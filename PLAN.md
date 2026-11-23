@@ -105,9 +105,9 @@ Verifiche C2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistent
 
 ## C3 - Electron 45.4.1
 
-- **Stato:** prima approvazione del progettista il 23 novembre 2026. Pubblicata come PR #18 sul branch `milestone/3-electron-45-4-1`. Merge, tag e release restano da fare e sono riservati a Glauco.
+- **Stato:** chiusa. PR #18 integrata in `main`. Tag `milestone/C3` e `v6.3.0` pubblicati su `b3303534`. GitHub Release `v6.3.0` pubblicata.
 - **Branch:** `milestone/3-electron-45-4-1`, da `main` `871bbf2`.
-- **Versione/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Tag previsto `v6.3.0`, non creato. La release e prevista perche il runtime cambia, ma resta al progettista.
+- **Versione/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Tag `v6.3.0` e `milestone/C3` pubblicati su `b3303534`. GitHub Release `v6.3.0` pubblicata.
 - **Obiettivo:** sostituire Electron 40, fuori supporto dal 1 luglio 2026, con il pin esatto `45.4.1`, assorbendo la PR di sicurezza Dependabot #14. Le PR #15, #16 e #17 non restano nel lockfile: i pacchetti non sono piu dipendenze dopo questo aggiornamento.
 
 Attivita principali:
@@ -128,27 +128,42 @@ Test richiesti: `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e
 
 Documentazione: `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md`, `PLAN.md`, `docs/index.html`.
 
-Decisione release: si, da confermare. Nessun tag e nessuna GitHub Release in questo commit.
+Decisione release: eseguita. Tag `v6.3.0` e GitHub Release `v6.3.0` pubblicati.
 
 Verifiche locali del 23 novembre 2026: lint (0 errori, 22 warning preesistenti), typecheck, 120 test unitari (2 smoke Whisper gia saltati), 45 e2e browser, 3 e2e Electron (2 Whisper saltati). Il primo giro Electron senza `LANG=it_IT.UTF-8` non trovava il pulsante `Crea` perche il locale della macchina e inglese. `npm run build` e `npm run pack` producono `release/linux-unpacked` con Electron 45.4.1; il binario parte e, chiuso, non lascia processi. `dist:mac` e `dist:win` non eseguiti: questa macchina e Linux. La CI della PR #18 su `a3241fe0` e verde (`quality` e Electron Smoke macOS).
 
-Limiti residui di questa milestone: `minimatch` (PR Dependabot #147) non e chiuso, la correzione e solo in `11.0.1` ed e una dipendenza di sviluppo; `flatted` e a `3.4.4` e `picomatch` a `4.0.7`. La landing in `docs/index.html` resta `6.2.0` fino alla release.
+Limiti residui di questa milestone: `minimatch` (PR Dependabot #147) non e chiuso, la correzione e solo in `11.0.1` ed e una dipendenza di sviluppo; `flatted` e a `3.4.4` e `picomatch` a `4.0.7`. La landing in `docs/index.html` e stata portata a `6.3.0` con la PR #21 dopo la release.
 
 ### English
 
-- **Status:** first approval on 23 November 2026. Published as PR #18 on `milestone/3-electron-45-4-1`. Merge, tag, and release are still to do and stay with Glauco.
-- **Version/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Proposed tag `v6.3.0`, not created. A release is expected because the runtime changes, and it stays with the designer.
-- **Goal:** replace unsupported Electron 40 with exact `45.4.1` and absorb Dependabot security PR #14. PRs #15, #16, and #17 do not remain in the lockfile: those packages are no longer dependencies after this update. Key rotation rewrites the ciphertext atomically. `minimatch` (Dependabot PR #147) stays open: the fix exists only in `11.0.1` and it is a development dependency. `flatted` is `3.4.4` and `picomatch` is `4.0.7`. `setStoredCodexApiKey` still writes directly. The landing page stays at `6.2.0` until the release.
+- **Status:** closed. PR #18 is in `main`. Tags `milestone/C3` and `v6.3.0` are published on `b3303534`. GitHub Release `v6.3.0` is published.
+- **Version/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Tags `v6.3.0` and `milestone/C3` are published on `b3303534`. GitHub Release `v6.3.0` is published.
+- **Goal:** replace unsupported Electron 40 with exact `45.4.1` and absorb Dependabot security PR #14. PRs #15, #16, and #17 do not remain in the lockfile: those packages are no longer dependencies after this update. Key rotation rewrites the ciphertext atomically. `minimatch` (Dependabot PR #147) stays open: the fix exists only in `11.0.1` and it is a development dependency. `flatted` is `3.4.4` and `picomatch` is `4.0.7`. `setStoredCodexApiKey` still writes directly. The landing page was later set to `6.3.0` by PR #21.
 
 ### Checklist di chiusura
 
 - [x] Branch dedicato da `main` aggiornato; worktree e identita verificati.
 - [x] Electron `45.4.1` esatto, lockfile e PR #14 assorbiti; eslint 9 non portato a 10.
 - [x] Test automatici, build e smoke Linux eseguiti; `dist:mac` e `dist:win` omessi perche il workflow `Release` parte solo da un tag.
-- [x] Versione sorgente `6.3.0` allineata; `docs/index.html` resta `6.2.0` fino alla release. Documentazione e modello di sicurezza aggiornati.
+- [x] Versione sorgente `6.3.0` allineata. `docs/index.html` e stato pubblicato a `6.3.0` con la PR #21 dopo la release. Documentazione e modello di sicurezza aggiornati.
 - [x] Prima approvazione ricevuta: voce rinominata da `M3` a `C3`.
 - [x] Diff, test, tag previsto `v6.3.0` e CI della PR #18 su `a3241fe0` presentati.
-- [ ] Merge, tag `v6.3.0` e GitHub Release ancora da fare: riservati a Glauco. La seconda approvazione precede il merge.
+- [x] Merge della PR #18, tag `milestone/C3` e `v6.3.0`, e GitHub Release `v6.3.0` pubblicati.
+
+## Patch 6.3.1 - Dipendenze dev e runtime
+
+- **Stato:** pubblicata come PR #22, approvata da Glauco il 23/11 per merge, tag e release v6.3.1.
+- **Branch:** `patch/6.3.1-deps`, da `main` `6faaace`.
+- **Versione/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Tag previsto `v6.3.1`, non creato. La release e prevista perche il gruppo runtime cambia, e resta al progettista. `docs/index.html` resta `6.3.0` fino a quella release.
+- **Obiettivo:** assorbire le PR Dependabot #19 (dev, 6 pacchetti) e #20 (runtime minor/patch) senza cambiare il comportamento. La major `eslint` 10 della PR #12 non entra: con `eslint-plugin-react-hooks` 7.1.1 il peer accetta gia `eslint` 10, quindi il conflitto di peer di prima non c'e piu; resta una decisione separata.
+
+Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo `OnNodeDrag` al posto di `NodeMouseHandler` per `onPlotNodeDragStop` con `@xyflow/react` 12.12.1. `@tiptap/core` e `@tiptap/pm` scendono da `3.35.0` a `3.34.0`, allineati agli altri pacchetti TipTap `3.34.0`.
+
+### English
+
+- **Status:** published as PR #22, approved by Glauco on 23/11 for the merge, the tag, and release v6.3.1.
+- **Version/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Proposed tag `v6.3.1`, not created. A release is expected because runtime dependencies change, and it stays with the designer. `docs/index.html` stays `6.3.0` until that release.
+- **Goal:** absorb Dependabot PRs #19 and #20 without changing behavior. ESLint 10 from PR #12 is not included. `eslint-plugin-react-hooks` 7.1.1 already accepts ESLint 10, so the previous peer conflict is gone; moving to ESLint 10 remains a separate decision. `@tiptap/core` and `@tiptap/pm` move down from `3.35.0` to `3.34.0`, aligned with the other TipTap `3.34.0` packages.
 
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 

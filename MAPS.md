@@ -8,7 +8,7 @@ Mappa del repository The Novelist.
 
 ## Italiano
 
-Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.3.0, con Electron 45.4.1 e dettatura OpenAI e Whisper locale negli editor capitolo e scena.
+Questa mappa descrive la distribuzione dei file principali e le responsabilita dei moduli. E aggiornata alla versione sorgente 6.3.1, con Electron 45.4.1 e dettatura OpenAI e Whisper locale negli editor capitolo e scena.
 
 ### Vista generale
 
@@ -298,7 +298,7 @@ Queste cartelle sono output o dipendenze locali e non sono il punto di ingresso 
 
 ## English
 
-This map describes the main file layout and module responsibilities. It is updated for source version 6.3.0, with Electron 45.4.1 and OpenAI and local Whisper dictation in chapter and scene editors.
+This map describes the main file layout and module responsibilities. It is updated for source version 6.3.1, with Electron 45.4.1 and OpenAI and local Whisper dictation in chapter and scene editors.
 
 ### Overview
 
