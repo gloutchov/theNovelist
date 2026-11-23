@@ -115,7 +115,7 @@ Patch di sola configurazione. Versione sorgente invariata (`6.2.0`). Nessun tag 
 
 ### Italiano
 
-- **Stato:** preparata in locale sul branch `patch/dependabot-standard`; in attesa dell'approvazione del progettista. Nessun merge.
+- **Stato:** completata: PR #8 integrata in main, nessun tag e nessuna release.
 - **Branch:** `patch/dependabot-standard`, creato da `main`.
 - **Versione/tag:** nessuna variazione (`6.2.0`). Nessun tag.
 - **Release:** no.
@@ -126,7 +126,7 @@ Patch di sola configurazione. Versione sorgente invariata (`6.2.0`). Nessun tag 
 
 ### English
 
-- **Status:** prepared locally on branch `patch/dependabot-standard`; waiting for the designer's approval. No merge.
+- **Status:** completed: PR #8 integrated into main, no tag and no release.
 - **Branch:** `patch/dependabot-standard`, created from `main`.
 - **Version/tag:** unchanged (`6.2.0`). No tag.
 - **Release:** no.
