@@ -109,6 +109,32 @@ Verifiche C2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistent
 - **Obiettivo:** provare sull'installer e sulla build portable Windows x64 la dettatura OpenAI, Whisper locale, fallback e permessi microfono con un dispositivo fisico.
 - **Esito atteso:** documentare risultati e eventuali correzioni in una successiva milestone o patch dedicata.
 
+## Patch 2026-11-23 - Configurazione Dependabot standard
+
+Patch di sola configurazione. Versione sorgente invariata (`6.2.0`). Nessun tag e nessuna GitHub Release: la modifica non cambia il comportamento dell'app.
+
+### Italiano
+
+- **Stato:** preparata in locale sul branch `patch/dependabot-standard`; in attesa dell'approvazione del progettista. Nessun merge.
+- **Branch:** `patch/dependabot-standard`, creato da `main`.
+- **Versione/tag:** nessuna variazione (`6.2.0`). Nessun tag.
+- **Release:** no.
+- **Contesto:** il 23 novembre 2026 il progettista ha dichiarato di nuovo attivo il progetto. Vale il modello Dependabot completo, non la variante per repository inattivi: npm in `/` (`package.json`) e GitHub Actions per `ci.yml`, `pages.yml` e `release.yml`.
+- **Electron:** la dipendenza resta `^40.8.0` (risolta a `40.8.0`). Lo standard ignora le major di `electron`; con questo ignore il repository resta sulla 40 fino a una milestone dedicata. La decisione di aggiornare la major resta al progettista e non fa parte di questa patch.
+- **File:** `.github/dependabot.yml`. Cadenza mensile alle 08:00 Europe/Rome. Gruppi npm `electron`, `runtime-minor-patch`, `dev-minor-patch` e `security`; gruppo unico `github-actions`.
+- **Verifiche locali:** `npm run lint` (0 errori, 22 warning preesistenti), `npm run typecheck` e `npm test` (118 passati, 2 smoke Whisper gia saltati). Non eseguiti e2e, build e smoke Electron: la patch non tocca codice, IPC o layout.
+
+### English
+
+- **Status:** prepared locally on branch `patch/dependabot-standard`; waiting for the designer's approval. No merge.
+- **Branch:** `patch/dependabot-standard`, created from `main`.
+- **Version/tag:** unchanged (`6.2.0`). No tag.
+- **Release:** no.
+- **Context:** on 23 November 2026 the designer declared the project active again. The full Dependabot model applies, not the inactive-repository variant: npm at `/` (`package.json`) and GitHub Actions for `ci.yml`, `pages.yml`, and `release.yml`.
+- **Electron:** the dependency stays `^40.8.0` (resolved to `40.8.0`). The standard ignores `electron` major updates; with this ignore the repository stays on 40 until a dedicated milestone. Moving to a new major remains the designer's decision and is outside this patch.
+- **Files:** `.github/dependabot.yml`. Monthly schedule at 08:00 Europe/Rome. npm groups `electron`, `runtime-minor-patch`, `dev-minor-patch`, and `security`; a single `github-actions` group.
+- **Local checks:** `npm run lint` (0 errors, 22 pre-existing warnings), `npm run typecheck`, and `npm test` (118 passed, 2 Whisper smoke tests already skipped). E2E, build, and Electron smoke were not run: the patch does not touch code, IPC, or layout.
+
 ## Checklist di chiusura per ogni milestone
 
 - [ ] Branch dedicato creato dalla baseline prevista; worktree e identita Git/GitHub verificati.
