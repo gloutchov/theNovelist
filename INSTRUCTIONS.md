@@ -84,7 +84,7 @@ Secondary features:
 
 ### Download, signing, and checksums
 
-The Novelist was born as a personal program and was later published as an open source project under the Apache 2.0 license. Published builds are not signed with Apple or Windows certificates.
+The Novelist was born as a personal program and was later published as an open source project under the Apache 2.0 license. Published builds are not signed with Apple or Windows certificates. From source version 6.3.0 the app uses Electron 45.4.1: macOS 13 or later is required. Windows support is unchanged.
 
 This means that:
 

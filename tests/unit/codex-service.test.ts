@@ -14,9 +14,9 @@ vi.mock('electron', () => ({
     getPath: () => process.env['TEMP'] ?? process.cwd(),
   },
   safeStorage: {
-    decryptString: () => '',
-    encryptString: (value: string) => Buffer.from(value),
-    isEncryptionAvailable: () => false,
+    decryptStringAsync: async () => ({ result: '', shouldReEncrypt: false }),
+    encryptStringAsync: async (value: string) => Buffer.from(value),
+    isAsyncEncryptionAvailable: async () => false,
   },
 }));
 

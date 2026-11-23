@@ -1,8 +1,8 @@
 # Sicurezza / Security - The Novelist
 
-Stato documentato al **26 settembre 2026**.
+Stato documentato al **23 novembre 2026**.
 
-Documented status as of **September 26, 2026**.
+Documented status as of **November 23, 2026**.
 
 ---
 
@@ -12,7 +12,7 @@ Questo documento riepiloga le misure di sicurezza implementate in The Novelist e
 
 ### 1. Modello operativo
 
-- App desktop Electron con processi separati `main`, `preload` e `renderer`.
+- App desktop Electron 45.4.1 (pin esatto, non `^`) con processi separati `main`, `preload` e `renderer`. Electron 40 non è più usato: era fuori supporto dal 1 luglio 2026.
 - Ogni progetto vive in una cartella locale con:
   - `project.db`: database SQLite principale;
   - `assets/`: immagini, export, allegati e fonti esterne importate;
@@ -104,7 +104,7 @@ Riferimenti:
 ### 7. Gestione API key
 
 - La API key non viene mai restituita in chiaro al renderer: le risposte IPC espongono `apiKey: null`.
-- Quando disponibile, Electron `safeStorage` cifra la chiave in un file sotto `app.getPath('userData')`.
+- Quando disponibile, Electron `safeStorage` cifra la chiave in un file sotto `app.getPath('userData')`. Dalla 45.4.1 si usano le API asincrone `isAsyncEncryptionAvailable`, `encryptStringAsync` e `decryptStringAsync`; le varianti sincrone sono deprecate e saranno rimosse in Electron 46.
 - Se `safeStorage` non è disponibile, il salvataggio di nuove chiavi viene rifiutato con errore esplicito.
 - È supportato l'uso di `OPENAI_API_KEY` come variabile ambiente runtime.
 - È supportata la cancellazione della chiave salvata.
@@ -275,6 +275,7 @@ Variabili ambiente rilevanti:
 6. Ollama può puntare a host non locali tramite `OLLAMA_HOST`; in quel caso il traffico non è necessariamente locale.
 7. Le release non firmate possono generare warning di sistema operativo e non offrono garanzia forte di provenienza.
 8. La CSP via `meta` non sostituisce header HTTP completi in eventuali scenari futuri serviti via rete.
+9. Electron 45 non supporta macOS 12. Il pin esatto `45.4.1` e l'ignore Dependabot delle major di `electron` tengono il runtime sulla 45 fino a una milestone successiva.
 
 ### 16. Verifiche consigliate prima di release
 
@@ -297,7 +298,7 @@ This document summarizes the security measures implemented in The Novelist and t
 
 ### 1. Operating Model
 
-- Electron desktop app with separate `main`, `preload`, and `renderer` processes.
+- Electron 45.4.1 desktop app (exact pin, not `^`) with separate `main`, `preload`, and `renderer` processes. Electron 40 is no longer used: it has been unsupported since 1 July 2026.
 - Each project lives in a local folder with:
   - `project.db`: main SQLite database;
   - `assets/`: images, exports, attachments, and imported external sources;
@@ -389,7 +390,7 @@ References:
 ### 7. API Key Handling
 
 - The API key is never returned in plaintext to the renderer: IPC responses expose `apiKey: null`.
-- When available, Electron `safeStorage` encrypts the key in a file under `app.getPath('userData')`.
+- When available, Electron `safeStorage` encrypts the key in a file under `app.getPath('userData')`. As of 45.4.1 the app uses the async APIs `isAsyncEncryptionAvailable`, `encryptStringAsync`, and `decryptStringAsync`. The synchronous variants are deprecated and will be removed in Electron 46.
 - If `safeStorage` is unavailable, saving new keys is rejected with an explicit error.
 - `OPENAI_API_KEY` is supported as a runtime environment variable.
 - Stored keys can be removed.
@@ -560,6 +561,7 @@ Relevant environment variables:
 6. Ollama can point to non-local hosts through `OLLAMA_HOST`; in that case traffic is not necessarily local.
 7. Unsigned releases can trigger operating-system warnings and do not provide a strong provenance guarantee.
 8. CSP through `meta` does not replace full HTTP headers in possible future network-served scenarios.
+9. Electron 45 does not support macOS 12. The exact `45.4.1` pin and Dependabot's ignore of `electron` majors keep the runtime on 45 until a later milestone.
 
 ### 16. Recommended Release Checks
 

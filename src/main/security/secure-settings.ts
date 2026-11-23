@@ -6,7 +6,10 @@ const SECURE_SETTINGS_DIR = 'secure-settings';
 const CODEX_API_KEY_PREFIX = 'codex-api-key';
 
 function sanitizeProjectId(projectId: string): string {
-  const safe = projectId.trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  const safe = projectId
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return safe || 'project';
 }
 
@@ -15,16 +18,19 @@ function getSecureSettingsDirectory(): string {
 }
 
 function getCodexApiKeyFilePath(projectId: string): string {
-  return path.join(getSecureSettingsDirectory(), `${CODEX_API_KEY_PREFIX}-${sanitizeProjectId(projectId)}.bin`);
+  return path.join(
+    getSecureSettingsDirectory(),
+    `${CODEX_API_KEY_PREFIX}-${sanitizeProjectId(projectId)}.bin`,
+  );
 }
 
 async function ensureSecureSettingsDirectory(): Promise<void> {
   await mkdir(getSecureSettingsDirectory(), { recursive: true });
 }
 
-export function isSecureStorageAvailable(): boolean {
+export async function isSecureStorageAvailable(): Promise<boolean> {
   try {
-    return safeStorage.isEncryptionAvailable();
+    return await safeStorage.isAsyncEncryptionAvailable();
   } catch {
     return false;
   }
@@ -48,13 +54,18 @@ export async function getStoredCodexApiKey(projectId: string): Promise<string | 
     return null;
   }
 
-  if (!isSecureStorageAvailable()) {
+  if (!(await isSecureStorageAvailable())) {
     throw new Error('Archivio sicuro di sistema non disponibile per decifrare la API key.');
   }
 
   const encrypted = Buffer.from(trimmed, 'base64');
-  const decrypted = safeStorage.decryptString(encrypted).trim();
-  return decrypted || null;
+  const decrypted = await safeStorage.decryptStringAsync(encrypted);
+  const value = decrypted.result.trim();
+  if (decrypted.shouldReEncrypt && value) {
+    const rotated = await safeStorage.encryptStringAsync(value);
+    await writeFile(filePath, rotated.toString('base64'), 'utf8');
+  }
+  return value || null;
 }
 
 export async function setStoredCodexApiKey(projectId: string, apiKey: string): Promise<void> {
@@ -64,14 +75,14 @@ export async function setStoredCodexApiKey(projectId: string, apiKey: string): P
     return;
   }
 
-  if (!isSecureStorageAvailable()) {
+  if (!(await isSecureStorageAvailable())) {
     throw new Error(
       'Archivio sicuro di sistema non disponibile. Usa OPENAI_API_KEY oppure abilita il keychain locale.',
     );
   }
 
   await ensureSecureSettingsDirectory();
-  const encrypted = safeStorage.encryptString(trimmed);
+  const encrypted = await safeStorage.encryptStringAsync(trimmed);
   await writeFile(getCodexApiKeyFilePath(projectId), encrypted.toString('base64'), 'utf8');
 }
 

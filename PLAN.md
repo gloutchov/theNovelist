@@ -103,6 +103,51 @@ Decisione release: il progettista ha autorizzato commit, merge, tag, push, relea
 
 Verifiche C2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistenti), 118 test unitari, 45 e2e browser e 5 e2e Electron passano in locale. Altri 2 smoke test unitari con `whisper-cli` Homebrew v1.9.4 e modello tiny multilingue verificato passano, compresa la cancellazione senza WAV residui. Un turno reale con audio sintetico italiano passa tramite adapter, IPC e app macOS pacchettizzata senza chiave o consenso remoto. Il progettista riferisce una prova manuale positiva della dettatura e del fallback sul proprio Mac. Il download opzionale del modello ha verificato il checksum ufficiale. `npm run pack` nella cartella sincronizzata resta impedito dagli attributi Finder/FileProvider durante `codesign`; una copia temporanea pulita produce invece un'app macOS arm64 valida. La landing bilingue e stata aggiornata con screenshot reali dell'editor e verificata su desktop e mobile; GitHub Pages ha pubblicato la pagina. La CI su `main` e verde. Il workflow Release ha costruito macOS arm64 e Windows x64 e pubblicato nove asset con SHA-256 corrispondenti ai digest GitHub. La prova del microfono fisico su Windows resta aperta ed e stata accettata come limite noto del rilascio.
 
+## M3 - Electron 45.4.1
+
+- **Stato:** preparata in locale sul branch `milestone/3-electron-45-4-1`; in attesa dell'approvazione del progettista. Nessun merge, nessun tag, nessuna release.
+- **Branch:** `milestone/3-electron-45-4-1`, da `main` `871bbf2`.
+- **Versione/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Tag previsto `v6.3.0`, non creato. La release e prevista perche il runtime cambia, ma resta al progettista.
+- **Obiettivo:** sostituire Electron 40, fuori supporto dal 1 luglio 2026, con il pin esatto `45.4.1`, assorbendo la PR di sicurezza Dependabot #14. Le PR #15, #16 e #17 non restano nel lockfile: i pacchetti non sono piu dipendenze dopo questo aggiornamento.
+
+Attivita principali:
+
+- Fissare `electron` a `45.4.1` senza `^` o `~`, aggiornare il lockfile e le dipendenze di sicurezza del gruppo #14 (`zod`, `vite`, `vitest`, `electron-builder`, `electron-vite` e transitive elencate nella PR). Non assorbire la major di `eslint` 9 → 10.
+- Portare `better-sqlite3` da `12.6.2` a `13.2.0`: la serie 12 non compila contro il V8 di Electron 45 (`GetPrototypeV2` e `External::Value`).
+- Passare `safeStorage` alle API asincrone, deprecate in forma sincrona dalla 45 e rimosse nella 46.
+- Verificare le breaking change Electron 41-45: il preload sandboxed non usa `Buffer`, `setImmediate` o `require` di `events`/`timers`/`url`; non ci sono protocolli custom, `clearStorageData({ quotas })` o cattura schermo.
+
+Criteri di accettazione:
+
+- `package.json` e il lockfile risolvono Electron `45.4.1` esatto.
+- Le versioni del gruppo di sicurezza #14 sono presenti, o il pacchetto non e piu nel lockfile.
+- Lint, typecheck, unit, e2e browser, e2e Electron, build e smoke del pacchetto locale passano, oppure l'omissione e motivata.
+- Documentazione IT/EN allineata: versione sorgente `6.3.0`, requisito macOS 13.
+
+Test richiesti: `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`, `npm run test:e2e:electron`, `npm run build`, `npm run pack` e avvio dello smoke sul pacchetto.
+
+Documentazione: `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md`, `PLAN.md`, `docs/index.html`.
+
+Decisione release: si, da confermare. Nessun tag e nessuna GitHub Release in questo commit.
+
+Verifiche locali del 23 novembre 2026: lint (0 errori, 22 warning preesistenti), typecheck, 118 test unitari (2 smoke Whisper gia saltati), 45 e2e browser, 3 e2e Electron (2 Whisper saltati). Il primo giro Electron senza `LANG=it_IT.UTF-8` non trovava il pulsante `Crea` perche il locale della macchina e inglese. `npm run build` e `npm run pack` producono `release/linux-unpacked` con Electron 45.4.1; il binario parte e, chiuso, non lascia processi. `dist:mac` e `dist:win` non eseguiti: questa macchina e Linux.
+
+### English
+
+- **Status:** prepared locally on `milestone/3-electron-45-4-1`; waiting for the designer's approval. No merge, no tag, no release.
+- **Version/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Proposed tag `v6.3.0`, not created. A release is expected because the runtime changes, and it stays with the designer.
+- **Goal:** replace unsupported Electron 40 with exact `45.4.1` and absorb Dependabot security PR #14. PRs #15, #16, and #17 do not remain in the lockfile: those packages are no longer dependencies after this update.
+
+### Checklist di chiusura
+
+- [ ] Branch dedicato da `main` aggiornato; worktree e identita verificati.
+- [ ] Electron `45.4.1` esatto, lockfile e PR #14 assorbiti; eslint 9 non portato a 10.
+- [ ] Test automatici, build e smoke del pacchetto eseguiti; omissioni motivate.
+- [ ] Versione `6.3.0` allineata nei punti canonici; documentazione e modello di sicurezza aggiornati.
+- [ ] Stato ancora `M3`: il passaggio a `C3` avviene solo dopo l'approvazione.
+- [ ] Diff, test, tag previsto `v6.3.0` e costo CI presentati; nessun push prima dell'approvazione del lotto.
+- [ ] Dopo l'approvazione: push, PR, CI, merge, tag e release solo se il progettista li autorizza.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.
