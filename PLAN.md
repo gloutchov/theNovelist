@@ -150,6 +150,21 @@ Limiti residui di questa milestone: `minimatch` (PR Dependabot #147) non e chius
 - [x] Diff, test, tag previsto `v6.3.0` e CI della PR #18 su `a3241fe0` presentati.
 - [ ] Merge, tag `v6.3.0` e GitHub Release ancora da fare: riservati a Glauco. La seconda approvazione precede il merge.
 
+## Patch 6.3.1 - Dipendenze dev e runtime
+
+- **Stato:** preparata in locale sul branch `patch/6.3.1-deps`; in attesa dell'approvazione. Nessun merge, nessun tag, nessuna release.
+- **Branch:** `patch/6.3.1-deps`, da `main` `6faaace`.
+- **Versione/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Tag previsto `v6.3.1`, non creato. La release e prevista perche il gruppo runtime cambia, e resta al progettista. `docs/index.html` resta `6.3.0` fino a quella release.
+- **Obiettivo:** assorbire le PR Dependabot #19 (dev, 6 pacchetti) e #20 (runtime minor/patch) senza cambiare il comportamento. La major `eslint` 10 della PR #12 non entra: con `eslint-plugin-react-hooks` 7.1.1 il peer accetta gia `eslint` 10, quindi il conflitto di peer di prima non c'e piu; resta una decisione separata.
+
+Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo `OnNodeDrag` al posto di `NodeMouseHandler` per `onPlotNodeDragStop` con `@xyflow/react` 12.12.1.
+
+### English
+
+- **Status:** prepared locally on `patch/6.3.1-deps`; waiting for approval. No merge, no tag, no release.
+- **Version/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Proposed tag `v6.3.1`, not created. A release is expected because runtime dependencies change, and it stays with the designer. `docs/index.html` stays `6.3.0` until that release.
+- **Goal:** absorb Dependabot PRs #19 and #20 without changing behavior. ESLint 10 from PR #12 is not included. `eslint-plugin-react-hooks` 7.1.1 already accepts ESLint 10, so the previous peer conflict is gone; moving to ESLint 10 remains a separate decision.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.

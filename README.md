@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Versione sorgente / Source version:</strong> 6.3.0<br />
+  <strong>Versione sorgente / Source version:</strong> 6.3.1<br />
   <strong>Piattaforme / Platforms:</strong> macOS, Windows<br />
   <strong>Licenza / License:</strong> Apache 2.0<br />
   <strong>Sito / Website:</strong> <a href="https://thenovelist.glaucosilvestri.it/">thenovelist.glaucosilvestri.it</a>
@@ -25,7 +25,7 @@ L'app nasce come progetto personale realizzato con assistenza AI. Il codice e op
 
 ### Download e distribuzione
 
-La versione sorgente e 6.3.0 (Electron 45.4.1). La release pubblicata resta [v6.2.0 su GitHub Releases](https://github.com/gloutchov/theNovelist/releases/tag/v6.2.0), con distributivi e checksum SHA-256, finche la milestone non viene rilasciata.
+La versione sorgente e 6.3.1. La release pubblicata resta [v6.3.0 su GitHub Releases](https://github.com/gloutchov/theNovelist/releases/tag/v6.3.0), con distributivi e checksum SHA-256, finche questa patch non viene rilasciata.
 
 - Build supportate: macOS e Windows.
 - Build non firmate: su macOS puo comparire Gatekeeper; su Windows puo comparire SmartScreen o un avviso di autore sconosciuto.
@@ -134,7 +134,7 @@ The app started as a personal project built with AI assistance. The code is open
 
 ### Download and Distribution
 
-The source version is 6.3.0 (Electron 45.4.1). The published release remains [v6.2.0 on GitHub Releases](https://github.com/gloutchov/theNovelist/releases/tag/v6.2.0), with distributables and SHA-256 checksums, until this milestone is released.
+The source version is 6.3.1. The published release remains [v6.3.0 on GitHub Releases](https://github.com/gloutchov/theNovelist/releases/tag/v6.3.0), with distributables and SHA-256 checksums, until this patch is released.
 
 - Supported builds: macOS and Windows.
 - Unsigned builds: macOS Gatekeeper or Windows SmartScreen may show first-run warnings.

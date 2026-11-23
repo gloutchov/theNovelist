@@ -201,27 +201,30 @@ export default function SceneBoard({
   }, [t]);
 
   useEffect(() => {
+    // Scene cards and story links are loaded from IPC. The refresh sets state before awaiting.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- IPC fetch of the scene board
     void refreshScenes();
   }, [refreshScenes]);
 
-  useEffect(() => {
-    if (!storyState || storyState.plots.length === 0) {
-      return;
-    }
-    if (!storyState.plots.some((plot) => plot.number === newScenePlotNumber)) {
-      setNewScenePlotNumber(storyState.plots[0]?.number ?? 1);
-    }
-  }, [newScenePlotNumber, storyState]);
+  if (
+    storyState &&
+    storyState.plots.length > 0 &&
+    !storyState.plots.some((plot) => plot.number === newScenePlotNumber)
+  ) {
+    setNewScenePlotNumber(storyState.plots[0]?.number ?? 1);
+  }
 
-  useEffect(() => {
-    if (editSceneId) {
-      return;
+  const [closedSceneEditorId, setClosedSceneEditorId] = useState<string | null | undefined>(
+    undefined,
+  );
+  if (closedSceneEditorId !== editSceneId) {
+    setClosedSceneEditorId(editSceneId);
+    if (!editSceneId) {
+      setSceneEditorDirty(false);
+      onDirtyChange?.(false);
+      onRegisterFlush?.(null);
     }
-    setSceneEditorDirty(false);
-    sceneEditorFlushRef.current = null;
-    onDirtyChange?.(false);
-    onRegisterFlush?.(null);
-  }, [editSceneId, onDirtyChange, onRegisterFlush]);
+  }
 
   const handleSceneEditorDirtyChange = useCallback(
     (dirty: boolean): void => {
@@ -247,6 +250,7 @@ export default function SceneBoard({
         return;
       }
     }
+    sceneEditorFlushRef.current = null;
     setEditSceneId(null);
     await refreshScenes();
   }, [refreshScenes, sceneEditorDirty]);
@@ -328,9 +332,7 @@ export default function SceneBoard({
       const nodesToPersist = draggedNodes.length > 0 ? draggedNodes : [node];
       const scenesToPersist = nodesToPersist
         .map((draggedNode) => ({ node: draggedNode, scene: scenesById.get(draggedNode.id) }))
-        .filter((item): item is { node: SceneCanvasNode; scene: SceneCard } =>
-          Boolean(item.scene),
-        );
+        .filter((item): item is { node: SceneCanvasNode; scene: SceneCard } => Boolean(item.scene));
 
       if (scenesToPersist.length === 0) {
         return;
