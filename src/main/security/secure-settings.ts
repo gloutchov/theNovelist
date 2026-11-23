@@ -1,4 +1,5 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { app, safeStorage } from 'electron';
 
@@ -26,6 +27,20 @@ function getCodexApiKeyFilePath(projectId: string): string {
 
 async function ensureSecureSettingsDirectory(): Promise<void> {
   await mkdir(getSecureSettingsDirectory(), { recursive: true });
+}
+
+async function writeFileAtomically(filePath: string, contents: string): Promise<void> {
+  const temporaryPath = path.join(
+    path.dirname(filePath),
+    `.${path.basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`,
+  );
+  try {
+    await writeFile(temporaryPath, contents, 'utf8');
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
 }
 
 export async function isSecureStorageAvailable(): Promise<boolean> {
@@ -62,8 +77,12 @@ export async function getStoredCodexApiKey(projectId: string): Promise<string | 
   const decrypted = await safeStorage.decryptStringAsync(encrypted);
   const value = decrypted.result.trim();
   if (decrypted.shouldReEncrypt && value) {
-    const rotated = await safeStorage.encryptStringAsync(value);
-    await writeFile(filePath, rotated.toString('base64'), 'utf8');
+    try {
+      const rotated = await safeStorage.encryptStringAsync(value);
+      await writeFileAtomically(filePath, rotated.toString('base64'));
+    } catch (error) {
+      console.error('Impossibile riscrivere la API key dopo la rotazione della cifratura.', error);
+    }
   }
   return value || null;
 }
