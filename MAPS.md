@@ -15,6 +15,7 @@ Questa mappa descrive la distribuzione dei file principali e le responsabilita d
 ```text
 theNovelist/
 |-- .github/
+|   |-- dependabot.yml
 |   `-- workflows/
 |       |-- ci.yml
 |       |-- pages.yml
@@ -63,10 +64,12 @@ theNovelist/
 ### Cartelle principali
 
 ```text
-.github/workflows/
-|-- ci.yml          # CI automatica.
-|-- pages.yml       # Pubblicazione GitHub Pages del mini sito statico.
-`-- release.yml     # Build e pubblicazione release GitHub su avvio manuale.
+.github/
+|-- dependabot.yml  # Aggiornamenti Dependabot mensili per npm e GitHub Actions.
+`-- workflows/
+    |-- ci.yml      # CI automatica.
+    |-- pages.yml   # Pubblicazione GitHub Pages del mini sito statico.
+    `-- release.yml # Build e pubblicazione release GitHub su avvio manuale.
 
 build/
 |-- icon.ico        # Icona Windows.
@@ -302,6 +305,7 @@ This map describes the main file layout and module responsibilities. It is updat
 ```text
 theNovelist/
 |-- .github/
+|   |-- dependabot.yml
 |   `-- workflows/
 |       |-- ci.yml
 |       |-- pages.yml
@@ -350,10 +354,12 @@ theNovelist/
 ### Main Directories
 
 ```text
-.github/workflows/
-|-- ci.yml          # Automated CI.
-|-- pages.yml       # GitHub Pages publishing workflow for the static mini site.
-`-- release.yml     # Manually started GitHub release build and publishing workflow.
+.github/
+|-- dependabot.yml  # Monthly Dependabot updates for npm and GitHub Actions.
+`-- workflows/
+    |-- ci.yml      # Automated CI.
+    |-- pages.yml   # GitHub Pages publishing workflow for the static mini site.
+    `-- release.yml # Manually started GitHub release build and publishing workflow.
 
 build/
 |-- icon.ico        # Windows icon.
