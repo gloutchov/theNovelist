@@ -104,7 +104,7 @@ Riferimenti:
 ### 7. Gestione API key
 
 - La API key non viene mai restituita in chiaro al renderer: le risposte IPC espongono `apiKey: null`.
-- Quando disponibile, Electron `safeStorage` cifra la chiave in un file sotto `app.getPath('userData')`. Dalla 45.4.1 si usano le API asincrone `isAsyncEncryptionAvailable`, `encryptStringAsync` e `decryptStringAsync`; le varianti sincrone sono deprecate e saranno rimosse in Electron 46.
+- Quando disponibile, Electron `safeStorage` cifra la chiave in un file sotto `app.getPath('userData')`. Dalla 45.4.1 si usano le API asincrone `isAsyncEncryptionAvailable`, `encryptStringAsync` e `decryptStringAsync`; le varianti sincrone sono deprecate e saranno rimosse in Electron 46. Se la decifratura segnala `shouldReEncrypt`, la nuova cifratura sostituisce il file in modo atomico (file temporaneo nella stessa directory e `rename`). Se la riscrittura fallisce, l'errore viene registrato e il valore già decifrato viene comunque restituito.
 - Se `safeStorage` non è disponibile, il salvataggio di nuove chiavi viene rifiutato con errore esplicito.
 - È supportato l'uso di `OPENAI_API_KEY` come variabile ambiente runtime.
 - È supportata la cancellazione della chiave salvata.
@@ -276,6 +276,8 @@ Variabili ambiente rilevanti:
 7. Le release non firmate possono generare warning di sistema operativo e non offrono garanzia forte di provenienza.
 8. La CSP via `meta` non sostituisce header HTTP completi in eventuali scenari futuri serviti via rete.
 9. Electron 45 non supporta macOS 12. Il pin esatto `45.4.1` e l'ignore Dependabot delle major di `electron` tengono il runtime sulla 45 fino a una milestone successiva.
+10. `minimatch` (PR Dependabot #147) resta vulnerabile: la correzione è solo in `11.0.1`, fuori dai range del lockfile, ed è una dipendenza di sviluppo. Non è chiusa. `flatted` è a `3.4.4` e `picomatch` a `4.0.7`.
+11. `setStoredCodexApiKey` scrive ancora il file cifrato in modo diretto. La riscrittura atomica vale solo per la rotazione in lettura.
 
 ### 16. Verifiche consigliate prima di release
 
@@ -390,7 +392,7 @@ References:
 ### 7. API Key Handling
 
 - The API key is never returned in plaintext to the renderer: IPC responses expose `apiKey: null`.
-- When available, Electron `safeStorage` encrypts the key in a file under `app.getPath('userData')`. As of 45.4.1 the app uses the async APIs `isAsyncEncryptionAvailable`, `encryptStringAsync`, and `decryptStringAsync`. The synchronous variants are deprecated and will be removed in Electron 46.
+- When available, Electron `safeStorage` encrypts the key in a file under `app.getPath('userData')`. As of 45.4.1 the app uses the async APIs `isAsyncEncryptionAvailable`, `encryptStringAsync`, and `decryptStringAsync`. The synchronous variants are deprecated and will be removed in Electron 46. When decryption sets `shouldReEncrypt`, the new ciphertext replaces the file atomically (a temporary file in the same directory, then `rename`). If that rewrite fails, the error is logged and the already-decrypted value is still returned.
 - If `safeStorage` is unavailable, saving new keys is rejected with an explicit error.
 - `OPENAI_API_KEY` is supported as a runtime environment variable.
 - Stored keys can be removed.
@@ -562,6 +564,8 @@ Relevant environment variables:
 7. Unsigned releases can trigger operating-system warnings and do not provide a strong provenance guarantee.
 8. CSP through `meta` does not replace full HTTP headers in possible future network-served scenarios.
 9. Electron 45 does not support macOS 12. The exact `45.4.1` pin and Dependabot's ignore of `electron` majors keep the runtime on 45 until a later milestone.
+10. `minimatch` (Dependabot PR #147) remains vulnerable: the fix exists only in `11.0.1`, outside the lockfile ranges, and it is a development dependency. It is not closed. `flatted` is at `3.4.4` and `picomatch` is at `4.0.7`.
+11. `setStoredCodexApiKey` still writes the ciphertext directly. The atomic rewrite applies only to rotation during a read.
 
 ### 16. Recommended Release Checks
 

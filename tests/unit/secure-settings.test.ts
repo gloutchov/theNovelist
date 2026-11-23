@@ -90,17 +90,20 @@ describe('getStoredCodexApiKey rotation', () => {
     vi.mocked(fsPromises.rename).mockRejectedValueOnce(new Error('rename failed'));
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    const value = await getStoredCodexApiKey('proj-1');
+    try {
+      const value = await getStoredCodexApiKey('proj-1');
 
-    expect(value).toBe('sk-test');
-    expect(secureStorage.decrypt).toHaveBeenCalledTimes(1);
-    expect(secureStorage.encrypt).toHaveBeenCalledWith('sk-test');
-    expect(fsPromises.rename).toHaveBeenCalledTimes(1);
-    await expect(readFile(filePath, 'utf8')).resolves.toBe(stored);
-    expect(errorLog).toHaveBeenCalledTimes(1);
-    expect(String(errorLog.mock.calls[0]?.[0])).not.toContain('sk-test');
-    const leftovers = (await readdir(directory)).filter((name) => name.endsWith('.tmp'));
-    expect(leftovers).toEqual([]);
-    errorLog.mockRestore();
+      expect(value).toBe('sk-test');
+      expect(secureStorage.decrypt).toHaveBeenCalledTimes(1);
+      expect(secureStorage.encrypt).toHaveBeenCalledWith('sk-test');
+      expect(fsPromises.rename).toHaveBeenCalledTimes(1);
+      await expect(readFile(filePath, 'utf8')).resolves.toBe(stored);
+      expect(errorLog).toHaveBeenCalledTimes(1);
+      expect(String(errorLog.mock.calls[0]?.[0])).not.toContain('sk-test');
+      const leftovers = (await readdir(directory)).filter((name) => name.endsWith('.tmp'));
+      expect(leftovers).toEqual([]);
+    } finally {
+      errorLog.mockRestore();
+    }
   });
 });
