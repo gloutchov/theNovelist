@@ -116,7 +116,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "ws": "^8.22.0",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -127,11 +127,11 @@
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.1.4",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.12",
     "cross-env": "^10.1.0",
-    "electron": "^40.8.0",
-    "electron-builder": "^26.8.1",
-    "electron-vite": "^5.0.0",
+    "electron": "^42.11.16",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -139,7 +139,7 @@
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vite": "^7.3.8",
+    "vitest": "^4.1.12"
   }
 }
