@@ -1,13 +1,24 @@
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import * as fsPromises from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const secureStorage = vi.hoisted(() => ({
   userData: '',
-  decrypt: vi.fn(async (_encrypted: Buffer) => ({ result: 'sk-test', shouldReEncrypt: true })),
+  decrypt: vi.fn<(encrypted: Buffer) => Promise<{ result: string; shouldReEncrypt: boolean }>>(
+    async () => ({ result: 'sk-test', shouldReEncrypt: true }),
+  ),
   encrypt: vi.fn(async (value: string) => Buffer.from(`rotated:${value}`)),
 }));
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...actual,
+    rename: vi.fn((...args: Parameters<typeof actual.rename>) => actual.rename(...args)),
+  };
+});
 
 vi.mock('electron', () => ({
   app: {
@@ -31,7 +42,12 @@ afterEach(async () => {
   secureStorage.encrypt.mockImplementation(async (value: string) =>
     Buffer.from(`rotated:${value}`),
   );
-  vi.restoreAllMocks();
+  vi.mocked(fsPromises.rename).mockReset();
+  vi.mocked(fsPromises.rename).mockImplementation((...args: Parameters<typeof fsPromises.rename>) =>
+    vi
+      .importActual<typeof import('node:fs/promises')>('node:fs/promises')
+      .then((actual) => actual.rename(...args)),
+  );
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
@@ -71,22 +87,20 @@ describe('getStoredCodexApiKey rotation', () => {
     const stored = Buffer.from('cipher-text').toString('base64');
     const { filePath } = await createStoredKey(stored);
     const directory = path.dirname(filePath);
-    await chmod(directory, 0o555);
+    vi.mocked(fsPromises.rename).mockRejectedValueOnce(new Error('rename failed'));
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    try {
-      const value = await getStoredCodexApiKey('proj-1');
+    const value = await getStoredCodexApiKey('proj-1');
 
-      expect(value).toBe('sk-test');
-      expect(secureStorage.decrypt).toHaveBeenCalledTimes(1);
-      expect(secureStorage.encrypt).toHaveBeenCalledWith('sk-test');
-      await expect(readFile(filePath, 'utf8')).resolves.toBe(stored);
-      expect(errorLog).toHaveBeenCalledTimes(1);
-      expect(String(errorLog.mock.calls[0]?.[0])).not.toContain('sk-test');
-      const leftovers = (await readdir(directory)).filter((name) => name.endsWith('.tmp'));
-      expect(leftovers).toEqual([]);
-    } finally {
-      await chmod(directory, 0o755);
-    }
+    expect(value).toBe('sk-test');
+    expect(secureStorage.decrypt).toHaveBeenCalledTimes(1);
+    expect(secureStorage.encrypt).toHaveBeenCalledWith('sk-test');
+    expect(fsPromises.rename).toHaveBeenCalledTimes(1);
+    await expect(readFile(filePath, 'utf8')).resolves.toBe(stored);
+    expect(errorLog).toHaveBeenCalledTimes(1);
+    expect(String(errorLog.mock.calls[0]?.[0])).not.toContain('sk-test');
+    const leftovers = (await readdir(directory)).filter((name) => name.endsWith('.tmp'));
+    expect(leftovers).toEqual([]);
+    errorLog.mockRestore();
   });
 });
