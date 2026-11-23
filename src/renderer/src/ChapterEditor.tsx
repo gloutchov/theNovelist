@@ -1195,7 +1195,9 @@ export default function ChapterEditor({
   const [availableLocations, setAvailableLocations] = useState<LocationCard[]>([]);
   const [availableScenes, setAvailableScenes] = useState<SceneCard[]>([]);
   const [chapterRecord, setChapterRecord] = useState<StoryChapterNode | null>(null);
-  const [documentTitleDraft, setDocumentTitleDraft] = useState<string>(chapterTitle);
+  const [documentTitleDraft, setDocumentTitleDraft] = useState<string>(
+    sceneCard?.name ?? chapterTitle,
+  );
   const [mentionedIds, setMentionedIds] = useState<MentionIds>({
     characterIds: [],
     locationIds: [],

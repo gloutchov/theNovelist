@@ -214,17 +214,18 @@ export default function SceneBoard({
     setNewScenePlotNumber(storyState.plots[0]?.number ?? 1);
   }
 
-  const [closedSceneEditorId, setClosedSceneEditorId] = useState<string | null | undefined>(
-    undefined,
-  );
-  if (closedSceneEditorId !== editSceneId) {
-    setClosedSceneEditorId(editSceneId);
-    if (!editSceneId) {
-      setSceneEditorDirty(false);
-      onDirtyChange?.(false);
-      onRegisterFlush?.(null);
+  useEffect(() => {
+    if (editSceneId) {
+      return;
     }
-  }
+    // Tell App the scene editor is closed only after this board has committed.
+    // Calling onDirtyChange during render updates App while SceneBoard is still rendering.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync closed-editor state to the parent
+    setSceneEditorDirty(false);
+    sceneEditorFlushRef.current = null;
+    onDirtyChange?.(false);
+    onRegisterFlush?.(null);
+  }, [editSceneId, onDirtyChange, onRegisterFlush]);
 
   const handleSceneEditorDirtyChange = useCallback(
     (dirty: boolean): void => {
