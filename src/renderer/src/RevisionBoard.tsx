@@ -193,7 +193,8 @@ export default function RevisionBoard({
         setSelectedRevisionId(history[0]?.id ?? '');
         onStatus(t('revision.status.loaded', { title: entity.title }));
       } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : t('common.unknownError');
+        const message =
+          caughtError instanceof Error ? caughtError.message : t('common.unknownError');
         setError(message);
         onStatus(t('revision.status.loadError'));
       } finally {
@@ -208,9 +209,7 @@ export default function RevisionBoard({
       return;
     }
 
-    const confirmed = window.confirm(
-      t('revision.confirmRestore'),
-    );
+    const confirmed = window.confirm(t('revision.confirmRestore'));
     if (!confirmed) {
       return;
     }
@@ -240,10 +239,16 @@ export default function RevisionBoard({
   }
 
   useEffect(() => {
+    // The catalogue comes from IPC when the project folder changes. Loading state is set
+    // before the first await, so this fetch cannot be derived during render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- IPC fetch on project change
     void loadEntities();
   }, [currentProject.rootPath, loadEntities]);
 
   useEffect(() => {
+    // The selected entity's history is loaded from IPC. The empty-entity reset and the
+    // loading flag are synchronous, and there is no render-time event for that fetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- IPC fetch of the selected revision
     void loadSelectedEntity(selectedEntity);
   }, [loadSelectedEntity, selectedEntity]);
 
@@ -357,7 +362,7 @@ export default function RevisionBoard({
               {selectedRevisionDiff ? (
                 <RevisionDiffText segments={selectedRevisionDiff.previous} />
               ) : (
-                selectedRevision?.textContent ?? t('revision.emptyPrevious')
+                (selectedRevision?.textContent ?? t('revision.emptyPrevious'))
               )}
             </pre>
           </article>

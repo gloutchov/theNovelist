@@ -52,7 +52,7 @@ Attualmente il progetto viene mantenuto e distribuito con pacchetti verificati l
 
 ### Lingua interfaccia
 
-L'interfaccia di The Novelist è bilingue italiano/inglese. La lingua viene scelta automaticamente in base alle  impostazioni di sistema (nel caso il computer sia impostato su una lingua differente dall'italiano, viene scelta automaticamente la lingua inglese). L'impostazione può essere svolta manualmente dalla finestra Impostazioni.
+L'interfaccia di The Novelist è bilingue italiano/inglese. La lingua viene scelta automaticamente in base alle impostazioni di sistema (nel caso il computer sia impostato su una lingua differente dall'italiano, viene scelta automaticamente la lingua inglese). L'impostazione può essere svolta manualmente dalla finestra Impostazioni.
 
 _Nota:_ I contenuti dei progetti non vengono tradotti automaticamente: capitoli, scene, trame, schede, memoria Wiki e testi selezionati restano nella lingua scritta dall'autore.
 
@@ -83,7 +83,7 @@ Funzionalità secondarie:
 
 ### Download, firma e checksum
 
-The Novelist e nato come programma personale ed e poi stato pubblicato come progetto open source con licenza Apache 2.0. Le build pubblicate non sono firmate con certificati Apple o Windows.
+The Novelist e nato come programma personale ed e poi stato pubblicato come progetto open source con licenza Apache 2.0. Le build pubblicate non sono firmate con certificati Apple o Windows. Dalla versione sorgente 6.3.0 l'app usa Electron 45.4.1: su macOS serve macOS 13 o successivo. Windows resta supportato come prima.
 
 Questo significa che:
 
@@ -265,7 +265,7 @@ Gli Appunti vengono esportati anche nella Memoria Wiki come `external_source`: n
 
 ## Revisioni
 
-Il programma permette di confrontare la versione attuale di un testo (Capitolo, Scena, Personaggio, Location) con le sue precedenti versioni. Il programma evidenzia le differenze, aggiunte e cancellazioni, in modo che l'autore abbia una chiara idea di ciò che è cambiato tra le varie versioni e quella più recente. 
+Il programma permette di confrontare la versione attuale di un testo (Capitolo, Scena, Personaggio, Location) con le sue precedenti versioni. Il programma evidenzia le differenze, aggiunte e cancellazioni, in modo che l'autore abbia una chiara idea di ciò che è cambiato tra le varie versioni e quella più recente.
 Nel caso lo desideri, l'autore può recuperare una vecchia stesura cliccando sul tasto Ripristina.
 
 ## Analisi

@@ -1,4 +1,5 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { app, safeStorage } from 'electron';
 
@@ -6,7 +7,10 @@ const SECURE_SETTINGS_DIR = 'secure-settings';
 const CODEX_API_KEY_PREFIX = 'codex-api-key';
 
 function sanitizeProjectId(projectId: string): string {
-  const safe = projectId.trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  const safe = projectId
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return safe || 'project';
 }
 
@@ -15,16 +19,33 @@ function getSecureSettingsDirectory(): string {
 }
 
 function getCodexApiKeyFilePath(projectId: string): string {
-  return path.join(getSecureSettingsDirectory(), `${CODEX_API_KEY_PREFIX}-${sanitizeProjectId(projectId)}.bin`);
+  return path.join(
+    getSecureSettingsDirectory(),
+    `${CODEX_API_KEY_PREFIX}-${sanitizeProjectId(projectId)}.bin`,
+  );
 }
 
 async function ensureSecureSettingsDirectory(): Promise<void> {
   await mkdir(getSecureSettingsDirectory(), { recursive: true });
 }
 
-export function isSecureStorageAvailable(): boolean {
+async function writeFileAtomically(filePath: string, contents: string): Promise<void> {
+  const temporaryPath = path.join(
+    path.dirname(filePath),
+    `.${path.basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`,
+  );
   try {
-    return safeStorage.isEncryptionAvailable();
+    await writeFile(temporaryPath, contents, 'utf8');
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
+}
+
+export async function isSecureStorageAvailable(): Promise<boolean> {
+  try {
+    return await safeStorage.isAsyncEncryptionAvailable();
   } catch {
     return false;
   }
@@ -48,13 +69,22 @@ export async function getStoredCodexApiKey(projectId: string): Promise<string | 
     return null;
   }
 
-  if (!isSecureStorageAvailable()) {
+  if (!(await isSecureStorageAvailable())) {
     throw new Error('Archivio sicuro di sistema non disponibile per decifrare la API key.');
   }
 
   const encrypted = Buffer.from(trimmed, 'base64');
-  const decrypted = safeStorage.decryptString(encrypted).trim();
-  return decrypted || null;
+  const decrypted = await safeStorage.decryptStringAsync(encrypted);
+  const value = decrypted.result.trim();
+  if (decrypted.shouldReEncrypt && value) {
+    try {
+      const rotated = await safeStorage.encryptStringAsync(value);
+      await writeFileAtomically(filePath, rotated.toString('base64'));
+    } catch (error) {
+      console.error('Impossibile riscrivere la API key dopo la rotazione della cifratura.', error);
+    }
+  }
+  return value || null;
 }
 
 export async function setStoredCodexApiKey(projectId: string, apiKey: string): Promise<void> {
@@ -64,14 +94,14 @@ export async function setStoredCodexApiKey(projectId: string, apiKey: string): P
     return;
   }
 
-  if (!isSecureStorageAvailable()) {
+  if (!(await isSecureStorageAvailable())) {
     throw new Error(
       'Archivio sicuro di sistema non disponibile. Usa OPENAI_API_KEY oppure abilita il keychain locale.',
     );
   }
 
   await ensureSecureSettingsDirectory();
-  const encrypted = safeStorage.encryptString(trimmed);
+  const encrypted = await safeStorage.encryptStringAsync(trimmed);
   await writeFile(getCodexApiKeyFilePath(projectId), encrypted.toString('base64'), 'utf8');
 }
 

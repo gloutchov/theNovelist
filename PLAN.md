@@ -103,6 +103,88 @@ Decisione release: il progettista ha autorizzato commit, merge, tag, push, relea
 
 Verifiche C2 del 26 settembre 2026: typecheck, lint (solo 22 warning preesistenti), 118 test unitari, 45 e2e browser e 5 e2e Electron passano in locale. Altri 2 smoke test unitari con `whisper-cli` Homebrew v1.9.4 e modello tiny multilingue verificato passano, compresa la cancellazione senza WAV residui. Un turno reale con audio sintetico italiano passa tramite adapter, IPC e app macOS pacchettizzata senza chiave o consenso remoto. Il progettista riferisce una prova manuale positiva della dettatura e del fallback sul proprio Mac. Il download opzionale del modello ha verificato il checksum ufficiale. `npm run pack` nella cartella sincronizzata resta impedito dagli attributi Finder/FileProvider durante `codesign`; una copia temporanea pulita produce invece un'app macOS arm64 valida. La landing bilingue e stata aggiornata con screenshot reali dell'editor e verificata su desktop e mobile; GitHub Pages ha pubblicato la pagina. La CI su `main` e verde. Il workflow Release ha costruito macOS arm64 e Windows x64 e pubblicato nove asset con SHA-256 corrispondenti ai digest GitHub. La prova del microfono fisico su Windows resta aperta ed e stata accettata come limite noto del rilascio.
 
+## C3 - Electron 45.4.1
+
+- **Stato:** chiusa. PR #18 integrata in `main`. Tag `milestone/C3` e `v6.3.0` pubblicati su `b3303534`. GitHub Release `v6.3.0` pubblicata.
+- **Branch:** `milestone/3-electron-45-4-1`, da `main` `871bbf2`.
+- **Versione/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Tag `v6.3.0` e `milestone/C3` pubblicati su `b3303534`. GitHub Release `v6.3.0` pubblicata.
+- **Obiettivo:** sostituire Electron 40, fuori supporto dal 1 luglio 2026, con il pin esatto `45.4.1`, assorbendo la PR di sicurezza Dependabot #14. Le PR #15, #16 e #17 non restano nel lockfile: i pacchetti non sono piu dipendenze dopo questo aggiornamento.
+
+Attivita principali:
+
+- Fissare `electron` a `45.4.1` senza `^` o `~`, aggiornare il lockfile e le dipendenze di sicurezza del gruppo #14 (`zod`, `vite`, `vitest`, `electron-builder`, `electron-vite` e transitive elencate nella PR). Non assorbire la major di `eslint` 9 → 10.
+- Portare `better-sqlite3` da `12.6.2` a `13.2.0`: la serie 12 non compila contro il V8 di Electron 45 (`GetPrototypeV2` e `External::Value`).
+- Passare `safeStorage` alle API asincrone, deprecate in forma sincrona dalla 45 e rimosse nella 46. Se la rotazione chiede `shouldReEncrypt`, la riscrittura della chiave e atomica (file temporaneo e `rename`). `setStoredCodexApiKey` resta una scrittura diretta: limite residuo, non modificato.
+- Verificare le breaking change Electron 41-45: il preload sandboxed non usa `Buffer`, `setImmediate` o `require` di `events`/`timers`/`url`; non ci sono protocolli custom, `clearStorageData({ quotas })` o cattura schermo.
+
+Criteri di accettazione:
+
+- `package.json` e il lockfile risolvono Electron `45.4.1` esatto.
+- Le versioni del gruppo di sicurezza #14 sono presenti, o il pacchetto non e piu nel lockfile.
+- Lint, typecheck, unit, e2e browser, e2e Electron, build e smoke del pacchetto locale passano, oppure l'omissione e motivata.
+- Documentazione IT/EN allineata: versione sorgente `6.3.0`, requisito macOS 13.
+
+Test richiesti: `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`, `npm run test:e2e:electron`, `npm run build`, `npm run pack` e avvio dello smoke sul pacchetto.
+
+Documentazione: `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAPS.md`, `PLAN.md`, `docs/index.html`.
+
+Decisione release: eseguita. Tag `v6.3.0` e GitHub Release `v6.3.0` pubblicati.
+
+Verifiche locali del 23 novembre 2026: lint (0 errori, 22 warning preesistenti), typecheck, 120 test unitari (2 smoke Whisper gia saltati), 45 e2e browser, 3 e2e Electron (2 Whisper saltati). Il primo giro Electron senza `LANG=it_IT.UTF-8` non trovava il pulsante `Crea` perche il locale della macchina e inglese. `npm run build` e `npm run pack` producono `release/linux-unpacked` con Electron 45.4.1; il binario parte e, chiuso, non lascia processi. `dist:mac` e `dist:win` non eseguiti: questa macchina e Linux. La CI della PR #18 su `a3241fe0` e verde (`quality` e Electron Smoke macOS).
+
+Limiti residui di questa milestone: `minimatch` (PR Dependabot #147) non e chiuso, la correzione e solo in `11.0.1` ed e una dipendenza di sviluppo; `flatted` e a `3.4.4` e `picomatch` a `4.0.7`. La landing in `docs/index.html` e stata portata a `6.3.0` con la PR #21 dopo la release.
+
+### English
+
+- **Status:** closed. PR #18 is in `main`. Tags `milestone/C3` and `v6.3.0` are published on `b3303534`. GitHub Release `v6.3.0` is published.
+- **Version/tag:** `6.2.0` → `6.3.0` (`+0.1.0`). Tags `v6.3.0` and `milestone/C3` are published on `b3303534`. GitHub Release `v6.3.0` is published.
+- **Goal:** replace unsupported Electron 40 with exact `45.4.1` and absorb Dependabot security PR #14. PRs #15, #16, and #17 do not remain in the lockfile: those packages are no longer dependencies after this update. Key rotation rewrites the ciphertext atomically. `minimatch` (Dependabot PR #147) stays open: the fix exists only in `11.0.1` and it is a development dependency. `flatted` is `3.4.4` and `picomatch` is `4.0.7`. `setStoredCodexApiKey` still writes directly. The landing page was later set to `6.3.0` by PR #21.
+
+### Checklist di chiusura
+
+- [x] Branch dedicato da `main` aggiornato; worktree e identita verificati.
+- [x] Electron `45.4.1` esatto, lockfile e PR #14 assorbiti; eslint 9 non portato a 10.
+- [x] Test automatici, build e smoke Linux eseguiti; `dist:mac` e `dist:win` omessi perche il workflow `Release` parte solo da un tag.
+- [x] Versione sorgente `6.3.0` allineata. `docs/index.html` e stato pubblicato a `6.3.0` con la PR #21 dopo la release. Documentazione e modello di sicurezza aggiornati.
+- [x] Prima approvazione ricevuta: voce rinominata da `M3` a `C3`.
+- [x] Diff, test, tag previsto `v6.3.0` e CI della PR #18 su `a3241fe0` presentati.
+- [x] Merge della PR #18, tag `milestone/C3` e `v6.3.0`, e GitHub Release `v6.3.0` pubblicati.
+
+## Patch 6.3.1 - Dipendenze dev e runtime
+
+- **Stato:** pubblicata come PR #22, approvata da Glauco il 23/11 per merge, tag e release v6.3.1.
+- **Branch:** `patch/6.3.1-deps`, da `main` `6faaace`.
+- **Versione/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Tag previsto `v6.3.1`, non creato. La release e prevista perche il gruppo runtime cambia, e resta al progettista. `docs/index.html` resta `6.3.0` fino a quella release.
+- **Obiettivo:** assorbire le PR Dependabot #19 (dev, 6 pacchetti) e #20 (runtime minor/patch) senza cambiare il comportamento. La major `eslint` 10 della PR #12 non entra: con `eslint-plugin-react-hooks` 7.1.1 il peer accetta gia `eslint` 10, quindi il conflitto di peer di prima non c'e piu; resta una decisione separata.
+
+Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo `OnNodeDrag` al posto di `NodeMouseHandler` per `onPlotNodeDragStop` con `@xyflow/react` 12.12.1. `@tiptap/core` e `@tiptap/pm` scendono da `3.35.0` a `3.34.0`, allineati agli altri pacchetti TipTap `3.34.0`.
+
+### English
+
+- **Status:** published as PR #22, approved by Glauco on 23/11 for the merge, the tag, and release v6.3.1.
+- **Version/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Proposed tag `v6.3.1`, not created. A release is expected because runtime dependencies change, and it stays with the designer. `docs/index.html` stays `6.3.0` until that release.
+- **Goal:** absorb Dependabot PRs #19 and #20 without changing behavior. ESLint 10 from PR #12 is not included. `eslint-plugin-react-hooks` 7.1.1 already accepts ESLint 10, so the previous peer conflict is gone; moving to ESLint 10 remains a separate decision. `@tiptap/core` and `@tiptap/pm` move down from `3.35.0` to `3.34.0`, aligned with the other TipTap `3.34.0` packages.
+
+## Patch 2026-11-24 - GitHub Actions (PR #9)
+
+### Italiano
+
+- **Stato:** aggiornamento della PR #9 autorizzato dal progettista, inclusi merge dopo le verifiche e rimozione del branch.
+- **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, aggiornato con `main` `982bbb6` dopo la richiesta di rebase a Dependabot.
+- **Versione/tag/release:** versione sorgente invariata (`6.3.1`); nessun nuovo tag o rilascio dell'app.
+- **Modifiche:** `checkout` e `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages mantiene i file nascosti di `docs`, compreso `.nojekyll`, tramite `include-hidden-files: true`. Il download degli artifact di release mantiene il controllo digest bloccante predefinito.
+- **Verifiche locali:** actionlint senza errori sui tre workflow; YAML e input confrontati con le definizioni ufficiali delle Actions; archivio Pages creato con lo script ufficiale e confrontato con tutti i 62 file di `docs`, inclusi `.nojekyll` e `CNAME`. Contratti degli artifact di release e avvio esclusivamente manuale di Release verificati staticamente. I test applicativi restano affidati alla CI della PR: le dipendenze locali non sono installate e il codice dell'app non cambia.
+- **Gate di integrazione:** CI verde sulla PR aggiornata prima del merge; verifica di CI e Pages su `main` prima della rimozione del branch. Nessun workflow Release avviato.
+
+### English
+
+- **Status:** the designer authorized updating PR #9, merging after validation, and removing its branch.
+- **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, updated with `main` `982bbb6` after requesting a Dependabot rebase.
+- **Version/tag/release:** source version unchanged (`6.3.1`); no new tag or app release.
+- **Changes:** `checkout` and `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages preserves hidden files in `docs`, including `.nojekyll`, using `include-hidden-files: true`. Release artifact downloads retain the default blocking digest check.
+- **Local validation:** actionlint reports no errors on all three workflows; YAML and inputs checked against official Action definitions; the Pages archive was built with the official script and compared with all 62 files in `docs`, including `.nojekyll` and `CNAME`. Release artifact contracts and the manual-only Release trigger were checked statically. Application tests remain covered by PR CI: local dependencies are not installed and app code is unchanged.
+- **Integration gate:** green CI on the updated PR before merging; verify CI and Pages on `main` before deleting the branch. No Release workflow dispatched.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.

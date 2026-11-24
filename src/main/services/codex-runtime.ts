@@ -39,7 +39,7 @@ export async function resolveCodexRuntime(
 
   const legacyApiKey = settings.apiKey?.trim() ?? '';
   if (!runtimeApiKey && legacyApiKey) {
-    if (isSecureStorageAvailable()) {
+    if (await isSecureStorageAvailable()) {
       await setStoredCodexApiKey(projectId, legacyApiKey);
       repository.upsertCodexSettings(projectId, { apiKey: null });
       settings = repository.getOrCreateCodexSettings(projectId);

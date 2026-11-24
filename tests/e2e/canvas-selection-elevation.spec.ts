@@ -112,26 +112,75 @@ async function getNodeVisualState(node: Locator): Promise<{ selected: boolean; z
 }
 
 async function expectNodeSelectedAndElevated(primary: Locator, secondary: Locator): Promise<void> {
-  await expect.poll(async () => {
-    const [primaryState, secondaryState] = await Promise.all([
-      getNodeVisualState(primary),
-      getNodeVisualState(secondary),
-    ]);
+  await expect
+    .poll(async () => {
+      const [primaryState, secondaryState] = await Promise.all([
+        getNodeVisualState(primary),
+        getNodeVisualState(secondary),
+      ]);
 
-    return primaryState.selected && primaryState.zIndex > secondaryState.zIndex;
-  }).toBe(true);
+      return primaryState.selected && primaryState.zIndex > secondaryState.zIndex;
+    })
+    .toBe(true);
 }
 
 async function selectNode(node: Locator): Promise<void> {
   await node.click({ position: { x: 20, y: 20 } });
-  await expect.poll(async () => {
-    const state = await getNodeVisualState(node);
-    return state.selected;
-  }).toBe(true);
+  await expect
+    .poll(async () => {
+      const state = await getNodeVisualState(node);
+      return state.selected;
+    })
+    .toBe(true);
 }
 
 async function getSelectedCanvasNodeCount(page: Page): Promise<number> {
   return page.locator('.canvas-wrap .react-flow__node.selected').count();
+}
+
+type NodeBox = { x: number; y: number; width: number; height: number };
+type NodeTranslate = { x: number; y: number };
+
+function boxesMatch(left: NodeBox, right: NodeBox): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
+async function readNodeBox(node: Locator): Promise<NodeBox> {
+  const box = await node.boundingBox();
+  if (!box) {
+    throw new Error('Impossibile calcolare il bounding box del nodo.');
+  }
+  return box;
+}
+
+async function waitForStableNodeBoxes(nodes: Locator[]): Promise<NodeBox[]> {
+  let previous = await Promise.all(nodes.map((node) => readNodeBox(node)));
+  await expect
+    .poll(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const next = await Promise.all(nodes.map((node) => readNodeBox(node)));
+      const stable = next.every((box, index) => boxesMatch(box, previous[index]));
+      previous = next;
+      return stable;
+    })
+    .toBe(true);
+  return previous;
+}
+
+async function readNodeTranslate(node: Locator): Promise<NodeTranslate> {
+  return node.evaluate((element) => {
+    const transform = (element as HTMLElement).style.transform;
+    const match = transform.match(/translate\(\s*(-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px/);
+    if (!match) {
+      throw new Error(`Transform del nodo non riconosciuto: ${transform}`);
+    }
+    return { x: Number(match[1]), y: Number(match[2]) };
+  });
 }
 
 async function dragSelectionBoxAround(page: Page, nodes: Locator[]): Promise<void> {
@@ -213,11 +262,9 @@ test('chapters canvas supports modifier multi-select and group dragging', async 
 
   const alphaNode = getCanvasNodeByText(page, 'Capitolo Alpha');
   const betaNode = getCanvasNodeByText(page, 'Capitolo Beta');
-  const alphaStart = await alphaNode.boundingBox();
-  const betaStart = await betaNode.boundingBox();
-  if (!alphaStart || !betaStart) {
-    throw new Error('Impossibile calcolare la posizione iniziale dei capitoli.');
-  }
+  const [alphaStart, betaStart] = await waitForStableNodeBoxes([alphaNode, betaNode]);
+  const alphaTranslateStart = await readNodeTranslate(alphaNode);
+  const betaTranslateStart = await readNodeTranslate(betaNode);
 
   await alphaNode.click({ position: { x: 20, y: 20 } });
   await betaNode.click({ position: { x: 20, y: 20 }, modifiers: ['ControlOrMeta'] });
@@ -225,14 +272,15 @@ test('chapters canvas supports modifier multi-select and group dragging', async 
 
   await dragNode(page, alphaNode, 110, 30);
 
-  const alphaEnd = await alphaNode.boundingBox();
-  const betaEnd = await betaNode.boundingBox();
-  if (!alphaEnd || !betaEnd) {
-    throw new Error('Impossibile calcolare la posizione finale dei capitoli.');
-  }
+  const alphaEnd = await readNodeBox(alphaNode);
+  const betaEnd = await readNodeBox(betaNode);
+  const alphaTranslateEnd = await readNodeTranslate(alphaNode);
+  const betaTranslateEnd = await readNodeTranslate(betaNode);
 
   expect(alphaEnd.x - alphaStart.x).toBeGreaterThan(70);
   expect(betaEnd.x - betaStart.x).toBeGreaterThan(70);
+  expect(alphaTranslateEnd.x - alphaTranslateStart.x).toBeGreaterThan(30);
+  expect(betaTranslateEnd.x - betaTranslateStart.x).toBeGreaterThan(30);
 });
 
 test('chapters canvas supports drag rectangle multi-select', async ({ page }) => {
@@ -247,7 +295,9 @@ test('chapters canvas supports drag rectangle multi-select', async ({ page }) =>
   await expect.poll(() => getSelectedCanvasNodeCount(page)).toBe(2);
 });
 
-test('characters canvas keeps dragged character node selected and above the others', async ({ page }) => {
+test('characters canvas keeps dragged character node selected and above the others', async ({
+  page,
+}) => {
   await createProject(page, 'E2E Character Layering');
   await createPlot(page, 'Trama Base');
   await createCharacter(page, 'Anna', 'Rossi');
@@ -261,7 +311,9 @@ test('characters canvas keeps dragged character node selected and above the othe
   await expectNodeSelectedAndElevated(primaryNode, secondaryNode);
 });
 
-test('locations canvas keeps dragged location node selected and above the others', async ({ page }) => {
+test('locations canvas keeps dragged location node selected and above the others', async ({
+  page,
+}) => {
   await createProject(page, 'E2E Location Layering');
   await createPlot(page, 'Trama Base');
   await createLocation(page, 'Porto Vecchio', 'Porto');

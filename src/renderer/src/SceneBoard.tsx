@@ -201,22 +201,26 @@ export default function SceneBoard({
   }, [t]);
 
   useEffect(() => {
+    // Scene cards and story links are loaded from IPC. The refresh sets state before awaiting.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- IPC fetch of the scene board
     void refreshScenes();
   }, [refreshScenes]);
 
-  useEffect(() => {
-    if (!storyState || storyState.plots.length === 0) {
-      return;
-    }
-    if (!storyState.plots.some((plot) => plot.number === newScenePlotNumber)) {
-      setNewScenePlotNumber(storyState.plots[0]?.number ?? 1);
-    }
-  }, [newScenePlotNumber, storyState]);
+  if (
+    storyState &&
+    storyState.plots.length > 0 &&
+    !storyState.plots.some((plot) => plot.number === newScenePlotNumber)
+  ) {
+    setNewScenePlotNumber(storyState.plots[0]?.number ?? 1);
+  }
 
   useEffect(() => {
     if (editSceneId) {
       return;
     }
+    // Tell App the scene editor is closed only after this board has committed.
+    // Calling onDirtyChange during render updates App while SceneBoard is still rendering.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync closed-editor state to the parent
     setSceneEditorDirty(false);
     sceneEditorFlushRef.current = null;
     onDirtyChange?.(false);
@@ -247,6 +251,7 @@ export default function SceneBoard({
         return;
       }
     }
+    sceneEditorFlushRef.current = null;
     setEditSceneId(null);
     await refreshScenes();
   }, [refreshScenes, sceneEditorDirty]);
@@ -328,9 +333,7 @@ export default function SceneBoard({
       const nodesToPersist = draggedNodes.length > 0 ? draggedNodes : [node];
       const scenesToPersist = nodesToPersist
         .map((draggedNode) => ({ node: draggedNode, scene: scenesById.get(draggedNode.id) }))
-        .filter((item): item is { node: SceneCanvasNode; scene: SceneCard } =>
-          Boolean(item.scene),
-        );
+        .filter((item): item is { node: SceneCanvasNode; scene: SceneCard } => Boolean(item.scene));
 
       if (scenesToPersist.length === 0) {
         return;
