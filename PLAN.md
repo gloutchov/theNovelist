@@ -165,6 +165,50 @@ Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo
 - **Version/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Proposed tag `v6.3.1`, not created. A release is expected because runtime dependencies change, and it stays with the designer. `docs/index.html` stays `6.3.0` until that release.
 - **Goal:** absorb Dependabot PRs #19 and #20 without changing behavior. ESLint 10 from PR #12 is not included. `eslint-plugin-react-hooks` 7.1.1 already accepts ESLint 10, so the previous peer conflict is gone; moving to ESLint 10 remains a separate decision. `@tiptap/core` and `@tiptap/pm` move down from `3.35.0` to `3.34.0`, aligned with the other TipTap `3.34.0` packages.
 
+## Patch 2026-11-24 - GitHub Actions (PR #9)
+
+### Italiano
+
+- **Stato:** PR #9 integrata in `main` su `59659e8` dopo CI #126 verde; la verifica post-merge include la correzione Pages descritta sotto. Merge dopo le verifiche e rimozione dei branch autorizzati dal progettista.
+- **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, aggiornato con `main` `982bbb6` dopo la richiesta di rebase a Dependabot.
+- **Versione/tag/release:** versione sorgente invariata (`6.3.1`); nessun nuovo tag o rilascio dell'app.
+- **Modifiche:** `checkout` e `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages mantiene i file nascosti di `docs`, compreso `.nojekyll`, tramite `include-hidden-files: true`. Il download degli artifact di release mantiene il controllo digest bloccante predefinito.
+- **Verifiche locali:** actionlint senza errori sui tre workflow; YAML e input confrontati con le definizioni ufficiali delle Actions; archivio Pages creato con lo script ufficiale e confrontato con tutti i 62 file di `docs`, inclusi `.nojekyll` e `CNAME`. Contratti degli artifact di release e avvio esclusivamente manuale di Release verificati staticamente. I test applicativi restano affidati alla CI della PR: le dipendenze locali non sono installate e il codice dell'app non cambia.
+- **Gate di integrazione:** CI verde sulla PR aggiornata prima del merge; verifica di CI e Pages su `main` prima della rimozione del branch. Nessun workflow Release avviato.
+- **Correzione post-merge:** il run Pages `45376871191` ha caricato l'artifact ma il deploy non lo ha trovato immediatamente, comportamento coerente con [actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451). Il branch `patch/pages-artifact-deployment` separa preparazione/upload nel job `build` dalla pubblicazione nel job `deploy`, con `needs: build`; mantiene archivio, permessi e dominio esistenti. Nessun ritardo fisso o nuovo tentativo cieco aggiunto al workflow.
+
+### English
+
+- **Status:** PR #9 merged into `main` at `59659e8` after successful CI #126; post-merge validation includes the Pages correction below. The designer authorized merging after validation and removing the branches.
+- **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, updated with `main` `982bbb6` after requesting a Dependabot rebase.
+- **Version/tag/release:** source version unchanged (`6.3.1`); no new tag or app release.
+- **Changes:** `checkout` and `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages preserves hidden files in `docs`, including `.nojekyll`, using `include-hidden-files: true`. Release artifact downloads retain the default blocking digest check.
+- **Local validation:** actionlint reports no errors on all three workflows; YAML and inputs checked against official Action definitions; the Pages archive was built with the official script and compared with all 62 files in `docs`, including `.nojekyll` and `CNAME`. Release artifact contracts and the manual-only Release trigger were checked statically. Application tests remain covered by PR CI: local dependencies are not installed and app code is unchanged.
+- **Integration gate:** green CI on the updated PR before merging; verify CI and Pages on `main` before deleting the branch. No Release workflow dispatched.
+- **Post-merge correction:** Pages run `45376871191` uploaded the artifact, but deployment could not find it immediately, consistent with [actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451). Branch `patch/pages-artifact-deployment` separates preparation/upload in the `build` job from publication in the `deploy` job, with `needs: build`; it preserves the archive, permissions, and domain. No fixed delay or blind retry was added to the workflow.
+
+## Patch 2026-11-24 - ESLint 10 (PR #12)
+
+### Italiano
+
+- **Stato:** migrazione della PR #12 richiesta dal progettista; integrazione subordinata alla CI verde sulla PR aggiornata e su `main`.
+- **Branch:** `dependabot/npm_and_yarn/eslint-10.13.0`, aggiornato con `main` `fc214ed`.
+- **Versione/tag/release:** versione sorgente invariata (`6.3.1`); aggiornamento dei soli strumenti di sviluppo, senza nuovo tag o release dell'app.
+- **Modifiche:** ESLint `9.39.4` → `10.15.0`, lockfile e requisito Node `^22.13.0 || >=24.0.0` allineati. La versione `10.13.0` proposta originariamente usa `minimatch` vulnerabile; `10.15.0` risolve a `minimatch` `11.0.9`. Le modifiche al grafo riguardano 41 pacchetti di sviluppo; dipendenze runtime, sorgenti e script dell'app restano invariati.
+- **Regole lint:** configurazione flat esistente e profilo `@eslint/js` `9.39.4` conservati per mantenere le regole attuali. `typescript-eslint`, React Hooks e React Refresh dichiarano supporto a ESLint 10.
+- **Verifiche locali:** ESLint `10.15.0` e plugin installati in ambiente isolato: 0 errori e 21 warning. Controllati coerenza del lockfile, requisito Node e assenza di variazioni runtime. Audit confrontato con `main`: stesso insieme di 6 segnalazioni moderate, nessuna nuova segnalazione per ESLint; il limite `minimatch` del packaging resta aperto.
+- **Limite ambiente:** l'installazione completa su Windows e interrotta da `ECONNRESET` nel download di `electron-winstaller` `5.4.0`, dipendenza preesistente di packaging. Typecheck, unit test, build, e2e browser e smoke Electron sono quindi affidati alla CI sulla PR aggiornata; nessun workflow Release necessario.
+
+### English
+
+- **Status:** the designer requested the migration in PR #12; integration requires successful CI on the updated PR and on `main`.
+- **Branch:** `dependabot/npm_and_yarn/eslint-10.13.0`, updated with `main` `fc214ed`.
+- **Version/tag/release:** source version unchanged (`6.3.1`); development tooling update, with no new tag or app release.
+- **Changes:** ESLint `9.39.4` → `10.15.0`, synchronized lockfile and Node requirement `^22.13.0 || >=24.0.0`. The originally proposed `10.13.0` uses vulnerable `minimatch`; `10.15.0` resolves to `minimatch` `11.0.9`. The graph changes affect 41 development packages; runtime dependencies, application sources, and scripts are unchanged.
+- **Lint rules:** the existing flat configuration and `@eslint/js` `9.39.4` profile preserve the current rules. `typescript-eslint`, React Hooks, and React Refresh declare ESLint 10 support.
+- **Local validation:** ESLint `10.15.0` and plugins installed in an isolated environment: 0 errors and 21 warnings. Lockfile consistency, Node requirements, and unchanged runtime dependencies checked. Audit compared with `main`: the same set of 6 moderate reports, with no new ESLint report; the packaging `minimatch` limitation remains open.
+- **Environment limitation:** full installation on Windows is interrupted by `ECONNRESET` while downloading `electron-winstaller` `5.4.0`, an existing packaging dependency. Typecheck, unit tests, build, browser e2e, and Electron smoke are therefore covered by CI on the updated PR; no Release workflow is needed.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.

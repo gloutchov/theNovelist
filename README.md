@@ -90,7 +90,7 @@ La prova automatica locale e stata eseguita su macOS arm64 con il binario Homebr
 
 Requisiti:
 
-- Node.js 22+
+- Node.js 22.13+ (serie 22) oppure 24+
 - npm 10+
 
 Installazione e avvio:
@@ -199,7 +199,7 @@ Automated local validation ran on macOS arm64 with the Homebrew binary and multi
 
 Requirements:
 
-- Node.js 22+
+- Node.js 22.13+ (22.x) or 24+
 - npm 10+
 
 Install and run:

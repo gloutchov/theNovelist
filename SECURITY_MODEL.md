@@ -239,6 +239,7 @@ Riferimenti:
 - Recovery dell'ultimo snapshot disponibile.
 - Revisioni applicative per capitoli, scene, personaggi e location, con snapshot JSON e testo indicizzato per consultazione/ripristino.
 - Packaging e test ricostruiscono `better-sqlite3` per il runtime corretto, riducendo mismatch ABI tra Node locale ed Electron.
+- Il workflow Release scarica gli artifact con `actions/download-artifact` v8: un digest diverso da quello atteso interrompe il workflow, prima della pubblicazione. I checksum SHA-256 distribuiti restano un controllo separato; le build restano non firmate.
 
 Riferimenti:
 
@@ -276,7 +277,7 @@ Variabili ambiente rilevanti:
 7. Le release non firmate possono generare warning di sistema operativo e non offrono garanzia forte di provenienza.
 8. La CSP via `meta` non sostituisce header HTTP completi in eventuali scenari futuri serviti via rete.
 9. Electron 45 non supporta macOS 12. Il pin esatto `45.4.1` e l'ignore Dependabot delle major di `electron` tengono il runtime sulla 45 fino a una milestone successiva.
-10. `minimatch` (PR Dependabot #147) resta vulnerabile: la correzione è solo in `11.0.1`, fuori dai range del lockfile, ed è una dipendenza di sviluppo. Non è chiusa. `flatted` è a `3.4.4` e `picomatch` a `4.0.7`.
+10. `minimatch` (PR Dependabot #147) resta vulnerabile nelle dipendenze di sviluppo del packaging: `@electron/universal` usa `9.0.9` e `app-builder-lib` usa `10.2.6`; la correzione parte da `11.0.1`, fuori dai loro range. ESLint `10.15.0` usa invece `minimatch` `11.0.9`, corretto. L'audit del 24 novembre 2026 mantiene le stesse 6 segnalazioni moderate del main precedente alla PR #12, senza nuove segnalazioni per ESLint. La vulnerabilita del packaging resta aperta. `flatted` è a `3.4.4` e `picomatch` a `4.0.7`.
 11. `setStoredCodexApiKey` scrive ancora il file cifrato in modo diretto. La riscrittura atomica vale solo per la rotazione in lettura.
 
 ### 16. Verifiche consigliate prima di release
@@ -527,6 +528,7 @@ References:
 - Recovery of the latest available snapshot.
 - Application revisions for chapters, scenes, characters, and locations, with JSON snapshots and indexed text for review/restore.
 - Packaging and tests rebuild `better-sqlite3` for the correct runtime, reducing ABI mismatch between local Node and Electron.
+- The Release workflow downloads artifacts with `actions/download-artifact` v8: a digest mismatch stops the workflow before publication. Distributed SHA-256 checksums remain a separate check; builds remain unsigned.
 
 References:
 
@@ -564,7 +566,7 @@ Relevant environment variables:
 7. Unsigned releases can trigger operating-system warnings and do not provide a strong provenance guarantee.
 8. CSP through `meta` does not replace full HTTP headers in possible future network-served scenarios.
 9. Electron 45 does not support macOS 12. The exact `45.4.1` pin and Dependabot's ignore of `electron` majors keep the runtime on 45 until a later milestone.
-10. `minimatch` (Dependabot PR #147) remains vulnerable: the fix exists only in `11.0.1`, outside the lockfile ranges, and it is a development dependency. It is not closed. `flatted` is at `3.4.4` and `picomatch` is at `4.0.7`.
+10. `minimatch` (Dependabot PR #147) remains vulnerable in development packaging dependencies: `@electron/universal` uses `9.0.9` and `app-builder-lib` uses `10.2.6`; the fix starts at `11.0.1`, outside their ranges. ESLint `10.15.0` instead uses patched `minimatch` `11.0.9`. The November 24, 2026 audit retains the same 6 moderate reports as main before PR #12, with no new ESLint report. The packaging vulnerability remains open. `flatted` is at `3.4.4` and `picomatch` is at `4.0.7`.
 11. `setStoredCodexApiKey` still writes the ciphertext directly. The atomic rewrite applies only to rotation during a read.
 
 ### 16. Recommended Release Checks
