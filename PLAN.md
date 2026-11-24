@@ -169,21 +169,23 @@ Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo
 
 ### Italiano
 
-- **Stato:** aggiornamento della PR #9 autorizzato dal progettista, inclusi merge dopo le verifiche e rimozione del branch.
+- **Stato:** PR #9 integrata in `main` su `59659e8` dopo CI #126 verde; la verifica post-merge include la correzione Pages descritta sotto. Merge dopo le verifiche e rimozione dei branch autorizzati dal progettista.
 - **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, aggiornato con `main` `982bbb6` dopo la richiesta di rebase a Dependabot.
 - **Versione/tag/release:** versione sorgente invariata (`6.3.1`); nessun nuovo tag o rilascio dell'app.
 - **Modifiche:** `checkout` e `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages mantiene i file nascosti di `docs`, compreso `.nojekyll`, tramite `include-hidden-files: true`. Il download degli artifact di release mantiene il controllo digest bloccante predefinito.
 - **Verifiche locali:** actionlint senza errori sui tre workflow; YAML e input confrontati con le definizioni ufficiali delle Actions; archivio Pages creato con lo script ufficiale e confrontato con tutti i 62 file di `docs`, inclusi `.nojekyll` e `CNAME`. Contratti degli artifact di release e avvio esclusivamente manuale di Release verificati staticamente. I test applicativi restano affidati alla CI della PR: le dipendenze locali non sono installate e il codice dell'app non cambia.
 - **Gate di integrazione:** CI verde sulla PR aggiornata prima del merge; verifica di CI e Pages su `main` prima della rimozione del branch. Nessun workflow Release avviato.
+- **Correzione post-merge:** il run Pages `45376871191` ha caricato l'artifact ma il deploy non lo ha trovato immediatamente, comportamento coerente con [actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451). Il branch `patch/pages-artifact-deployment` separa preparazione/upload nel job `build` dalla pubblicazione nel job `deploy`, con `needs: build`; mantiene archivio, permessi e dominio esistenti. Nessun ritardo fisso o nuovo tentativo cieco aggiunto al workflow.
 
 ### English
 
-- **Status:** the designer authorized updating PR #9, merging after validation, and removing its branch.
+- **Status:** PR #9 merged into `main` at `59659e8` after successful CI #126; post-merge validation includes the Pages correction below. The designer authorized merging after validation and removing the branches.
 - **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, updated with `main` `982bbb6` after requesting a Dependabot rebase.
 - **Version/tag/release:** source version unchanged (`6.3.1`); no new tag or app release.
 - **Changes:** `checkout` and `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages preserves hidden files in `docs`, including `.nojekyll`, using `include-hidden-files: true`. Release artifact downloads retain the default blocking digest check.
 - **Local validation:** actionlint reports no errors on all three workflows; YAML and inputs checked against official Action definitions; the Pages archive was built with the official script and compared with all 62 files in `docs`, including `.nojekyll` and `CNAME`. Release artifact contracts and the manual-only Release trigger were checked statically. Application tests remain covered by PR CI: local dependencies are not installed and app code is unchanged.
 - **Integration gate:** green CI on the updated PR before merging; verify CI and Pages on `main` before deleting the branch. No Release workflow dispatched.
+- **Post-merge correction:** Pages run `45376871191` uploaded the artifact, but deployment could not find it immediately, consistent with [actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451). Branch `patch/pages-artifact-deployment` separates preparation/upload in the `build` job from publication in the `deploy` job, with `needs: build`; it preserves the archive, permissions, and domain. No fixed delay or blind retry was added to the workflow.
 
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
