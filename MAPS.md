@@ -80,7 +80,7 @@ checksums/
 
 docs/
 |-- assets/         # Icona, anteprime visuali e screenshot bilingui della dettatura.
-|-- index.html      # Landing page bilingue pubblicabile via GitHub Pages.
+|-- index.html      # Landing bilingue: Prezzo Gratis e download dell'ultima release via GitHub Pages.
 |-- site.js         # Switch lingua italiano/inglese.
 `-- styles.css      # Stili responsive del sito statico.
 
@@ -370,7 +370,7 @@ checksums/
 
 docs/
 |-- assets/         # Icon, visual previews and bilingual dictation screenshots.
-|-- index.html      # Bilingual landing page publishable through GitHub Pages.
+|-- index.html      # Bilingual landing: Price Free and latest-release downloads, published through GitHub Pages.
 |-- site.js         # Italian/English language switcher.
 `-- styles.css      # Responsive styles for the static site.
 

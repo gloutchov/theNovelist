@@ -119,6 +119,7 @@ Non usare direttamente `npm run test:e2e:electron:run` se non hai gia rebuildato
 - L'interfaccia e bilingue italiano/inglese. Ogni nuovo testo user-facing deve passare dai dizionari renderer `src/renderer/src/i18n/it.ts` e `src/renderer/src/i18n/en.ts`, oppure da `src/main/i18n.ts` per dialoghi main process.
 - Non inserire nuove stringhe hardcoded in `setStatus`, `onStatus`, modali, bottoni, label o messaggi di errore se devono essere visibili all'utente.
 - Mantieni allineati i dizionari: ogni chiave aggiunta in italiano deve esistere anche in inglese.
+- Per la landing statica in `docs/`, usa il dizionario italiano/inglese in `docs/site.js`.
 - I contenuti dei progetti dell'utente non devono essere tradotti automaticamente: capitoli, scene, trame, schede, wiki e testo selezionato restano nella lingua dell'autore.
 - Per prompt e output AI user-facing, rispetta la lingua effettiva dell'interfaccia. I report di analisi non devono includere offerte finali di follow-up del modello.
 
@@ -149,6 +150,7 @@ Il motore `whisper-cli` locale e un eseguibile esterno scelto dall'utente: non a
 - `AGENTS.md`: queste istruzioni operative.
 - Mantieni sempre aggiornati questi file quando cambi comportamento utente, struttura del repository, sicurezza, release, packaging, i18n, test o workflow operativi.
 - Non ricreare `RELEASE_NOTES.md`: le note sintetiche della release corrente sono integrate nel README.
+- La landing `docs/` mostra `Prezzo: Gratis` / `Price: Free` e i download puntano a `https://github.com/gloutchov/theNovelist/releases/latest`. Non inserire il numero di versione nella landing e non modificarla a ogni release; aggiornala quando cambiano i contenuti del sito.
 
 ## Packaging
 
