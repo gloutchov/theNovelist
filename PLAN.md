@@ -187,6 +187,28 @@ Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo
 - **Integration gate:** green CI on the updated PR before merging; verify CI and Pages on `main` before deleting the branch. No Release workflow dispatched.
 - **Post-merge correction:** Pages run `45376871191` uploaded the artifact, but deployment could not find it immediately, consistent with [actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451). Branch `patch/pages-artifact-deployment` separates preparation/upload in the `build` job from publication in the `deploy` job, with `needs: build`; it preserves the archive, permissions, and domain. No fixed delay or blind retry was added to the workflow.
 
+## Patch 2026-11-24 - ESLint 10 (PR #12)
+
+### Italiano
+
+- **Stato:** migrazione della PR #12 richiesta dal progettista; integrazione subordinata alla CI verde sulla PR aggiornata e su `main`.
+- **Branch:** `dependabot/npm_and_yarn/eslint-10.13.0`, aggiornato con `main` `fc214ed`.
+- **Versione/tag/release:** versione sorgente invariata (`6.3.1`); aggiornamento dei soli strumenti di sviluppo, senza nuovo tag o release dell'app.
+- **Modifiche:** ESLint `9.39.4` → `10.15.0`, lockfile e requisito Node `^22.13.0 || >=24.0.0` allineati. La versione `10.13.0` proposta originariamente usa `minimatch` vulnerabile; `10.15.0` risolve a `minimatch` `11.0.9`. Le modifiche al grafo riguardano 41 pacchetti di sviluppo; dipendenze runtime, sorgenti e script dell'app restano invariati.
+- **Regole lint:** configurazione flat esistente e profilo `@eslint/js` `9.39.4` conservati per mantenere le regole attuali. `typescript-eslint`, React Hooks e React Refresh dichiarano supporto a ESLint 10.
+- **Verifiche locali:** ESLint `10.15.0` e plugin installati in ambiente isolato: 0 errori e 21 warning. Controllati coerenza del lockfile, requisito Node e assenza di variazioni runtime. Audit confrontato con `main`: stesso insieme di 6 segnalazioni moderate, nessuna nuova segnalazione per ESLint; il limite `minimatch` del packaging resta aperto.
+- **Limite ambiente:** l'installazione completa su Windows e interrotta da `ECONNRESET` nel download di `electron-winstaller` `5.4.0`, dipendenza preesistente di packaging. Typecheck, unit test, build, e2e browser e smoke Electron sono quindi affidati alla CI sulla PR aggiornata; nessun workflow Release necessario.
+
+### English
+
+- **Status:** the designer requested the migration in PR #12; integration requires successful CI on the updated PR and on `main`.
+- **Branch:** `dependabot/npm_and_yarn/eslint-10.13.0`, updated with `main` `fc214ed`.
+- **Version/tag/release:** source version unchanged (`6.3.1`); development tooling update, with no new tag or app release.
+- **Changes:** ESLint `9.39.4` → `10.15.0`, synchronized lockfile and Node requirement `^22.13.0 || >=24.0.0`. The originally proposed `10.13.0` uses vulnerable `minimatch`; `10.15.0` resolves to `minimatch` `11.0.9`. The graph changes affect 41 development packages; runtime dependencies, application sources, and scripts are unchanged.
+- **Lint rules:** the existing flat configuration and `@eslint/js` `9.39.4` profile preserve the current rules. `typescript-eslint`, React Hooks, and React Refresh declare ESLint 10 support.
+- **Local validation:** ESLint `10.15.0` and plugins installed in an isolated environment: 0 errors and 21 warnings. Lockfile consistency, Node requirements, and unchanged runtime dependencies checked. Audit compared with `main`: the same set of 6 moderate reports, with no new ESLint report; the packaging `minimatch` limitation remains open.
+- **Environment limitation:** full installation on Windows is interrupted by `ECONNRESET` while downloading `electron-winstaller` `5.4.0`, an existing packaging dependency. Typecheck, unit tests, build, browser e2e, and Electron smoke are therefore covered by CI on the updated PR; no Release workflow is needed.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.
