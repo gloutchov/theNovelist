@@ -209,6 +209,26 @@ Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo
 - **Local validation:** ESLint `10.15.0` and plugins installed in an isolated environment: 0 errors and 21 warnings. Lockfile consistency, Node requirements, and unchanged runtime dependencies checked. Audit compared with `main`: the same set of 6 moderate reports, with no new ESLint report; the packaging `minimatch` limitation remains open.
 - **Environment limitation:** full installation on Windows is interrupted by `ECONNRESET` while downloading `electron-winstaller` `5.4.0`, an existing packaging dependency. Typecheck, unit tests, build, browser e2e, and Electron smoke are therefore covered by CI on the updated PR; no Release workflow is needed.
 
+## Patch 2026-11-24 - Landing senza versione fissa
+
+### Italiano
+
+- **Stato:** richiesta dal progettista per evitare aggiornamenti della landing a ogni release.
+- **Branch:** `patch/landing-latest-free`, da `main` `340d0bc`.
+- **Versione/tag/release:** sorgenti dell'app invariati (`6.3.1`); pubblicazione del solo sito tramite Pages, senza nuovo tag o release dell'app.
+- **Modifiche:** entrambi i pulsanti di download in `docs/index.html` puntano a `/releases/latest`; `Versione: 6.3.0` e sostituito da `Prezzo: Gratis` / `Price: Free`, come in ContaMi. Dizionari IT/EN e descrizione accessibile aggiornati. Anche i download del README usano l'ultima release. La regola per le release future e documentata in `AGENTS.md` e nella mappa.
+- **Verifiche locali:** sintassi JavaScript, diff e rendering con browser headless su desktop 1440px e mobile 390px, in italiano e inglese; cambio lingua, prezzi, entrambi i link, assenza di overflow ed errori JavaScript verificati. Link `/releases/latest` verificato con HTTP 200 e redirect alla release pubblicata `v6.3.1`. Nessun cambiamento a CSS, renderer o runtime dell'app; test applicativi non ripetuti localmente per questa modifica statica.
+- **Integrazione:** verificare la CI della PR e su `main`, la pubblicazione Pages e il sito pubblico prima della rimozione del branch.
+
+### English
+
+- **Status:** requested by the designer to avoid updating the landing page for every release.
+- **Branch:** `patch/landing-latest-free`, from `main` `340d0bc`.
+- **Version/tag/release:** app sources unchanged (`6.3.1`); publish only the website through Pages, with no new app tag or release.
+- **Changes:** both download buttons in `docs/index.html` target `/releases/latest`; `Version: 6.3.0` is replaced by `Prezzo: Gratis` / `Price: Free`, as on ContaMi. IT/EN dictionaries and the accessible description are updated. README downloads also use the latest release. The policy for future releases is documented in `AGENTS.md` and the repository map.
+- **Local validation:** JavaScript syntax, diff, and headless browser rendering on desktop 1440px and mobile 390px, in Italian and English; language switching, prices, both links, no overflow, and no JavaScript errors checked. `/releases/latest` returned HTTP 200 and redirected to published release `v6.3.1`. No CSS, renderer, or app runtime change; application tests were not repeated locally for this static change.
+- **Integration:** check PR and main CI, Pages publication, and the public website before removing the branch.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.
