@@ -165,6 +165,26 @@ Correzioni: 13 `react-hooks/set-state-in-effect` dopo il plugin 7.1.1, e il tipo
 - **Version/tag:** `6.3.0` → `6.3.1` (`+0.0.1`). Proposed tag `v6.3.1`, not created. A release is expected because runtime dependencies change, and it stays with the designer. `docs/index.html` stays `6.3.0` until that release.
 - **Goal:** absorb Dependabot PRs #19 and #20 without changing behavior. ESLint 10 from PR #12 is not included. `eslint-plugin-react-hooks` 7.1.1 already accepts ESLint 10, so the previous peer conflict is gone; moving to ESLint 10 remains a separate decision. `@tiptap/core` and `@tiptap/pm` move down from `3.35.0` to `3.34.0`, aligned with the other TipTap `3.34.0` packages.
 
+## Patch 2026-11-24 - GitHub Actions (PR #9)
+
+### Italiano
+
+- **Stato:** aggiornamento della PR #9 autorizzato dal progettista, inclusi merge dopo le verifiche e rimozione del branch.
+- **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, aggiornato con `main` `982bbb6` dopo la richiesta di rebase a Dependabot.
+- **Versione/tag/release:** versione sorgente invariata (`6.3.1`); nessun nuovo tag o rilascio dell'app.
+- **Modifiche:** `checkout` e `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages mantiene i file nascosti di `docs`, compreso `.nojekyll`, tramite `include-hidden-files: true`. Il download degli artifact di release mantiene il controllo digest bloccante predefinito.
+- **Verifiche locali:** actionlint senza errori sui tre workflow; YAML e input confrontati con le definizioni ufficiali delle Actions; archivio Pages creato con lo script ufficiale e confrontato con tutti i 62 file di `docs`, inclusi `.nojekyll` e `CNAME`. Contratti degli artifact di release e avvio esclusivamente manuale di Release verificati staticamente. I test applicativi restano affidati alla CI della PR: le dipendenze locali non sono installate e il codice dell'app non cambia.
+- **Gate di integrazione:** CI verde sulla PR aggiornata prima del merge; verifica di CI e Pages su `main` prima della rimozione del branch. Nessun workflow Release avviato.
+
+### English
+
+- **Status:** the designer authorized updating PR #9, merging after validation, and removing its branch.
+- **Branch:** `dependabot/github_actions/github-actions-0b0ffa02fd`, updated with `main` `982bbb6` after requesting a Dependabot rebase.
+- **Version/tag/release:** source version unchanged (`6.3.1`); no new tag or app release.
+- **Changes:** `checkout` and `setup-node` v7, `upload-pages-artifact` v5, `download-artifact` v8. Pages preserves hidden files in `docs`, including `.nojekyll`, using `include-hidden-files: true`. Release artifact downloads retain the default blocking digest check.
+- **Local validation:** actionlint reports no errors on all three workflows; YAML and inputs checked against official Action definitions; the Pages archive was built with the official script and compared with all 62 files in `docs`, including `.nojekyll` and `CNAME`. Release artifact contracts and the manual-only Release trigger were checked statically. Application tests remain covered by PR CI: local dependencies are not installed and app code is unchanged.
+- **Integration gate:** green CI on the updated PR before merging; verify CI and Pages on `main` before deleting the branch. No Release workflow dispatched.
+
 ## P1 - Verifica della dettatura con microfono fisico su Windows
 
 - **Stato:** da pianificare; nessuna esecuzione prevista senza riclassificazione esplicita.

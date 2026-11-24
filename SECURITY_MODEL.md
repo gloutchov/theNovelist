@@ -239,6 +239,7 @@ Riferimenti:
 - Recovery dell'ultimo snapshot disponibile.
 - Revisioni applicative per capitoli, scene, personaggi e location, con snapshot JSON e testo indicizzato per consultazione/ripristino.
 - Packaging e test ricostruiscono `better-sqlite3` per il runtime corretto, riducendo mismatch ABI tra Node locale ed Electron.
+- Il workflow Release scarica gli artifact con `actions/download-artifact` v8: un digest diverso da quello atteso interrompe il workflow, prima della pubblicazione. I checksum SHA-256 distribuiti restano un controllo separato; le build restano non firmate.
 
 Riferimenti:
 
@@ -527,6 +528,7 @@ References:
 - Recovery of the latest available snapshot.
 - Application revisions for chapters, scenes, characters, and locations, with JSON snapshots and indexed text for review/restore.
 - Packaging and tests rebuild `better-sqlite3` for the correct runtime, reducing ABI mismatch between local Node and Electron.
+- The Release workflow downloads artifacts with `actions/download-artifact` v8: a digest mismatch stops the workflow before publication. Distributed SHA-256 checksums remain a separate check; builds remain unsigned.
 
 References:
 
