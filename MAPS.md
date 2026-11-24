@@ -68,7 +68,7 @@ theNovelist/
 |-- dependabot.yml  # Aggiornamenti Dependabot mensili per npm e GitHub Actions.
 `-- workflows/
     |-- ci.yml      # CI automatica.
-    |-- pages.yml   # Pubblicazione GitHub Pages del mini sito statico.
+    |-- pages.yml   # Mini sito: artifact nel job build, pubblicazione Pages nel job deploy dopo build.
     `-- release.yml # Build e pubblicazione release GitHub su avvio manuale.
 
 build/
@@ -358,7 +358,7 @@ theNovelist/
 |-- dependabot.yml  # Monthly Dependabot updates for npm and GitHub Actions.
 `-- workflows/
     |-- ci.yml      # Automated CI.
-    |-- pages.yml   # GitHub Pages publishing workflow for the static mini site.
+    |-- pages.yml   # Static site: artifact in the build job, Pages publication in deploy after build.
     `-- release.yml # Manually started GitHub release build and publishing workflow.
 
 build/
